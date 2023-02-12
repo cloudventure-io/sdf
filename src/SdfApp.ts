@@ -50,6 +50,7 @@ export class SdfApp extends App {
   }: SdfAppOptions) {
     super({
       ...options,
+      outdir: join(rootDir, "cdktf.out"),
       context: {
         [EXCLUDE_STACK_ID_FROM_LOGICAL_IDS]: "false",
         [ALLOW_SEP_CHARS_IN_LOGICAL_IDS]: "true",

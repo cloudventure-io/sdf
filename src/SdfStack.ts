@@ -10,7 +10,7 @@ export interface SdfStackBuildMetadata {
   services: Array<SdfServiceMetadata>;
 }
 
-export abstract class SdfStack extends TerraformStack {
+export class SdfStack extends TerraformStack {
   private sdfApp: SdfApp;
 
   constructor(scope: Construct, id: string) {

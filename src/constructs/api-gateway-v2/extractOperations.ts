@@ -15,7 +15,7 @@ import { pascalCase } from "change-case";
 export type OperationSchemaTitleType = "operation" | "request" | "responses";
 
 export type OperationSchemaTitleCallback<T extends {}> = (
-  options: OperationHandlerOptions<T>,
+  operation: OperationHandlerOptions<T>,
   type: OperationSchemaTitleType
 ) => string;
 
@@ -234,40 +234,38 @@ export interface OperationObjectSchema extends OpenAPIV3.NonArraySchemaObject {
   };
 }
 
+export interface ExtracedOperation<OperationType extends {}> {
+  schema: OperationObjectSchema;
+  operation: OperationHandlerOptions<OperationType>;
+}
+
 export const extractOperations = <OperationType extends {}>({
   document,
   operationSchemaTitle,
-}: renderInterfacesOptions<OperationType>): {
-  [key in string]: {
-    schema: OperationObjectSchema;
-    options: OperationHandlerOptions<OperationType>;
-  };
-} => {
-  const operations: {
-    [key in string]: {
-      schema: OperationObjectSchema;
-      options: OperationHandlerOptions<OperationType>;
-    };
-  } = {};
+}: renderInterfacesOptions<OperationType>): Record<
+  string,
+  ExtracedOperation<OperationType>
+> => {
+  const operations: Record<string, ExtracedOperation<OperationType>> = {};
 
   walkOperations({
     document,
 
-    operationHandler(options) {
-      const schemaTitle = operationSchemaTitle(options, "operation");
+    operationHandler(operation) {
+      const schemaTitle = operationSchemaTitle(operation, "operation");
 
       operations[schemaTitle] = {
-        options,
+        operation,
         schema: {
           title: schemaTitle,
           additionalProperties: false,
           properties: {
             request: extractOperationRequestSchema(
-              options,
+              operation,
               operationSchemaTitle
             ),
             responses: extractOperationResponsesSchema(
-              options,
+              operation,
               operationSchemaTitle
             ),
           },

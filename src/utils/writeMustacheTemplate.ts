@@ -1,9 +1,7 @@
-import * as Mustache from "mustache";
+import Mustache from "mustache";
 import { dirname } from "path";
-// import { mkdir, writeFile } from "fs/promises";
-// import { fileExists } from "./fileExists";
-
-import { existsSync, writeFileSync, mkdirSync } from "fs";
+import { writeFile, mkdir, open } from "fs/promises";
+import { fileExists } from "../utils/fileExists";
 
 export interface writeMustacheTemplateOptions {
   template: string;
@@ -14,18 +12,18 @@ export interface writeMustacheTemplateOptions {
   };
 }
 
-export const writeMustacheTemplate = ({
+export const writeMustacheTemplate = async ({
   template,
   path,
   overwrite,
   context,
-}: writeMustacheTemplateOptions) => {
-  if (!overwrite && existsSync(path)) {
+}: writeMustacheTemplateOptions): Promise<void> => {
+  if (!overwrite && (await fileExists(path))) {
     return;
   }
 
-  mkdirSync(dirname(path), { recursive: true });
+  await mkdir(dirname(path), { recursive: true });
 
   const content = Mustache.render(template, context, {}, { escape: (v) => v });
-  writeFileSync(path, content);
+  await writeFile(path, content);
 };

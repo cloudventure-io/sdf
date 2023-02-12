@@ -1,4 +1,9 @@
-import { defaultOperationTitle, extractOperations } from "./extractOperations";
+import {
+  defaultOperationTitle,
+  ExtracedOperation,
+  extractOperations,
+  OperationObjectSchema,
+} from "./extractOperations";
 import { Document } from "../../openapi/types";
 import { join } from "path";
 import { SdfLambda } from "../lambda/SdfLambda";
@@ -44,12 +49,23 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
 
   private document: Document<OperationType>;
 
-  private apiDirectory: string;
+  /**
+   * the entry points directory of the api,
+   * `services/{serviceName}/api/entrypoints`.
+   */
   private entryPointsDirectory: string;
-  private validatorsDirectory: string;
-  private handlersDirectory: string;
 
-  private interfacesPath: string;
+  /**
+   * the validators directory of the api,
+   * `services/{serviceName}/api/entrypoints/validators`
+   */
+  private validatorsDirectory: string;
+
+  /**
+   * the handlers directory of the api,
+   * `services/{serviceName}/api/handlers`
+   */
+  private handlersDirectory: string;
 
   public apigw: Apigatewayv2Api;
   public stage: Apigatewayv2Stage;
@@ -63,10 +79,10 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     this.service = SdfService.getServiceFromCtx(this);
     this.app = SdfApp.getAppFromContext(this);
 
-    this.apiDirectory = join(this.service.absDir, this.id);
-    this.entryPointsDirectory = join(this.apiDirectory, "entrypoints");
+    const apiDirectory = join(this.service.absDir, this.id);
+    this.entryPointsDirectory = join(apiDirectory, "entrypoints");
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators");
-    this.handlersDirectory = join(this.apiDirectory, "handlers");
+    this.handlersDirectory = join(apiDirectory, "handlers");
 
     // clone the document
     this.document = JSON.parse(
@@ -74,20 +90,14 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     ) as Document<OperationType>;
 
     // submit interfaces
-    this.interfacesPath = this.service._registerInterfaces(() =>
-      this.registerInterfaces()
-    );
+    this.service._registerInterfaces(() => this.registerInterfaces());
 
-    // generate operations entrypoints and handlers
+    // define lambda functions
     walkOperations({
       document: this.document,
-      operationHandler: (options: OperationHandlerOptions<OperationType>) =>
-        this.generateEntryPointsAndHandlers(options),
+      operationHandler: (operation: OperationHandlerOptions<OperationType>) =>
+        this.defineLambda(operation),
     });
-
-    // if (document.components?.securitySchemes) {
-    //   Object.entries(document.components?.securitySchemes)
-    // }
 
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
       name: this.app._concatName(this.service.id, this.id),
@@ -98,8 +108,8 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     // add lambda permissions
     walkOperations({
       document: this.document,
-      operationHandler: (options: OperationHandlerOptions<OperationType>) => {
-        const { operationId } = options.operationSpec;
+      operationHandler: (operation: OperationHandlerOptions<OperationType>) => {
+        const { operationId } = operation.operationSpec;
 
         new LambdaPermission(this, `${operationId}-apigw-lambda-permission`, {
           statementId: "AllowApiGateway",
@@ -121,9 +131,97 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     return this;
   }
 
+  private getHandlerPath = (operationId: string): string =>
+    join(this.handlersDirectory, operationId);
+
+  private getEntryPointPath = (operationId: string): string =>
+    join(this.entryPointsDirectory, camelCase(`api-${operationId}`));
+
+  private async renderValidator({
+    schema,
+    operation,
+  }: ExtracedOperation<OperationType>): Promise<string> {
+    const {
+      operationSpec: { operationId },
+    } = operation;
+
+    const ajv = new Ajv({
+      code: { source: true, esm: true },
+      strict: false,
+      allErrors: true,
+    });
+
+    const moduleCode = standaloneCode(
+      ajv,
+      ajv.compile(schema.properties.request)
+    );
+
+    await mkdir(this.validatorsDirectory, { recursive: true });
+
+    const validatorPath = join(
+      this.validatorsDirectory,
+      `${operationId}.validator`
+    );
+
+    await writeFile(`${validatorPath}.js`, moduleCode);
+
+    await writeMustacheTemplate({
+      template: validatorTemplate,
+      path: `${validatorPath}.d.ts`,
+      context: {
+        OperationModel: defaultOperationTitle(operation, "operation"),
+      },
+      overwrite: true,
+    });
+
+    return validatorPath;
+  }
+
+  private async renderFiles({
+    schema,
+    operation,
+  }: ExtracedOperation<OperationType>): Promise<void> {
+    const {
+      operationSpec: { operationId },
+    } = operation;
+
+    const validatorPath = await this.renderValidator({
+      schema,
+      operation: operation,
+    });
+
+    const handlerPath = this.getHandlerPath(operationId);
+    const entryPointPath = this.getEntryPointPath(operationId);
+
+    await writeMustacheTemplate({
+      template: entryPointTemplate,
+      path: `${entryPointPath}.ts`,
+      overwrite: true,
+      context: {
+        OperationModel: defaultOperationTitle(operation, "operation"),
+        InterfacesImport: relative(
+          this.entryPointsDirectory,
+          this.service._interfacesAbsPath
+        ),
+        HandlerImport: relative(this.entryPointsDirectory, handlerPath),
+        ValidatorsImport: relative(this.entryPointsDirectory, validatorPath),
+      },
+    });
+
+    await writeMustacheTemplate({
+      template: handlerTemplate,
+      path: `${handlerPath}.ts`,
+      overwrite: false,
+      context: {
+        WrapperImport: relative(this.handlersDirectory, entryPointPath),
+      },
+    });
+  }
+
   private async registerInterfaces(): Promise<SdfServiceRenderInterfacesResult> {
-    // await rm(this.entryPointsDirectory, { force: true, recursive: true });
-    // await mkdir(this.entryPointsDirectory);
+    // clean up before generating
+    await rm(this.entryPointsDirectory, { force: true, recursive: true });
+    await mkdir(this.entryPointsDirectory, { recursive: true });
 
     // clone and dereference the spec
     const spec = (await SwaggerParser.dereference(
@@ -135,40 +233,11 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
       operationSchemaTitle: defaultOperationTitle,
     });
 
+    // generate files for all operations
     await Promise.all(
-      Object.entries(operations).map(async ([, operation]) => {
-        const { options, schema: operationSchema } = operation;
-        const {
-          operationSpec: { operationId },
-        } = options;
-
-        const ajv = new Ajv({
-          code: { source: true, esm: true },
-          strict: false,
-          allErrors: true,
-        });
-
-        const moduleCode = standaloneCode(
-          ajv,
-          ajv.compile(operationSchema.properties.request)
-        );
-
-        await mkdir(this.validatorsDirectory, { recursive: true });
-
-        await writeFile(
-          join(this.validatorsDirectory, `${operationId}.validator.js`),
-          moduleCode
-        );
-
-        writeMustacheTemplate({
-          template: validatorTemplate,
-          path: join(this.validatorsDirectory, `${operationId}.validator.d.ts`),
-          context: {
-            OperationModel: defaultOperationTitle(options, "operation"),
-          },
-          overwrite: true,
-        });
-      })
+      Object.values(operations).map(async (operation) =>
+        this.renderFiles(operation)
+      )
     );
 
     const authorizerResponseSchemas: {
@@ -207,44 +276,13 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     };
   }
 
-  private generateEntryPointsAndHandlers(
-    options: OperationHandlerOptions<OperationType>
-  ) {
-    const { operationId } = options.operationSpec;
-    const handlerPath = join(this.handlersDirectory, operationId);
+  private defineLambda(operation: OperationHandlerOptions<OperationType>) {
+    const { operationId } = operation.operationSpec;
 
-    const entryPointAbsPath = join(
-      this.entryPointsDirectory,
-      camelCase(`api-${operationId}`)
+    const entryPointRelPath = relative(
+      this.service.absDir,
+      this.getEntryPointPath(operationId)
     );
-    const entryPointRelPath = relative(this.service.absDir, entryPointAbsPath);
-
-    writeMustacheTemplate({
-      template: entryPointTemplate,
-      path: `${entryPointAbsPath}.ts`,
-      overwrite: true,
-      context: {
-        OperationModel: defaultOperationTitle(options, "operation"),
-        InterfacesImport: relative(
-          this.entryPointsDirectory,
-          this.interfacesPath
-        ),
-        HandlerImport: relative(this.entryPointsDirectory, handlerPath),
-        ValidatorsImport: relative(
-          this.entryPointsDirectory,
-          join(this.validatorsDirectory, `${operationId}.validator`)
-        ),
-      },
-    });
-
-    writeMustacheTemplate({
-      template: handlerTemplate,
-      path: `${handlerPath}.ts`,
-      overwrite: false,
-      context: {
-        WrapperImport: relative(this.handlersDirectory, entryPointAbsPath),
-      },
-    });
 
     const lambda = new SdfLambda(this, `api-handler-${operationId}`, {
       timeout: 29,
@@ -258,14 +296,14 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
       handler: `${entryPointRelPath}.entrypoint`,
       resources: {
         ...this.document["x-sdf-resources"],
-        ...options.operationSpec["x-sdf-resources"],
+        ...operation.operationSpec["x-sdf-resources"],
       },
     });
 
     this.lambdas[operationId] = lambda;
 
     // add api gateway integration into spec
-    options.operationSpec["x-amazon-apigateway-integration"] = {
+    operation.operationSpec["x-amazon-apigateway-integration"] = {
       payloadFormatVersion: "2.0",
       type: "aws_proxy",
       httpMethod: "POST",

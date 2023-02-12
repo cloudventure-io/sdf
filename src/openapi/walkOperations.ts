@@ -17,7 +17,7 @@ export interface OperationHandlerOptions<OperationType extends {}> {
 export interface walkSpecOptions<OperationType extends {}> {
   document: Document<OperationType>;
 
-  operationHandler: (options: OperationHandlerOptions<OperationType>) => void;
+  operationHandler: (operation: OperationHandlerOptions<OperationType>) => void;
 }
 
 export const walkOperations = <T extends {}>({

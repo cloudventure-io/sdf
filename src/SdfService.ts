@@ -33,7 +33,7 @@ export interface SdfServiceRenderInterfacesResult {
 export type SdfServiceRenderInterfacesCallback =
   () => Promise<SdfServiceRenderInterfacesResult>;
 
-export abstract class SdfService extends Construct {
+export class SdfService extends Construct {
   private sdfStack: SdfStack;
   private sdfApp: SdfApp;
 
@@ -227,7 +227,7 @@ export abstract class SdfService extends Construct {
         }
       );
 
-      writeMustacheTemplate({
+      await writeMustacheTemplate({
         path: resourcesPath,
         template: resoucesTemplate,
         overwrite: true,

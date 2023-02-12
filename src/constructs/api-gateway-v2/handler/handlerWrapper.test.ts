@@ -11,6 +11,7 @@ import { HttpHeaders } from "../../../utils/HttpHeaders";
 import { MimeTypes } from "../../../utils/MimeTypes";
 import { defaultOperationTitle, extractOperations } from "../extractOperations";
 import { handlerWrapper, LambdaHandler, Validator } from "./handlerWrapper";
+import { jest } from "@jest/globals";
 
 describe("handler wrapper tests", () => {
   const createDocumentFromOperation = (
@@ -246,9 +247,11 @@ describe("handler wrapper tests", () => {
       },
     });
 
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await handler({
       headers: {},
     } as unknown as APIGatewayProxyEventV2);
+    spy.mockClear();
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toBeTruthy();
