@@ -1,9 +1,16 @@
 {
   "transform": {
-    "^.+\\.tsx?$": ["@cloudventure/jest-transformer-esbuild"]
+    "^.+\\.ts$": ["@cloudventure/jest-transformer-esbuild"],
+    "\\.ts\\.mu": ["./tmp/jest-raw-transformer.js"]
   },
   "modulePathIgnorePatterns": [
     "<rootDir>/.github",
-    "<rootDir>/dist"
-  ]
+    "<rootDir>/dist",
+    "<rootDir>/tmp"
+  ],
+  "collectCoverageFrom": [
+    "src/**/*.ts"
+  ],
+  "extensionsToTreatAsEsm": [".ts"],
+  "clearMocks": true
 }

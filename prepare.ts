@@ -37,8 +37,8 @@ const run = async () => {
   }
 
   await esbuild.build({
-    entryPoints: ["build.ts"],
-    outfile: "tmp/build.js",
+    entryPoints: ["build.ts", "jest-raw-transformer.ts"],
+    outdir: "tmp/",
     bundle: true,
     external: ["esbuild", "typescript"],
     logLevel: "error",
