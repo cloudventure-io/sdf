@@ -1,5 +1,3 @@
-import "source-map-support/register";
-
 import { Command } from "commander";
 
 import { mkdir, readFile, writeFile, rm } from "fs/promises";

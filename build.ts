@@ -1,5 +1,3 @@
-import "source-map-support/register";
-
 import * as glob from "glob";
 import * as esbuild from "esbuild";
 import { writeFile, copyFile, rm, mkdir } from "fs/promises";
