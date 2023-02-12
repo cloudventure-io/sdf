@@ -37,6 +37,6 @@
     "prebuild": "yarn prepare",
     "build": "node tmp/build.js",
     "postbuild": "yarn run tsc",
-    "test": "yarn run jest --coverage"
+    "test": "NODE_OPTIONS=--experimental-vm-modules yarn run jest --coverage"
   }
 }
