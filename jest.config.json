@@ -1,5 +1,9 @@
 {
   "transform": {
     "^.+\\.tsx?$": ["@cloudventure/jest-transformer-esbuild"]
-  }
+  },
+  "modulePathIgnorePatterns": [
+    "<rootDir>/.github",
+    "<rootDir>/dist"
+  ]
 }
