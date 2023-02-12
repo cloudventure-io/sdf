@@ -42,10 +42,10 @@ export abstract class SdfService extends Construct {
 
   constructor(
     public scope: Construct,
-    public name: string,
+    public id: string,
     public config: SdfServiceConfig
   ) {
-    super(scope, name);
+    super(scope, id);
 
     this.node.setContext(SdfService.name, this);
     this.sdfStack = SdfStack.getStackFromCtx(this);
@@ -57,7 +57,7 @@ export abstract class SdfService extends Construct {
   }
 
   get relDir(): string {
-    return this.node.id;
+    return this.id;
   }
 
   get absDir(): string {
@@ -68,7 +68,7 @@ export abstract class SdfService extends Construct {
   get code(): DataArchiveFile {
     if (!this.codeArchive) {
       this.codeArchive = new DataArchiveFile(this, "code", {
-        outputPath: `\${path.module}/${this.name}.zip`,
+        outputPath: `\${path.module}/${this.id}.zip`,
         type: "zip",
         // TODO: make this relative
         sourceDir: join(this.sdfApp.tmpDir, this.sdfStack.relDir, this.relDir),
@@ -77,7 +77,7 @@ export abstract class SdfService extends Construct {
     return this.codeArchive;
   }
 
-  _getBuildkMetadata(): SdfServiceMetadata {
+  _getBuildMetadata(): SdfServiceMetadata {
     return {
       name: this.node.id,
       path: this.relDir,
@@ -177,9 +177,9 @@ export abstract class SdfService extends Construct {
 
   private resources: { [id in string]: SdfResource } = {};
   _registerResource(resource: SdfResource, id: string) {
-    if (this.resources[id]) {
+    if (this.resources[id] && this.resources[id] !== resource) {
       throw new Error(
-        `resource with id '${id}' already exists in service '${this.name}'`
+        `resource with id '${id}' already exists in service '${this.id}'`
       );
     }
     this.resources[id] = resource;
@@ -189,7 +189,7 @@ export abstract class SdfService extends Construct {
     const resource = this.resources[id];
     if (!resource) {
       throw new Error(
-        `resource with id '${id}' not found in service '${this.name}'`
+        `resource with id '${id}' was not found in service '${this.id}'`
       );
     }
     return resource;

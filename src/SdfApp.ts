@@ -1,4 +1,8 @@
-import { App, AppOptions } from "cdktf";
+import { App, AppConfig } from "cdktf";
+import {
+  EXCLUDE_STACK_ID_FROM_LOGICAL_IDS,
+  ALLOW_SEP_CHARS_IN_LOGICAL_IDS,
+} from "cdktf/lib/features";
 import { Construct } from "constructs";
 import { SdfStack, SdfStackBuildMetadata } from "./SdfStack";
 import { join } from "path";
@@ -16,7 +20,7 @@ const namingCaseFunction: {
     args.map((arg) => (arg[0] || "").toUpperCase() + arg.slice(1)).join(""),
 };
 
-export interface SdfAppOptions extends AppOptions {
+export interface SdfAppOptions extends AppConfig {
   rootDir: string;
   tmpDir: string;
 
@@ -29,7 +33,11 @@ export interface SdfAppMetadata {
 }
 
 export class SdfApp extends App {
+  // The root directory of the app
   public rootDir: string;
+
+  // The temporary directory of the app.
+  // Defaults to ${rootDir}/tmp.
   public tmpDir: string;
 
   private namingCaseFunction: namingCaseFunction;
@@ -40,7 +48,15 @@ export class SdfApp extends App {
     namingCase = "param-case",
     ...options
   }: SdfAppOptions) {
-    super(options);
+    super({
+      ...options,
+      context: {
+        [EXCLUDE_STACK_ID_FROM_LOGICAL_IDS]: "false",
+        [ALLOW_SEP_CHARS_IN_LOGICAL_IDS]: "true",
+        ...options.context,
+      },
+    });
+
     this.node.setContext(SdfApp.name, this);
     this.rootDir = rootDir;
     this.tmpDir = tmpDir;

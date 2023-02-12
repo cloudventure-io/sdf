@@ -32,10 +32,10 @@ export class SdfLambda extends Construct {
 
   public constructor(
     scope: Construct,
-    name: string,
+    id: string,
     public config: SdfLambdaConfig
   ) {
-    super(scope, name);
+    super(scope, id);
     this.service = SdfService.getServiceFromCtx(this);
     this.app = SdfApp.getAppFromContext(this);
 
@@ -94,7 +94,7 @@ export class SdfLambda extends Construct {
             const permission = resource.permissions[permissionName];
             if (!permission) {
               throw new Error(
-                `permission '${permissionName}' is not defined for resource ${resourceName} in stack ${this.service.name}`
+                `permission '${permissionName}' is not defined for resource '${resourceName}' in the stack '${this.service.id}'`
               );
             }
             policies.push(permission.json);

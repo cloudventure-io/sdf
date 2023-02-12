@@ -13,8 +13,8 @@ export interface SdfStackBuildMetadata {
 export abstract class SdfStack extends TerraformStack {
   private sdfApp: SdfApp;
 
-  constructor(scope: Construct, name: string) {
-    super(scope, name);
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
     this.node.setContext(SdfStack.name, this);
     this.sdfApp = SdfApp.getAppFromContext(scope);
   }
@@ -41,7 +41,7 @@ export abstract class SdfStack extends TerraformStack {
           (construct): construct is SdfService =>
             construct instanceof SdfService
         )
-        .map((service) => service._getBuildkMetadata()),
+        .map((service) => service._getBuildMetadata()),
     };
   }
 
