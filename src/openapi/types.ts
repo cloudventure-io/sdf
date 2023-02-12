@@ -47,7 +47,7 @@ export interface PathItemObjectBase extends OpenAPIV3.PathItemObject {
 }
 
 export type PathItemObject<T extends {}> = PathItemObjectBase & {
-  [method in OpenAPIV3.HttpMethods]: OperationObject<T>;
+  [method in OpenAPIV3.HttpMethods]?: OperationObject<T>;
 };
 
 export type PathsObject<T extends {}> = {

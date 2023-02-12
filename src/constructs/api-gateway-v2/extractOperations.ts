@@ -5,7 +5,10 @@ import {
   OperationObject,
   ParameterObject,
 } from "../../openapi/types";
-import { OperationHandlerOptions, walkOperations } from "../../openapi/walkOperations";
+import {
+  OperationHandlerOptions,
+  walkOperations,
+} from "../../openapi/walkOperations";
 import { MimeTypes } from "../../utils/MimeTypes";
 import { pascalCase } from "change-case";
 
@@ -62,14 +65,30 @@ const extractParametersSchema = <T extends {}>(
     {}
   );
 
-export interface OperationRequestObjectSchema
+export interface OperationRequestBaseObjectSchema
   extends OpenAPIV3.NonArraySchemaObject {
   properties: {
     path: OpenAPIV3.SchemaObject;
     query: OpenAPIV3.SchemaObject;
-    body?: OpenAPIV3.SchemaObject;
     header: OpenAPIV3.SchemaObject;
   };
+  required: Array<string>;
+}
+
+export interface OperationRequestBodyObjectSchema
+  extends OpenAPIV3.NonArraySchemaObject {
+  properties: {
+    contentType: OpenAPIV3.NonArraySchemaObject;
+    body: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject;
+  };
+}
+
+export interface OperationRequestObjectSchema
+  extends OpenAPIV3.NonArraySchemaObject {
+  oneOf: Array<
+    | OperationRequestBaseObjectSchema
+    | (OperationRequestBaseObjectSchema & OperationRequestBodyObjectSchema)
+  >;
 }
 
 const extractOperationRequestSchema = <T extends {}>(
@@ -83,65 +102,87 @@ const extractOperationRequestSchema = <T extends {}>(
     operationSpec
   );
 
-  let body: OpenAPIV3.SchemaObject | undefined;
-  let contentType: string | undefined;
+  let body: Array<{
+    contentType: string;
+    bodySchema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject;
+  }> = [];
 
   if (operationSpec.requestBody?.content) {
-    const keys = Object.keys(operationSpec.requestBody?.content);
+    body = Object.entries(operationSpec.requestBody?.content).map(
+      ([contentType, bodySpec]) => {
+        if (
+          contentType !== MimeTypes.APPLICATION_JSON &&
+          contentType !== MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED
+        ) {
+          throw new Error(
+            `content type '${contentType}' is not supported at ${operation.trace}/requestBody/content/${contentType}`
+          );
+        }
 
-    if (!keys.length) {
-      throw new Error(`the ${operation.trace}/content is an empty object`);
-    } else if (keys.length !== 1) {
-      throw new Error(
-        `the ${operation.trace}/content contains multiple elements, only single content is support currently`
-      );
-    }
+        if (!bodySpec.schema) {
+          throw new Error(
+            `schema is not defined for the request body at ${operation.trace}/requestBody/content/${contentType}`
+          );
+        }
 
-    contentType = keys[0];
-    if (
-      contentType !== MimeTypes.APPLICATION_JSON &&
-      contentType !== MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED
-    ) {
-      throw new Error(
-        `only ${MimeTypes.APPLICATION_JSON} or ${MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED} content types are supported, got ${operation.trace}/content["${keys[0]}"]`
-      );
-    }
-
-    body = operationSpec.requestBody.content[contentType].schema;
+        return {
+          contentType,
+          bodySchema: bodySpec.schema,
+        };
+      }
+    );
   }
 
-  if (operationSpec.requestBody?.required && !body) {
+  if (operationSpec.requestBody?.required && !body.length) {
     throw new Error(
       `the body is required, but ${operation.trace}/content is not set`
     );
   }
 
+  const createOperationBaseObjectSchema =
+    (): OperationRequestBaseObjectSchema => ({
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        path: parameters.path || {
+          type: "object",
+          additionalProperties: false,
+        },
+        query: parameters.query || {
+          type: "object",
+          additionalProperties: false,
+        },
+        header: parameters.header || {
+          type: "object",
+          additionalProperties: { type: "string" },
+        },
+      },
+
+      required: ["path", "query", "header"],
+    });
+
   return {
-    type: "object",
-    additionalProperties: false,
     title: operationSchemaTitle(operation, "request"),
-
-    properties: {
-      path: parameters.path || {
-        type: "object",
-        additionalProperties: false,
-      },
-      query: parameters.query || {
-        type: "object",
-        additionalProperties: false,
-      },
-      header: parameters.header || {
-        type: "object",
-        additionalProperties: { type: "string" },
-      },
-      ...(body ? { body } : {}),
-    },
-
-    required: [
-      "path",
-      "query",
-      "header",
-      ...(operationSpec.requestBody?.required ? ["body"] : []),
+    oneOf: [
+      ...(!operationSpec.requestBody?.required
+        ? [createOperationBaseObjectSchema()]
+        : []),
+      ...body.map(({ contentType, bodySchema }) => {
+        const baseSchema = createOperationBaseObjectSchema();
+        return {
+          ...baseSchema,
+          properties: {
+            ...baseSchema.properties,
+            body: bodySchema,
+            contentType: {
+              type: "string",
+              enum: [contentType],
+              "x-no-ts-enum": true,
+            },
+          },
+          required: [...baseSchema.required, "body", "contentType"],
+        };
+      }),
     ],
   };
 };

@@ -11,6 +11,6 @@ import { handler } from "./{{ HandlerImport }}";
 export type OperationRequest = Operation["request"];
 export type OperationResponses = ExtractResponses<Operation["responses"]>;
 
-export const requestContentType = {{ RequestContentType }};
+// export const requestContentType = {{ RequestContentType }};
 
-export const entrypoint = handlerWrapper<Operation>(handler, requestContentType, validator);
+export const entrypoint = handlerWrapper<Operation>(handler, /*requestContentType,*/ validator);

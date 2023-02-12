@@ -3,7 +3,7 @@ import {
   APIGatewayProxyEventPathParameters,
   APIGatewayProxyEventQueryStringParameters,
   APIGatewayProxyEventV2,
-  APIGatewayProxyResultV2,
+  APIGatewayProxyStructuredResultV2,
 } from "aws-lambda";
 
 import { HttpHeaders } from "../../../utils/HttpHeaders";
@@ -17,6 +17,10 @@ export interface Operation {
     path: APIGatewayProxyEventPathParameters;
     query: APIGatewayProxyEventQueryStringParameters;
     header: APIGatewayProxyEventHeaders;
+
+    contentType?:
+      | MimeTypes.APPLICATION_JSON
+      | MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED;
     body?: unknown;
   };
   responses: {
@@ -71,7 +75,6 @@ export interface Validator {
 
 const buildRequest = <OpType extends Operation>(
   event: APIGatewayProxyEventV2,
-  requestContentType: string | undefined,
   validator?: Validator
 ): OpType["request"] => {
   const request: OpType["request"] = {
@@ -93,30 +96,19 @@ const buildRequest = <OpType extends Operation>(
 
   let body = event.body;
 
-  if (body && requestContentType) {
-    if (contentType !== requestContentType) {
-      throw new HttpErrors.UnsupportedMediaType(
-        "UNSUPPORTED_MEDIA_TYPE",
-        requestContentType
-          ? `Expected Content-Type is ${requestContentType}`
-          : `No body is expected for this request`
-      );
-    }
-
-    if (event.isBase64Encoded) {
-      body = Buffer.from(body, "base64").toString("utf8");
-    }
-
+  if (body) {
     if (contentType === MimeTypes.APPLICATION_JSON) {
+      request.contentType = MimeTypes.APPLICATION_JSON;
       request.body = JSON.parse(body);
     } else if (contentType === MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED) {
       const params = new URLSearchParams(body);
+      request.contentType = MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED;
       request.body = Array.from(params.entries()).reduce<{
         [key in string]: string | Array<string>;
       }>(
         (acc, [key, value]) => ({
           ...acc,
-          [key]: key in acc ? [acc[key], value].flat() : value,
+          [key]: value,
         }),
         {}
       );
@@ -142,17 +134,15 @@ const buildRequest = <OpType extends Operation>(
 export const handlerWrapper =
   <OpType extends Operation>(
     cb: LambdaHandler<OpType>,
-    requestContentType: string | undefined,
     validator?: Validator
   ) =>
-  async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+  async (
+    event: APIGatewayProxyEventV2
+  ): Promise<APIGatewayProxyStructuredResultV2> => {
     let response: ExtractResponses<OpType["responses"]>;
 
     try {
-      response = await cb(
-        buildRequest(event, requestContentType, validator),
-        event
-      );
+      response = await cb(buildRequest(event, validator), event);
     } catch (e) {
       if (e instanceof ApiResponse) {
         response = e as ExtractResponses<OpType["responses"]>;

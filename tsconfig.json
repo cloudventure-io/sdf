@@ -18,5 +18,5 @@
         "allowSyntheticDefaultImports": true,
     },
     "include": ["./src"],
-    "exclude": ["./publish"]
+    "exclude": ["./publish", "src/**/*.test.ts"]
 }

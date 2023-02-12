@@ -1,4 +1,4 @@
-import { Validator } from "@cloudventure/sdf/constructs/api-gateway-v2";
+import { Validator } from "@cloudventure/sdf";
 
 declare const validator: Validator;
 
