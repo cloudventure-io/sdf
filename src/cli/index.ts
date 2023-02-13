@@ -107,20 +107,20 @@ cmd.command("build").action(async () => {
   await Promise.all(
     buildMetadata.stacks.map(async stack =>
       Promise.all(
-        stack.services.map(async service => {
-          const serviceSrcDir = join(process.cwd(), buildMetadata.path, stack.path, service.path)
+        stack.bundles.map(async bundle => {
+          const bundleSrcDir = join(process.cwd(), buildMetadata.path, stack.path, bundle.path)
 
-          const outdir = join(tmpDir, stack.path, service.path)
+          const outdir = join(tmpDir, stack.path, bundle.path)
           await rm(outdir, { recursive: true, force: true })
 
           const esbuildOptions: esbuild.BuildOptions = {
-            absWorkingDir: serviceSrcDir,
-            entryPoints: service.entryPoints,
+            absWorkingDir: bundleSrcDir,
+            entryPoints: bundle.entryPoints,
             platform: "node",
             target,
             sourcemap: "inline",
             keepNames: true,
-            outbase: join(process.cwd(), buildMetadata.path, stack.path, service.path),
+            outbase: join(process.cwd(), buildMetadata.path, stack.path, bundle.path),
             outdir,
             bundle: true,
             format: "esm",
@@ -136,10 +136,10 @@ cmd.command("build").action(async () => {
 
           await esbuild.build(config.buildConfig ? config.buildConfig(esbuildOptions) : esbuildOptions)
 
-          const packageJson = JSON.parse(await readFile(join(serviceSrcDir, service.packageJsonPath), "utf8"))
+          const packageJson = JSON.parse(await readFile(join(bundleSrcDir, bundle.packageJsonPath), "utf8"))
 
           await writeFile(
-            join(tmpDir, stack.path, service.path, "package.json"),
+            join(tmpDir, stack.path, bundle.path, "package.json"),
             JSON.stringify(
               {
                 name: packageJson.name,
@@ -152,7 +152,7 @@ cmd.command("build").action(async () => {
           )
 
           if (config.postBuild) {
-            await config.postBuild(service, outdir)
+            await config.postBuild(bundle, outdir)
           }
         }),
       ),

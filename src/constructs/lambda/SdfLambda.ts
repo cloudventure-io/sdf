@@ -9,7 +9,7 @@ import { constantCase } from "change-case"
 import { Construct } from "constructs"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfService } from "../../SdfService"
+import { SdfBundler } from "../../SdfBundler"
 
 export interface SdfLambdaHandler {
   /** The name of the function */
@@ -22,14 +22,13 @@ export interface SdfLambdaHandler {
 type SdfLambdaFunctionConfig = Omit<LambdaFunctionConfig, "role" | "handler"> & {
   handler: SdfLambdaHandler | (() => Promise<SdfLambdaHandler>)
 }
-// Pick<Required<LambdaFunctionConfig>, "handler">;
 
 export interface SdfLambdaConfig extends SdfLambdaFunctionConfig {
   resources?: { [name in string]: Array<string> }
 }
 
 export class SdfLambda extends Construct {
-  private service: SdfService
+  private bundler: SdfBundler
   private app: SdfApp
   public function: LambdaFunction
 
@@ -39,7 +38,7 @@ export class SdfLambda extends Construct {
 
   public constructor(scope: Construct, id: string, { handler, ...config }: SdfLambdaConfig) {
     super(scope, id)
-    this.service = SdfService.getServiceFromCtx(this)
+    this.bundler = SdfBundler.getBundlerFromCtx(this)
     this.app = SdfApp.getAppFromContext(this)
     this.config = config
 
@@ -86,12 +85,12 @@ export class SdfLambda extends Construct {
     }
     if (config.resources) {
       Object.entries(config.resources).forEach(([resourceName, permissions]) => {
-        const resource = this.service._getResource(resourceName)
+        const resource = this.bundler._getResource(resourceName)
         permissions.forEach(permissionName => {
           const permission = resource.permissions[permissionName]
           if (!permission) {
             throw new Error(
-              `permission '${permissionName}' is not defined for resource '${resourceName}' in the stack '${this.service.id}'`,
+              `permission '${permissionName}' is not defined for resource '${resourceName}' in the stack '${this.bundler.id}'`,
             )
           }
           policies.push(permission.json)
@@ -112,7 +111,7 @@ export class SdfLambda extends Construct {
       })
     }
 
-    const code = this.service.code
+    const code = this.bundler.code
 
     new CloudwatchLogGroup(this, "logs", {
       name: `/aws/lambda/${config.functionName}`,

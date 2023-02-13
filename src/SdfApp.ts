@@ -4,7 +4,7 @@ import { Construct } from "constructs"
 import { writeFile } from "fs/promises"
 import { join } from "path"
 
-import { SdfService } from "./SdfService"
+import { SdfBundler } from "./SdfBundler"
 import { SdfStack, SdfStackBuildMetadata } from "./SdfStack"
 
 export type NamingCase = "param-case" | "PascalCase"
@@ -60,11 +60,11 @@ export class SdfApp extends App {
     return this.namingCaseFunction(...args)
   }
 
-  public static getFromContext<T extends typeof SdfApp | typeof SdfStack | typeof SdfService>(
-    scope: Construct,
+  public static getFromContext<T extends typeof SdfApp | typeof SdfStack | typeof SdfBundler>(
+    construct: Construct,
     type: T,
   ): InstanceType<T> {
-    const value: InstanceType<T> = scope.node.tryGetContext(type.name)
+    const value: InstanceType<T> = construct.node.tryGetContext(type.name)
     if (!value) {
       throw new Error(`cannot find ${type.name} in context`)
     } else if (!(value instanceof type)) {
@@ -73,8 +73,8 @@ export class SdfApp extends App {
     return value
   }
 
-  static getAppFromContext(scope: Construct): SdfApp {
-    return SdfApp.getFromContext(scope, SdfApp)
+  static getAppFromContext(construct: Construct): SdfApp {
+    return SdfApp.getFromContext(construct, SdfApp)
   }
 
   get relDir(): string {

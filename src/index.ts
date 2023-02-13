@@ -10,7 +10,7 @@ export * from "./constructs"
 
 export * from "./SdfApp"
 export * from "./SdfStack"
-export * from "./SdfService"
+export * from "./SdfBundler"
 export * from "./ApiResponse"
 
 export * from "./SdfResource"

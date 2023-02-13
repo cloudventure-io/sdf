@@ -14,41 +14,33 @@ import { schemaHandlerOptions, walkSchema } from "./openapi/walkSchema"
 import resoucesTemplate from "./resources.ts.mu"
 import { writeMustacheTemplate } from "./utils/writeMustacheTemplate"
 
-export interface SdfServiceMetadata {
+export interface SdfBundleMetadata {
   name: string
   path: string
   packageJsonPath: string
   entryPoints: Array<string>
 }
 
-export interface SdfServiceConfig {
+export interface SdfBundlerConfig {
   packageJsonPath: string
 }
 
-export interface SdfServiceRenderInterfacesResult {
-  schemas: { [key in string]: OpenAPIV3.SchemaObject }
-  header?: string
-  footer?: string
-}
-
-export type SdfServiceRenderInterfacesCallback = () => Promise<SdfServiceRenderInterfacesResult>
-
-export class SdfService extends Construct {
+export class SdfBundler extends Construct {
   private sdfStack: SdfStack
   private sdfApp: SdfApp
 
   private schemas: { [key in string]: OpenAPIV3.SchemaObject } = {}
 
-  constructor(public scope: Construct, public id: string, public config: SdfServiceConfig) {
+  constructor(public scope: Construct, public id: string, public config: SdfBundlerConfig) {
     super(scope, id)
 
-    this.node.setContext(SdfService.name, this)
+    this.node.setContext(SdfBundler.name, this)
     this.sdfStack = SdfStack.getStackFromCtx(this)
     this.sdfApp = SdfApp.getAppFromContext(this)
   }
 
-  static getServiceFromCtx(scope: Construct): SdfService {
-    return SdfApp.getFromContext(scope, SdfService)
+  static getBundlerFromCtx(construct: Construct): SdfBundler {
+    return SdfApp.getFromContext(construct, SdfBundler)
   }
 
   get relDir(): string {
@@ -72,7 +64,7 @@ export class SdfService extends Construct {
     return this.codeArchive
   }
 
-  _getBuildManifest(): SdfServiceMetadata {
+  _getBuildManifest(): SdfBundleMetadata {
     return {
       name: this.node.id,
       path: this.relDir,
@@ -141,7 +133,7 @@ export class SdfService extends Construct {
   private resources: { [id in string]: SdfResource } = {}
   _registerResource(resource: SdfResource, id: string) {
     if (this.resources[id] && this.resources[id] !== resource) {
-      throw new Error(`resource with id '${id}' already exists in service '${this.id}'`)
+      throw new Error(`resource with id '${id}' already exists in the bundler '${this.id}'`)
     }
     this.resources[id] = resource
   }
@@ -149,7 +141,7 @@ export class SdfService extends Construct {
   _getResource(id: string) {
     const resource = this.resources[id]
     if (!resource) {
-      throw new Error(`resource with id '${id}' was not found in service '${this.id}'`)
+      throw new Error(`resource with id '${id}' was not found in the bundler '${this.id}'`)
     }
     return resource
   }

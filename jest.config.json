@@ -6,7 +6,8 @@
   "modulePathIgnorePatterns": [
     "<rootDir>/.github",
     "<rootDir>/dist",
-    "<rootDir>/tmp"
+    "<rootDir>/tmp",
+    "<rootDir>/examples"
   ],
   "collectCoverageFrom": [
     "src/**/*.ts"

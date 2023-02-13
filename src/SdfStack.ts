@@ -3,12 +3,12 @@ import { Construct } from "constructs"
 import { join } from "path"
 
 import { SdfApp } from "./SdfApp"
-import { SdfService, SdfServiceMetadata } from "./SdfService"
+import { SdfBundleMetadata, SdfBundler } from "./SdfBundler"
 
 export interface SdfStackBuildMetadata {
   name: string
   path: string
-  services: Array<SdfServiceMetadata>
+  bundles: Array<SdfBundleMetadata>
 }
 
 export class SdfStack extends TerraformStack {
@@ -17,11 +17,11 @@ export class SdfStack extends TerraformStack {
   constructor(scope: Construct, id: string) {
     super(scope, id)
     this.node.setContext(SdfStack.name, this)
-    this.sdfApp = SdfApp.getAppFromContext(scope)
+    this.sdfApp = SdfApp.getAppFromContext(this)
   }
 
-  static getStackFromCtx(scope: Construct): SdfStack {
-    return SdfApp.getFromContext(scope, SdfStack)
+  static getStackFromCtx(construct: Construct): SdfStack {
+    return SdfApp.getFromContext(construct, SdfStack)
   }
 
   get relDir(): string {
@@ -36,10 +36,10 @@ export class SdfStack extends TerraformStack {
     return {
       name: this.node.id,
       path: this.relDir,
-      services: this.node
+      bundles: this.node
         .findAll()
-        .filter<SdfService>((construct): construct is SdfService => construct instanceof SdfService)
-        .map(service => service._getBuildManifest()),
+        .filter<SdfBundler>((construct): construct is SdfBundler => construct instanceof SdfBundler)
+        .map(bundler => bundler._getBuildManifest()),
     }
   }
 
@@ -47,8 +47,8 @@ export class SdfStack extends TerraformStack {
     await Promise.all(
       this.node
         .findAll()
-        .filter<SdfService>((construct): construct is SdfService => construct instanceof SdfService)
-        .map(service => service._synth()),
+        .filter<SdfBundler>((construct): construct is SdfBundler => construct instanceof SdfBundler)
+        .map(bundler => bundler._synth()),
     )
   }
 }

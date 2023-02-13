@@ -12,7 +12,7 @@ import { join } from "path"
 import { relative } from "path"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfService } from "../../SdfService"
+import { SdfBundler } from "../../SdfBundler"
 import { Document } from "../../openapi/types"
 import { OperationHandlerOptions, walkOperations } from "../../openapi/walkOperations"
 import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
@@ -33,8 +33,10 @@ export interface SdfApiGatewayV2Config<T extends object> {
 const entryPointFunctionName = "entrypoint"
 
 export class SdfApiGatewayV2<OperationType extends object = object> extends Construct {
-  private lambdas: { [operationId in string]: SdfLambda } = {}
-  private service: SdfService
+  /** lambda functions defined based on the provided OpenAPI Document */
+  public lambdas: { [operationId in string]: SdfLambda } = {}
+
+  private bundler: SdfBundler
   private app: SdfApp
 
   private document: Document<OperationType>
@@ -64,10 +66,10 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
 
   constructor(scope: Construct, private id: string, private config: SdfApiGatewayV2Config<OperationType>) {
     super(scope, id)
-    this.service = SdfService.getServiceFromCtx(this)
+    this.bundler = SdfBundler.getBundlerFromCtx(this)
     this.app = SdfApp.getAppFromContext(this)
 
-    const apiDirectory = join(this.service.absDir, this.id)
+    const apiDirectory = join(this.bundler.absDir, this.id)
     this.entryPointsDirectory = join(apiDirectory, "entrypoints")
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators")
     this.handlersDirectory = join(apiDirectory, "handlers")
@@ -83,7 +85,7 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
 
     // define the Api Gateway V2
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
-      name: this.app._concatName(this.service.id, this.id),
+      name: this.app._concatName(this.bundler.id, this.id),
       protocolType: "HTTP",
       body: JSON.stringify(this.document),
     }))
@@ -107,7 +109,7 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
 
     this.stage = new Apigatewayv2Stage(this, "deployment", {
       apiId: api.id,
-      name: config.stageName || this.service.id,
+      name: config.stageName || this.bundler.id,
       autoDeploy: true,
     })
 
@@ -122,7 +124,7 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
       memorySize: 512,
       ...this.config.lambdaConfig,
 
-      functionName: this.app._concatName(this.service.id, this.id, operationId),
+      functionName: this.app._concatName(this.bundler.id, this.id, operationId),
       publish: true,
       runtime: "node16.x",
       handler: async () => this.renderLambdaHandler(operation),
@@ -134,7 +136,7 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
 
     this.lambdas[operationId] = lambda
 
-    // add api gateway integration into spec
+    // add api gateway integration into the operation
     operation.operationSpec["x-amazon-apigateway-integration"] = {
       payloadFormatVersion: "2.0",
       type: "aws_proxy",
@@ -145,14 +147,17 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
   }
 
   private async renderLambdaHandler(rawOperation: OperationHandlerOptions<OperationType>): Promise<SdfLambdaHandler> {
+    // get dereferenced version of the operation
     const operation = await this.dereferenceOperation(rawOperation)
 
+    // build and register the schema describing the operation
     const schema = extractOperationSchema(operation)
-    this.service._registerSchema(schema)
+    this.bundler._registerSchema(schema)
 
+    // render lambda function entry point, handler and validator
     const entryPointPath = await this.renderLambdaFiles(operation, schema)
 
-    const entryPointRelPath = relative(this.service.absDir, entryPointPath)
+    const entryPointRelPath = relative(this.bundler.absDir, entryPointPath)
 
     return {
       handler: `${entryPointRelPath}.${entryPointFunctionName}`,
@@ -244,7 +249,7 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
       overwrite: true,
       context: {
         OperationModel: schema.title,
-        InterfacesImport: relative(this.entryPointsDirectory, this.service._interfacesAbsPath),
+        InterfacesImport: relative(this.entryPointsDirectory, this.bundler._interfacesAbsPath),
         HandlerImport: relative(this.entryPointsDirectory, handlerPath),
         ValidatorsImport: relative(this.entryPointsDirectory, validatorPath),
         EntryPointFunctionName: entryPointFunctionName,
@@ -262,27 +267,4 @@ export class SdfApiGatewayV2<OperationType extends object = object> extends Cons
 
     return entryPointPath
   }
-
-  // const authorizerResponseSchemas: {
-  //   [name in string]: OpenAPIV3.SchemaObject;
-  // } = {};
-  // if (this.document.components.securitySchemes) {
-  //   Object.entries(this.document.components.securitySchemes).forEach(
-  //     ([name, securitySchema]) => {
-  //       if (
-  //         securitySchema.type === "apiKey" &&
-  //         typeof securitySchema["x-amazon-apigateway-authorizer"] ===
-  //           "object" &&
-  //         securitySchema["x-amazon-apigateway-authorizer"].type ===
-  //           "request" &&
-  //         typeof securitySchema["x-sdf-response-schema"] === "object"
-  //       ) {
-  //         authorizerResponseSchemas[`Authorizer${securitySchema.name}`] = {
-  //           title: `Authorizer${securitySchema.name}`,
-  //           ...securitySchema["x-sdf-response-schema"],
-  //         };
-  //       }
-  //     }
-  //   );
-  // }
 }
