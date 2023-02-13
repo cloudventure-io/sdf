@@ -49,6 +49,6 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules yarn run jest --coverage",
     "typecheck": "yarn run tsc --noEmit --emitDeclarationOnly false",
     "prelint": "yarn run -s typecheck",
-    "lint": "yarn run eslint ./src/"
+    "lint": "yarn run eslint ./"
   }
 }

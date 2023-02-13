@@ -1,9 +1,9 @@
-import { SyncTransformer } from "@jest/transform";
+import { SyncTransformer } from "@jest/transform"
 
 const transformer: SyncTransformer = {
-  process: (content) => ({
+  process: content => ({
     code: "module.exports = " + JSON.stringify(content),
   }),
-};
+}
 
-export default transformer;
+export default transformer

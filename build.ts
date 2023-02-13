@@ -1,22 +1,19 @@
-import * as glob from "glob";
-import * as esbuild from "esbuild";
-import { writeFile, copyFile, rm, mkdir } from "fs/promises";
-import packageJson from "./package.json";
+import * as esbuild from "esbuild"
+import { copyFile, mkdir, rm, writeFile } from "fs/promises"
+import * as glob from "glob"
+
+import packageJson from "./package.json"
 
 const run = async () => {
-  await rm("dist", { recursive: true, force: true });
-  await mkdir("dist");
+  await rm("dist", { recursive: true, force: true })
+  await mkdir("dist")
 
   const builds: Array<{
-    entryPoints: Array<string>;
-    options: Array<Partial<esbuild.BuildOptions>>;
+    entryPoints: Array<string>
+    options: Array<Partial<esbuild.BuildOptions>>
   }> = [
     {
-      entryPoints: glob
-        .sync("src/**/*.ts")
-        .filter(
-          (name) => !name.endsWith("d.ts") && !name.startsWith("src/cli")
-        ),
+      entryPoints: glob.sync("src/**/*.ts").filter(name => !name.endsWith("d.ts") && !name.startsWith("src/cli")),
       options: [
         {
           outdir: "dist/cjs",
@@ -47,7 +44,7 @@ const run = async () => {
         },
       ],
     },
-  ];
+  ]
 
   const esbuildOptions: esbuild.BuildOptions = {
     outdir: "dist",
@@ -62,21 +59,21 @@ const run = async () => {
     loader: {
       ".mu": "text",
     },
-  };
+  }
 
   await Promise.all([
     ...builds
-      .map((build) =>
+      .map(build =>
         build.options.map(
           (options): esbuild.BuildOptions => ({
             ...esbuildOptions,
             ...options,
             entryPoints: build.entryPoints,
-          })
-        )
+          }),
+        ),
       )
       .flat(1)
-      .map((options) => esbuild.build(options)),
+      .map(options => esbuild.build(options)),
 
     await writeFile(
       "dist/package.json",
@@ -93,8 +90,8 @@ const run = async () => {
           types: "types/index.d.ts",
         },
         null,
-        2
-      )
+        2,
+      ),
     ),
 
     await copyFile("publish/types.d.ts", "dist/types.d.ts"),
@@ -109,10 +106,10 @@ const run = async () => {
       sourcemap: "inline",
       format: "cjs",
     }),
-  ]);
-};
+  ])
+}
 
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+run().catch(err => {
+  console.error(err)
+  process.exit(1)
+})

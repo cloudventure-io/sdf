@@ -1,5 +1,7 @@
 # Serverless Development Framework
 
+An opinionated Serverless Development Framework based on terraform-cdk and OpenAPI.
+
 ## Concepts
 SDF is based on terraform-cdf and provides functionaly for easily creating, building
 and testing AWS based serverless infrastructures.
