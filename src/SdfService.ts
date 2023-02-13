@@ -6,7 +6,7 @@ import { SdfLambda } from "./constructs/lambda/SdfLambda";
 import { OpenAPIV3 } from "openapi-types";
 import { schemaHandlerOptions, walkSchema } from "./openapi/walkSchema";
 import { compile } from "json-schema-to-typescript";
-import { open, rm } from "fs/promises";
+import { open, rm, writeFile } from "fs/promises";
 import { SdfResource } from "./SdfResource";
 import { pascalCase, constantCase } from "change-case";
 import { writeMustacheTemplate } from "./utils/writeMustacheTemplate";
@@ -38,7 +38,6 @@ export class SdfService extends Construct {
   private sdfApp: SdfApp;
 
   private schemas: { [key in string]: OpenAPIV3.SchemaObject } = {};
-  private schemaCallbacks: Array<SdfServiceRenderInterfacesCallback> = [];
 
   constructor(
     public scope: Construct,
@@ -85,15 +84,29 @@ export class SdfService extends Construct {
       entryPoints: this.node
         .findAll()
         .filter((lambda): lambda is SdfLambda => lambda instanceof SdfLambda)
-        .map((lambda) => lambda.config.entryPoint),
+        .map((lambda) => {
+          if (!lambda.handler) {
+            throw new Error(
+              `the lambda function was not initialized properly, handler is undefined`
+            );
+          }
+          return lambda.handler.entryPoint;
+        }),
     };
   }
 
-  _registerInterface(schema: OpenAPIV3.SchemaObject) {
+  _registerSchema(schema: OpenAPIV3.SchemaObject) {
     if (!schema.title) {
       throw new Error(`schema does not have title`);
     }
-    this.schemas[schema.title] = schema;
+
+    if (!this.schemas[schema.title]) {
+      this.schemas[schema.title] = schema;
+    } else if (this.schemas[schema.title] !== schema) {
+      throw new Error(
+        `a schema with the same title '${schema.title}' is already exists`
+      );
+    }
   }
 
   get _interfacesAbsPath(): string {
@@ -104,34 +117,7 @@ export class SdfService extends Construct {
     return join(this.absDir, "resources");
   }
 
-  _registerInterfaces(cb: SdfServiceRenderInterfacesCallback): string {
-    this.schemaCallbacks.push(cb);
-    return this._interfacesAbsPath;
-  }
-
   private async _renderInterfaces() {
-    const headers: Array<string> = [];
-    const footers: Array<string> = [];
-
-    await Promise.all(
-      this.schemaCallbacks.map(async (cb) => {
-        const { header, schemas, footer } = await cb();
-        if (header) {
-          headers.push(header);
-        }
-
-        // TODO: check for duplicate names
-        this.schemas = {
-          ...this.schemas,
-          ...schemas,
-        };
-
-        if (footer) {
-          footers.push(footer);
-        }
-      })
-    );
-
     const rootSchema: OpenAPIV3.SchemaObject = {
       type: "object",
       properties: this.schemas,
@@ -157,22 +143,7 @@ export class SdfService extends Construct {
       enableConstEnums: false,
     });
 
-    const interfacesFile = await open(`${this._interfacesAbsPath}.ts`, "w");
-
-    for (const chunk of headers) {
-      await interfacesFile.write(chunk);
-      await interfacesFile.write("\n");
-    }
-
-    await interfacesFile.write(interfaces);
-    await interfacesFile.write("\n");
-
-    for (const chunk of footers) {
-      await interfacesFile.write(chunk);
-      await interfacesFile.write("\n");
-    }
-
-    await interfacesFile.close();
+    await writeFile(`${this._interfacesAbsPath}.ts`, interfaces);
   }
 
   private resources: { [id in string]: SdfResource } = {};
@@ -244,6 +215,14 @@ export class SdfService extends Construct {
   }
 
   async _synth() {
+    await Promise.all(
+      this.node
+        .findAll()
+        .filter<SdfLambda>(
+          (construct): construct is SdfLambda => construct instanceof SdfLambda
+        )
+        .map((lambda) => lambda._synth())
+    );
     await this._renderInterfaces();
     await this._renderResources();
   }

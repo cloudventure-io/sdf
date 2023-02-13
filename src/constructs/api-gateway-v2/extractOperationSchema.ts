@@ -1,14 +1,7 @@
 import { OpenAPIV3 } from "openapi-types";
 
-import {
-  Document,
-  OperationObject,
-  ParameterObject,
-} from "../../openapi/types";
-import {
-  OperationHandlerOptions,
-  walkOperations,
-} from "../../openapi/walkOperations";
+import { OperationObject, ParameterObject } from "../../openapi/types";
+import { OperationHandlerOptions } from "../../openapi/walkOperations";
 import { MimeTypes } from "../../utils/MimeTypes";
 import { pascalCase } from "change-case";
 
@@ -18,14 +11,6 @@ export type OperationSchemaTitleCallback<T extends {}> = (
   operation: OperationHandlerOptions<T>,
   type: OperationSchemaTitleType
 ) => string;
-
-export interface renderInterfacesOptions<T extends {}> {
-  // The Document - it should be clonable and not dereferenced (e.g. the output of `SwaggerParser.bundle`)
-  document: Document<T>;
-
-  // Operation title generator function
-  operationSchemaTitle: OperationSchemaTitleCallback<T>;
-}
 
 const extractParametersSchema = <T extends {}>(
   pathParameters: Array<ParameterObject>,
@@ -234,49 +219,20 @@ export interface OperationObjectSchema extends OpenAPIV3.NonArraySchemaObject {
   };
 }
 
-export interface ExtracedOperation<OperationType extends {}> {
-  schema: OperationObjectSchema;
-  operation: OperationHandlerOptions<OperationType>;
-}
-
-export const extractOperations = <OperationType extends {}>({
-  document,
-  operationSchemaTitle,
-}: renderInterfacesOptions<OperationType>): Record<
-  string,
-  ExtracedOperation<OperationType>
-> => {
-  const operations: Record<string, ExtracedOperation<OperationType>> = {};
-
-  walkOperations({
-    document,
-
-    operationHandler(operation) {
-      const schemaTitle = operationSchemaTitle(operation, "operation");
-
-      operations[schemaTitle] = {
-        operation,
-        schema: {
-          title: schemaTitle,
-          additionalProperties: false,
-          properties: {
-            request: extractOperationRequestSchema(
-              operation,
-              operationSchemaTitle
-            ),
-            responses: extractOperationResponsesSchema(
-              operation,
-              operationSchemaTitle
-            ),
-          },
-          required: ["request", "responses"],
-        },
-      };
-    },
-  });
-
-  return operations;
-};
+export const extractOperationSchema = <OperationType extends {}>(
+  operation: OperationHandlerOptions<OperationType>
+): OperationObjectSchema => ({
+  title: defaultOperationTitle(operation, "operation"),
+  additionalProperties: false,
+  properties: {
+    request: extractOperationRequestSchema(operation, defaultOperationTitle),
+    responses: extractOperationResponsesSchema(
+      operation,
+      defaultOperationTitle
+    ),
+  },
+  required: ["request", "responses"],
+});
 
 export const defaultOperationTitle = <T extends {}>(
   { operationSpec }: OperationHandlerOptions<T>,

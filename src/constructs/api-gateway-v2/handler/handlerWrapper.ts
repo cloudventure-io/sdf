@@ -18,9 +18,7 @@ export interface Operation {
     query: APIGatewayProxyEventQueryStringParameters;
     header: APIGatewayProxyEventHeaders;
 
-    contentType?:
-      | MimeTypes.APPLICATION_JSON
-      | MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED;
+    contentType?: "application/json" | "application/x-www-form-urlencoded";
     body?: unknown;
   };
   responses: {

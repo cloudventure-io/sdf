@@ -1,13 +1,12 @@
 import {
   defaultOperationTitle,
-  ExtracedOperation,
-  extractOperations,
+  extractOperationSchema,
   OperationObjectSchema,
-} from "./extractOperations";
+} from "./extractOperationSchema";
 import { Document } from "../../openapi/types";
 import { join } from "path";
-import { SdfLambda } from "../lambda/SdfLambda";
-import { SdfService, SdfServiceRenderInterfacesResult } from "../../SdfService";
+import { SdfLambda, SdfLambdaHandler } from "../lambda/SdfLambda";
+import { SdfService } from "../../SdfService";
 import { relative } from "path";
 import entryPointTemplate from "./templates/entryPoint.ts.mu";
 import handlerTemplate from "./templates/handler.ts.mu";
@@ -21,7 +20,6 @@ import { Construct } from "constructs";
 import { Apigatewayv2Api } from "@cdktf/provider-aws/lib/apigatewayv2-api";
 import { SdfApp } from "../../SdfApp";
 import SwaggerParser from "@apidevtools/swagger-parser";
-
 import Ajv from "ajv";
 import standaloneCode from "ajv/dist/standalone";
 import { writeFile, mkdir, rm } from "fs/promises";
@@ -29,7 +27,6 @@ import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function";
 import { Apigatewayv2Stage } from "@cdktf/provider-aws/lib/apigatewayv2-stage";
 import { LambdaPermission } from "@cdktf/provider-aws/lib/lambda-permission";
 import { camelCase, pascalCase } from "change-case";
-import { OpenAPIV3 } from "openapi-types";
 
 export interface SdfApiGatewayV2Config<T extends {}> {
   document: Document<T>;
@@ -41,6 +38,8 @@ export interface SdfApiGatewayV2Config<T extends {}> {
     "handler" | "runtime" | "role" | "functionName"
   >;
 }
+
+const entryPointFunctionName = "entrypoint";
 
 export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
   private lambdas: { [operationId in string]: SdfLambda } = {};
@@ -67,6 +66,8 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
    */
   private handlersDirectory: string;
 
+  private dereferencedDocument?: Document<OperationType>;
+
   public apigw: Apigatewayv2Api;
   public stage: Apigatewayv2Stage;
 
@@ -84,13 +85,10 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators");
     this.handlersDirectory = join(apiDirectory, "handlers");
 
-    // clone the document
+    // clone the document, since document will be mutated in further operations
     this.document = JSON.parse(
       JSON.stringify(this.config.document)
     ) as Document<OperationType>;
-
-    // submit interfaces
-    this.service._registerInterfaces(() => this.registerInterfaces());
 
     // define lambda functions
     walkOperations({
@@ -99,6 +97,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
         this.defineLambda(operation),
     });
 
+    // define the Api Gateway V2
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
       name: this.app._concatName(this.service.id, this.id),
       protocolType: "HTTP",
@@ -131,16 +130,96 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     return this;
   }
 
-  private getHandlerPath = (operationId: string): string =>
-    join(this.handlersDirectory, operationId);
+  private defineLambda(operation: OperationHandlerOptions<OperationType>) {
+    const { operationId } = operation.operationSpec;
 
-  private getEntryPointPath = (operationId: string): string =>
-    join(this.entryPointsDirectory, camelCase(`api-${operationId}`));
+    const lambda = new SdfLambda(this, `api-handler-${operationId}`, {
+      timeout: 29,
+      memorySize: 512,
+      ...this.config.lambdaConfig,
 
-  private async renderValidator({
-    schema,
-    operation,
-  }: ExtracedOperation<OperationType>): Promise<string> {
+      functionName: this.app._concatName(this.service.id, this.id, operationId),
+      publish: true,
+      runtime: "node16.x",
+      handler: async (): Promise<SdfLambdaHandler> =>
+        this.renderLambdaHandler(operation),
+      resources: {
+        ...this.document["x-sdf-resources"],
+        ...operation.operationSpec["x-sdf-resources"],
+      },
+    });
+
+    this.lambdas[operationId] = lambda;
+
+    // add api gateway integration into spec
+    operation.operationSpec["x-amazon-apigateway-integration"] = {
+      payloadFormatVersion: "2.0",
+      type: "aws_proxy",
+      httpMethod: "POST",
+      uri: lambda.function.qualifiedInvokeArn,
+      connectionType: "INTERNET",
+    };
+  }
+
+  private async renderLambdaHandler(
+    rawOperation: OperationHandlerOptions<OperationType>
+  ): Promise<SdfLambdaHandler> {
+    const operation = await this.dereferenceOperation(rawOperation);
+
+    const schema = extractOperationSchema(operation);
+    this.service._registerSchema(schema);
+
+    const entryPointPath = await this.renderLambdaFiles(
+      operation,
+      schema
+    );
+
+    const entryPointRelPath = relative(this.service.absDir, entryPointPath);
+
+    return {
+      handler: `${entryPointRelPath}.${entryPointFunctionName}`,
+      entryPoint: `${entryPointRelPath}.ts`,
+    };
+  }
+
+  private async dereferenceOperation(
+    rawOperation: OperationHandlerOptions<OperationType>
+  ): Promise<OperationHandlerOptions<OperationType>> {
+    const document = await this.initialize();
+    const pathSpec = document?.paths?.[rawOperation.pathPattern];
+    if (!pathSpec) {
+      throw new Error(`cannot find the dereferenced path`);
+    }
+    const operationSpec = pathSpec?.[rawOperation.method];
+    if (!operationSpec) {
+      throw new Error(`cannot find the dereferenced operation`);
+    }
+    return {
+      ...rawOperation,
+      document,
+      pathSpec,
+      operationSpec,
+    };
+  }
+
+  private async initialize(): Promise<Document<OperationType>> {
+    if (!this.dereferencedDocument) {
+      // clean up before generating
+      await rm(this.entryPointsDirectory, { force: true, recursive: true });
+      await mkdir(this.entryPointsDirectory, { recursive: true });
+
+      // clone and dereference the document
+      this.dereferencedDocument = (await SwaggerParser.dereference(
+        JSON.parse(JSON.stringify(this.document))
+      )) as Document<OperationType>;
+    }
+    return this.dereferencedDocument;
+  }
+
+  private async renderValidator(
+    operation: OperationHandlerOptions<OperationType>,
+    schema: OperationObjectSchema
+  ): Promise<string> {
     const {
       operationSpec: { operationId },
     } = operation;
@@ -169,7 +248,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
       template: validatorTemplate,
       path: `${validatorPath}.d.ts`,
       context: {
-        OperationModel: defaultOperationTitle(operation, "operation"),
+        OperationModel: schema.title,
       },
       overwrite: true,
     });
@@ -177,34 +256,33 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     return validatorPath;
   }
 
-  private async renderFiles({
-    schema,
-    operation,
-  }: ExtracedOperation<OperationType>): Promise<void> {
-    const {
-      operationSpec: { operationId },
-    } = operation;
+  private async renderLambdaFiles(
+    operation: OperationHandlerOptions<OperationType>,
+    schema: OperationObjectSchema
+  ): Promise<string> {
+    const operationId = operation.operationSpec.operationId;
 
-    const validatorPath = await this.renderValidator({
-      schema,
-      operation: operation,
-    });
+    const validatorPath = await this.renderValidator(operation, schema);
 
-    const handlerPath = this.getHandlerPath(operationId);
-    const entryPointPath = this.getEntryPointPath(operationId);
+    const handlerPath = join(this.handlersDirectory, operationId);
+    const entryPointPath = join(
+      this.entryPointsDirectory,
+      camelCase(`api-${operationId}`)
+    );
 
     await writeMustacheTemplate({
       template: entryPointTemplate,
       path: `${entryPointPath}.ts`,
       overwrite: true,
       context: {
-        OperationModel: defaultOperationTitle(operation, "operation"),
+        OperationModel: schema.title,
         InterfacesImport: relative(
           this.entryPointsDirectory,
           this.service._interfacesAbsPath
         ),
         HandlerImport: relative(this.entryPointsDirectory, handlerPath),
         ValidatorsImport: relative(this.entryPointsDirectory, validatorPath),
+        EntryPointFunctionName: entryPointFunctionName,
       },
     });
 
@@ -216,99 +294,30 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
         WrapperImport: relative(this.handlersDirectory, entryPointPath),
       },
     });
+
+    return entryPointPath;
   }
 
-  private async registerInterfaces(): Promise<SdfServiceRenderInterfacesResult> {
-    // clean up before generating
-    await rm(this.entryPointsDirectory, { force: true, recursive: true });
-    await mkdir(this.entryPointsDirectory, { recursive: true });
-
-    // clone and dereference the spec
-    const spec = (await SwaggerParser.dereference(
-      JSON.parse(JSON.stringify(this.document))
-    )) as Document<OperationType>;
-
-    const operations = extractOperations({
-      document: spec,
-      operationSchemaTitle: defaultOperationTitle,
-    });
-
-    // generate files for all operations
-    await Promise.all(
-      Object.values(operations).map(async (operation) =>
-        this.renderFiles(operation)
-      )
-    );
-
-    const authorizerResponseSchemas: {
-      [name in string]: OpenAPIV3.SchemaObject;
-    } = {};
-    if (this.document.components.securitySchemes) {
-      Object.entries(this.document.components.securitySchemes).forEach(
-        ([name, securitySchema]) => {
-          if (
-            securitySchema.type === "apiKey" &&
-            typeof securitySchema["x-amazon-apigateway-authorizer"] ===
-              "object" &&
-            securitySchema["x-amazon-apigateway-authorizer"].type ===
-              "request" &&
-            typeof securitySchema["x-sdf-response-schema"] === "object"
-          ) {
-            authorizerResponseSchemas[`Authorizer${securitySchema.name}`] = {
-              title: `Authorizer${securitySchema.name}`,
-              ...securitySchema["x-sdf-response-schema"],
-            };
-          }
-        }
-      );
-    }
-
-    return {
-      schemas: {
-        // TODO: make sure that there are no duplicate keys
-        ...spec.components?.schemas,
-        ...authorizerResponseSchemas,
-        ...Object.entries(operations).reduce(
-          (acc, [key, { schema }]) => ({ ...acc, [key]: schema }),
-          {}
-        ),
-      },
-    };
-  }
-
-  private defineLambda(operation: OperationHandlerOptions<OperationType>) {
-    const { operationId } = operation.operationSpec;
-
-    const entryPointRelPath = relative(
-      this.service.absDir,
-      this.getEntryPointPath(operationId)
-    );
-
-    const lambda = new SdfLambda(this, `api-handler-${operationId}`, {
-      timeout: 29,
-      memorySize: 512,
-      ...this.config.lambdaConfig,
-
-      entryPoint: `${entryPointRelPath}.ts`,
-      functionName: this.app._concatName(this.service.id, this.id, operationId),
-      publish: true,
-      runtime: "node16.x",
-      handler: `${entryPointRelPath}.entrypoint`,
-      resources: {
-        ...this.document["x-sdf-resources"],
-        ...operation.operationSpec["x-sdf-resources"],
-      },
-    });
-
-    this.lambdas[operationId] = lambda;
-
-    // add api gateway integration into spec
-    operation.operationSpec["x-amazon-apigateway-integration"] = {
-      payloadFormatVersion: "2.0",
-      type: "aws_proxy",
-      httpMethod: "POST",
-      uri: lambda.function.qualifiedInvokeArn,
-      connectionType: "INTERNET",
-    };
-  }
+  // const authorizerResponseSchemas: {
+  //   [name in string]: OpenAPIV3.SchemaObject;
+  // } = {};
+  // if (this.document.components.securitySchemes) {
+  //   Object.entries(this.document.components.securitySchemes).forEach(
+  //     ([name, securitySchema]) => {
+  //       if (
+  //         securitySchema.type === "apiKey" &&
+  //         typeof securitySchema["x-amazon-apigateway-authorizer"] ===
+  //           "object" &&
+  //         securitySchema["x-amazon-apigateway-authorizer"].type ===
+  //           "request" &&
+  //         typeof securitySchema["x-sdf-response-schema"] === "object"
+  //       ) {
+  //         authorizerResponseSchemas[`Authorizer${securitySchema.name}`] = {
+  //           title: `Authorizer${securitySchema.name}`,
+  //           ...securitySchema["x-sdf-response-schema"],
+  //         };
+  //       }
+  //     }
+  //   );
+  // }
 }

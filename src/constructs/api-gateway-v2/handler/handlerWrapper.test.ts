@@ -9,9 +9,10 @@ import {
 } from "../../../openapi/types";
 import { HttpHeaders } from "../../../utils/HttpHeaders";
 import { MimeTypes } from "../../../utils/MimeTypes";
-import { defaultOperationTitle, extractOperations } from "../extractOperations";
+import { defaultOperationTitle, extractOperationSchema } from "../extractOperationSchema";
 import { handlerWrapper, LambdaHandler, Validator } from "./handlerWrapper";
 import { jest } from "@jest/globals";
+import { OpenAPIV3 } from "openapi-types";
 
 describe("handler wrapper tests", () => {
   const createDocumentFromOperation = (
@@ -83,9 +84,15 @@ describe("handler wrapper tests", () => {
     callback?: LambdaHandler<any>;
   }) => {
     const document = createDocument({ required });
-    const operations = extractOperations({
+    const schema = extractOperationSchema({
       document,
-      operationSchemaTitle: defaultOperationTitle,
+      method: OpenAPIV3.HttpMethods.POST,
+      pathPattern: "/test",
+      pathSpec: document.paths["/test"],
+      operationSpec: document.paths["/test"][
+        OpenAPIV3.HttpMethods.POST
+      ] as OperationObject<{}>,
+      trace: "test",
     });
 
     const ajv = new Ajv({
@@ -94,7 +101,7 @@ describe("handler wrapper tests", () => {
     });
 
     const validator = ajv.compile(
-      operations.OperationTestPost.schema.properties.request
+      schema.properties.request
     );
 
     return handlerWrapper(

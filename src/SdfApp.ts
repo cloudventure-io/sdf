@@ -95,8 +95,6 @@ export class SdfApp extends App {
   }
 
   async synth(): Promise<void> {
-    super.synth();
-
     const stacks = this.node
       .findAll()
       .filter<SdfStack>(
@@ -114,5 +112,7 @@ export class SdfApp extends App {
       join(this.tmpDir, "metadata.json"),
       JSON.stringify(metadata, null, 2)
     );
+
+    super.synth();
   }
 }

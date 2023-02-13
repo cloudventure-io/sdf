@@ -19,7 +19,7 @@ export class SdfApiGatewayV2Authorizer extends Construct {
     super(scope, id);
     const service = SdfService.getServiceFromCtx(this);
 
-    service._registerInterface({
+    service._registerSchema({
       ...config.context,
       title: pascalCase(`AuthorizerContext${config.name}`),
     });

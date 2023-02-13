@@ -14,14 +14,25 @@ import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document";
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy";
 import { CloudwatchLogGroup } from "@cdktf/provider-aws/lib/cloudwatch-log-group";
-import { TerraformResource } from "cdktf";
+import { TerraformResource, Token } from "cdktf";
 
-type SdfLambdaFunctionConfig = Omit<LambdaFunctionConfig, "role"> &
-  Pick<Required<LambdaFunctionConfig>, "handler">;
+export interface SdfLambdaHandler {
+  /** The name of the function */
+  handler: string;
+
+  /** The file path of the entry point */
+  entryPoint: string;
+}
+
+type SdfLambdaFunctionConfig = Omit<
+  LambdaFunctionConfig,
+  "role" | "handler"
+> & {
+  handler: SdfLambdaHandler | (() => Promise<SdfLambdaHandler>);
+};
+// Pick<Required<LambdaFunctionConfig>, "handler">;
 
 export interface SdfLambdaConfig extends SdfLambdaFunctionConfig {
-  entryPoint: string;
-
   resources?: { [name in string]: Array<string> };
 }
 
@@ -30,14 +41,19 @@ export class SdfLambda extends Construct {
   private app: SdfApp;
   public function: LambdaFunction;
 
+  private handlerPromise: Promise<SdfLambdaHandler>;
+  public handler?: SdfLambdaHandler;
+  public config: Omit<SdfLambdaConfig, "handler">;
+
   public constructor(
     scope: Construct,
     id: string,
-    public config: SdfLambdaConfig
+    { handler, ...config }: SdfLambdaConfig
   ) {
     super(scope, id);
     this.service = SdfService.getServiceFromCtx(this);
     this.app = SdfApp.getAppFromContext(this);
+    this.config = config;
 
     const assumeRolePolicy = new DataAwsIamPolicyDocument(
       this,
@@ -123,11 +139,23 @@ export class SdfLambda extends Construct {
       retentionInDays: 30,
     });
 
+    this.handlerPromise = Promise.resolve(
+      typeof handler === "function" ? handler() : handler
+    );
+
     this.function = new LambdaFunction(this, "lambda", {
       dependsOn,
 
       ...config,
 
+      handler: Token.asString({
+        resolve: (): string => {
+          if (this.handler === undefined) {
+            throw new Error(`the lambda function handler was not resolved`);
+          }
+          return this.handler.handler;
+        },
+      }),
       role: role.arn,
       runtime: "nodejs16.x",
 
@@ -142,5 +170,9 @@ export class SdfLambda extends Construct {
           }
         : {}),
     });
+  }
+
+  async _synth() {
+    this.handler = await this.handlerPromise;
   }
 }
