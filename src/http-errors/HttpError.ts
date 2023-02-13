@@ -1,18 +1,14 @@
-import { HttpStatusCodes } from "../utils/HttpStatusCodes";
+import { HttpStatusCodes } from "../utils/HttpStatusCodes"
 
 export abstract class HttpError extends Error {
-  constructor(
-    public code: string,
-    public message: string,
-    public details?: unknown
-  ) {
-    super(`[${code}]: ${message}`);
+  constructor(public code: string, public message: string, public details?: unknown) {
+    super(`[${code}]: ${message}`)
   }
 
-  abstract get statusCode(): HttpStatusCodes;
+  abstract get statusCode(): HttpStatusCodes
 
   get class() {
-    return this.constructor.name;
+    return this.constructor.name
   }
 
   toJSON() {
@@ -21,6 +17,6 @@ export abstract class HttpError extends Error {
       code: this.code,
       message: this.message,
       details: this.details,
-    };
+    }
   }
 }

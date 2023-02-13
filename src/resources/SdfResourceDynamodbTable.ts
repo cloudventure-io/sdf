@@ -1,14 +1,12 @@
-import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document";
-import {
-  DynamodbTable,
-  DynamodbTableConfig,
-} from "@cdktf/provider-aws/lib/dynamodb-table";
-import { Construct } from "constructs";
-import { OpenAPIV3 } from "openapi-types";
-import { SdfResource } from "../SdfResource";
+import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
+import { DynamodbTable, DynamodbTableConfig } from "@cdktf/provider-aws/lib/dynamodb-table"
+import { Construct } from "constructs"
+import { OpenAPIV3 } from "openapi-types"
+
+import { SdfResource } from "../SdfResource"
 
 export class SdfResourceDynamodbTable extends SdfResource {
-  public table: DynamodbTable;
+  public table: DynamodbTable
 
   get configSpec(): OpenAPIV3.SchemaObject {
     return {
@@ -23,30 +21,23 @@ export class SdfResourceDynamodbTable extends SdfResource {
         },
       },
       required: ["arn", "name"],
-    };
+    }
   }
 
   public permissions: {
-    read: DataAwsIamPolicyDocument;
-    write: DataAwsIamPolicyDocument;
-  };
+    read: DataAwsIamPolicyDocument
+    write: DataAwsIamPolicyDocument
+  }
 
   public config: {
-    arn: string;
-    name: string;
-  };
+    arn: string
+    name: string
+  }
 
-  constructor(
-    scope: Construct,
-    public id: string,
-    table: DynamodbTable | DynamodbTableConfig
-  ) {
-    super(scope, id);
+  constructor(scope: Construct, public id: string, table: DynamodbTable | DynamodbTableConfig) {
+    super(scope, id)
 
-    this.table =
-      table instanceof DynamodbTable
-        ? table
-        : new DynamodbTable(this, id, table);
+    this.table = table instanceof DynamodbTable ? table : new DynamodbTable(this, id, table)
 
     this.permissions = {
       read: new DataAwsIamPolicyDocument(this, "read", {
@@ -60,21 +51,16 @@ export class SdfResourceDynamodbTable extends SdfResource {
       write: new DataAwsIamPolicyDocument(this, "write", {
         statement: [
           {
-            actions: [
-              "dynamodb:PutItem",
-              "dynamodb:UpdateItem",
-              "dynamodb:DeleteItem",
-              "dynamodb:BatchWriteItem",
-            ],
+            actions: ["dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:BatchWriteItem"],
             resources: [this.table.arn, `${this.table.arn}/*`],
           },
         ],
       }),
-    };
+    }
 
     this.config = {
       arn: this.table.arn,
       name: this.table.name,
-    };
+    }
   }
 }

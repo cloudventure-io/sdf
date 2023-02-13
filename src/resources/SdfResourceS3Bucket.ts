@@ -1,11 +1,12 @@
-import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document";
-import { S3Bucket, S3BucketConfig } from "@cdktf/provider-aws/lib/s3-bucket";
-import { Construct } from "constructs";
-import { OpenAPIV3 } from "openapi-types";
-import { SdfResource } from "../SdfResource";
+import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
+import { S3Bucket, S3BucketConfig } from "@cdktf/provider-aws/lib/s3-bucket"
+import { Construct } from "constructs"
+import { OpenAPIV3 } from "openapi-types"
+
+import { SdfResource } from "../SdfResource"
 
 export class SdfResourceS3Bucket extends SdfResource {
-  public bucket: S3Bucket;
+  public bucket: S3Bucket
 
   get configSpec(): OpenAPIV3.SchemaObject {
     return {
@@ -20,28 +21,23 @@ export class SdfResourceS3Bucket extends SdfResource {
         },
       },
       required: ["arn", "bucket"],
-    };
+    }
   }
 
   public permissions: {
-    read: DataAwsIamPolicyDocument;
-    write: DataAwsIamPolicyDocument;
-  };
+    read: DataAwsIamPolicyDocument
+    write: DataAwsIamPolicyDocument
+  }
 
   public config: {
-    arn: string;
-    bucket: string;
-  };
+    arn: string
+    bucket: string
+  }
 
-  constructor(
-    scope: Construct,
-    public id: string,
-    bucket: S3Bucket | S3BucketConfig
-  ) {
-    super(scope, id);
+  constructor(scope: Construct, public id: string, bucket: S3Bucket | S3BucketConfig) {
+    super(scope, id)
 
-    this.bucket =
-      bucket instanceof S3Bucket ? bucket : new S3Bucket(this, id, bucket);
+    this.bucket = bucket instanceof S3Bucket ? bucket : new S3Bucket(this, id, bucket)
 
     this.permissions = {
       read: new DataAwsIamPolicyDocument(this, "read", {
@@ -60,11 +56,11 @@ export class SdfResourceS3Bucket extends SdfResource {
           },
         ],
       }),
-    };
+    }
 
     this.config = {
       arn: this.bucket.arn,
       bucket: this.bucket.bucket,
-    };
+    }
   }
 }

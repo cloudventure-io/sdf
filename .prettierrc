@@ -1,0 +1,17 @@
+{
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 120,
+  "semi": false,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "arrowParens": "avoid",
+  "importOrder": [
+    "^source-map-support/register$",
+    "^(?!@cloudventure/|\\.|/).+",
+    "^@cloudventure/",
+    "^[.|/]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
+}

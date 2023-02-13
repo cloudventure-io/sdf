@@ -1,69 +1,65 @@
-import { SdfStack } from "./SdfStack";
-import { join, relative } from "path";
-import { Construct } from "constructs";
-import { SdfApp } from "./SdfApp";
-import { SdfLambda } from "./constructs/lambda/SdfLambda";
-import { OpenAPIV3 } from "openapi-types";
-import { schemaHandlerOptions, walkSchema } from "./openapi/walkSchema";
-import { compile } from "json-schema-to-typescript";
-import { open, rm, writeFile } from "fs/promises";
-import { SdfResource } from "./SdfResource";
-import { pascalCase, constantCase } from "change-case";
-import { writeMustacheTemplate } from "./utils/writeMustacheTemplate";
-import resoucesTemplate from "./resources.ts.mu";
-import { DataArchiveFile } from "@cdktf/provider-archive/lib/data-archive-file";
+import { DataArchiveFile } from "@cdktf/provider-archive/lib/data-archive-file"
+import { constantCase, pascalCase } from "change-case"
+import { Construct } from "constructs"
+import { rm, writeFile } from "fs/promises"
+import { compile } from "json-schema-to-typescript"
+import { OpenAPIV3 } from "openapi-types"
+import { join, relative } from "path"
+
+import { SdfApp } from "./SdfApp"
+import { SdfResource } from "./SdfResource"
+import { SdfStack } from "./SdfStack"
+import { SdfLambda } from "./constructs/lambda/SdfLambda"
+import { schemaHandlerOptions, walkSchema } from "./openapi/walkSchema"
+import resoucesTemplate from "./resources.ts.mu"
+import { writeMustacheTemplate } from "./utils/writeMustacheTemplate"
 
 export interface SdfServiceMetadata {
-  name: string;
-  path: string;
-  packageJsonPath: string;
-  entryPoints: Array<string>;
+  name: string
+  path: string
+  packageJsonPath: string
+  entryPoints: Array<string>
 }
 
 export interface SdfServiceConfig {
-  packageJsonPath: string;
+  packageJsonPath: string
 }
 
 export interface SdfServiceRenderInterfacesResult {
-  schemas: { [key in string]: OpenAPIV3.SchemaObject };
-  header?: string;
-  footer?: string;
+  schemas: { [key in string]: OpenAPIV3.SchemaObject }
+  header?: string
+  footer?: string
 }
 
-export type SdfServiceRenderInterfacesCallback =
-  () => Promise<SdfServiceRenderInterfacesResult>;
+export type SdfServiceRenderInterfacesCallback = () => Promise<SdfServiceRenderInterfacesResult>
 
 export class SdfService extends Construct {
-  private sdfStack: SdfStack;
-  private sdfApp: SdfApp;
+  private sdfStack: SdfStack
+  private sdfApp: SdfApp
 
-  private schemas: { [key in string]: OpenAPIV3.SchemaObject } = {};
+  private schemas: { [key in string]: OpenAPIV3.SchemaObject } = {}
 
-  constructor(
-    public scope: Construct,
-    public id: string,
-    public config: SdfServiceConfig
-  ) {
-    super(scope, id);
+  constructor(public scope: Construct, public id: string, public config: SdfServiceConfig) {
+    super(scope, id)
 
-    this.node.setContext(SdfService.name, this);
-    this.sdfStack = SdfStack.getStackFromCtx(this);
-    this.sdfApp = SdfApp.getAppFromContext(this);
+    this.node.setContext(SdfService.name, this)
+    this.sdfStack = SdfStack.getStackFromCtx(this)
+    this.sdfApp = SdfApp.getAppFromContext(this)
   }
 
   static getServiceFromCtx(scope: Construct): SdfService {
-    return SdfApp.getFromContext(scope, SdfService);
+    return SdfApp.getFromContext(scope, SdfService)
   }
 
   get relDir(): string {
-    return this.id;
+    return this.id
   }
 
   get absDir(): string {
-    return join(this.sdfStack.absDir, this.relDir);
+    return join(this.sdfStack.absDir, this.relDir)
   }
 
-  private codeArchive?: DataArchiveFile;
+  private codeArchive?: DataArchiveFile
   get code(): DataArchiveFile {
     if (!this.codeArchive) {
       this.codeArchive = new DataArchiveFile(this, "code", {
@@ -71,9 +67,9 @@ export class SdfService extends Construct {
         type: "zip",
         // TODO: make this relative
         sourceDir: join(this.sdfApp.tmpDir, this.sdfStack.relDir, this.relDir),
-      });
+      })
     }
-    return this.codeArchive;
+    return this.codeArchive
   }
 
   _getBuildManifest(): SdfServiceMetadata {
@@ -84,37 +80,33 @@ export class SdfService extends Construct {
       entryPoints: this.node
         .findAll()
         .filter((lambda): lambda is SdfLambda => lambda instanceof SdfLambda)
-        .map((lambda) => {
+        .map(lambda => {
           if (!lambda.handler) {
-            throw new Error(
-              `the lambda function was not initialized properly, handler is undefined`
-            );
+            throw new Error(`the lambda function was not initialized properly, handler is undefined`)
           }
-          return lambda.handler.entryPoint;
+          return lambda.handler.entryPoint
         }),
-    };
+    }
   }
 
   _registerSchema(schema: OpenAPIV3.SchemaObject) {
     if (!schema.title) {
-      throw new Error(`schema does not have title`);
+      throw new Error(`schema does not have title`)
     }
 
     if (!this.schemas[schema.title]) {
-      this.schemas[schema.title] = schema;
+      this.schemas[schema.title] = schema
     } else if (this.schemas[schema.title] !== schema) {
-      throw new Error(
-        `a schema with the same title '${schema.title}' is already exists`
-      );
+      throw new Error(`a schema with the same title '${schema.title}' is already exists`)
     }
   }
 
   get _interfacesAbsPath(): string {
-    return join(this.absDir, "interfaces");
+    return join(this.absDir, "interfaces")
   }
 
   get _resourcesAbsPath(): string {
-    return join(this.absDir, "resources");
+    return join(this.absDir, "resources")
   }
 
   private async _renderInterfaces() {
@@ -122,17 +114,17 @@ export class SdfService extends Construct {
       type: "object",
       properties: this.schemas,
       additionalProperties: false,
-    };
+    }
 
     // add tsEnumNames to all enums. this is required by
     // json-schema-to-typescript library to generate enum values
     walkSchema(`/`, rootSchema, async ({ schema }: schemaHandlerOptions) => {
       if ("enum" in schema && schema.enum && !schema["x-no-ts-enum"]) {
-        (schema as any).tsEnumNames = (schema.enum as Array<string>).map((e) =>
-          e.replace(/-(.)/g, (m) => m[1].toUpperCase())
-        );
+        ;(schema as any).tsEnumNames = (schema.enum as Array<string>).map(e =>
+          e.replace(/-(.)/g, m => m[1].toUpperCase()),
+        )
       }
-    });
+    })
 
     const interfaces = await compile(rootSchema, "_", {
       strictIndexSignatures: true,
@@ -141,46 +133,41 @@ export class SdfService extends Construct {
         continueOnError: false,
       },
       enableConstEnums: false,
-    });
+    })
 
-    await writeFile(`${this._interfacesAbsPath}.ts`, interfaces);
+    await writeFile(`${this._interfacesAbsPath}.ts`, interfaces)
   }
 
-  private resources: { [id in string]: SdfResource } = {};
+  private resources: { [id in string]: SdfResource } = {}
   _registerResource(resource: SdfResource, id: string) {
     if (this.resources[id] && this.resources[id] !== resource) {
-      throw new Error(
-        `resource with id '${id}' already exists in service '${this.id}'`
-      );
+      throw new Error(`resource with id '${id}' already exists in service '${this.id}'`)
     }
-    this.resources[id] = resource;
+    this.resources[id] = resource
   }
 
   _getResource(id: string) {
-    const resource = this.resources[id];
+    const resource = this.resources[id]
     if (!resource) {
-      throw new Error(
-        `resource with id '${id}' was not found in service '${this.id}'`
-      );
+      throw new Error(`resource with id '${id}' was not found in service '${this.id}'`)
     }
-    return resource;
+    return resource
   }
 
   private async _renderResources() {
-    const resourcesPath = `${this._resourcesAbsPath}.ts`;
-    await rm(resourcesPath, { force: true });
+    const resourcesPath = `${this._resourcesAbsPath}.ts`
+    await rm(resourcesPath, { force: true })
 
     if (Object.keys(this.resources).length) {
-      const resourceSchemasMap: { [name in string]: OpenAPIV3.SchemaObject } =
-        {};
+      const resourceSchemasMap: { [name in string]: OpenAPIV3.SchemaObject } = {}
       Object.entries(this.resources).map(([id, resource]) => {
-        const title = `${pascalCase(id)}Config`;
+        const title = `${pascalCase(id)}Config`
 
         resourceSchemasMap[title] = {
           ...resource.configSpec,
           title,
-        };
-      });
+        }
+      })
 
       const resourceInterfaces = await compile(
         {
@@ -195,8 +182,8 @@ export class SdfService extends Construct {
             continueOnError: false,
           },
           enableConstEnums: false,
-        }
-      );
+        },
+      )
 
       await writeMustacheTemplate({
         path: resourcesPath,
@@ -204,13 +191,13 @@ export class SdfService extends Construct {
         overwrite: true,
         context: {
           interfaces: resourceInterfaces,
-          resources: Object.keys(this.resources).map((id) => ({
+          resources: Object.keys(this.resources).map(id => ({
             type: `${pascalCase(id)}Config`,
             envName: constantCase(`RESOURCE_${id}`),
             id,
           })),
         },
-      });
+      })
     }
   }
 
@@ -218,12 +205,10 @@ export class SdfService extends Construct {
     await Promise.all(
       this.node
         .findAll()
-        .filter<SdfLambda>(
-          (construct): construct is SdfLambda => construct instanceof SdfLambda
-        )
-        .map((lambda) => lambda._synth())
-    );
-    await this._renderInterfaces();
-    await this._renderResources();
+        .filter<SdfLambda>((construct): construct is SdfLambda => construct instanceof SdfLambda)
+        .map(lambda => lambda._synth()),
+    )
+    await this._renderInterfaces()
+    await this._renderResources()
   }
 }

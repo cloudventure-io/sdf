@@ -19,15 +19,24 @@
   },
   "devDependencies": {
     "@cloudventure/jest-transformer-esbuild": "^1.0.10",
+    "@trivago/prettier-plugin-sort-imports": "^4.0.0",
     "@types/aws-lambda": "^8.10.104",
     "@types/glob": "^8.0.0",
     "@types/jest": "^29.1.1",
     "@types/mustache": "^4.2.1",
     "@types/node": "^18.13.0",
+    "@typescript-eslint/eslint-plugin": "^5.51.0",
+    "@typescript-eslint/parser": "^5.51.0",
     "ajv": "^8.11.0",
     "esbuild": "^0.17",
+    "eslint": "^8.34.0",
+    "eslint-config-prettier": "^8.6.0",
+    "eslint-import-resolver-typescript": "^3.5.3",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-prettier": "^4.2.1",
     "glob": "^8.0.3",
     "jest": "^29.1.2",
+    "prettier": "^2.8.4",
     "typescript": "^4.8.4"
   },
   "sideEffects": false,
@@ -37,6 +46,9 @@
     "prebuild": "yarn prepare",
     "build": "node tmp/build.js",
     "postbuild": "yarn run tsc",
-    "test": "NODE_OPTIONS=--experimental-vm-modules yarn run jest --coverage"
+    "test": "NODE_OPTIONS=--experimental-vm-modules yarn run jest --coverage",
+    "typecheck": "yarn run tsc --noEmit --emitDeclarationOnly false",
+    "prelint": "yarn run -s typecheck",
+    "lint": "yarn run eslint ./src/"
   }
 }

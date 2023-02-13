@@ -1,11 +1,12 @@
-import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document";
-import { KmsKey, KmsKeyConfig } from "@cdktf/provider-aws/lib/kms-key";
-import { Construct } from "constructs";
-import { OpenAPIV3 } from "openapi-types";
-import { SdfResource } from "../SdfResource";
+import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
+import { KmsKey, KmsKeyConfig } from "@cdktf/provider-aws/lib/kms-key"
+import { Construct } from "constructs"
+import { OpenAPIV3 } from "openapi-types"
+
+import { SdfResource } from "../SdfResource"
 
 export class SdfResourceKmsKey extends SdfResource {
-  public key: KmsKey;
+  public key: KmsKey
 
   get configSpec(): OpenAPIV3.SchemaObject {
     return {
@@ -20,23 +21,23 @@ export class SdfResourceKmsKey extends SdfResource {
         },
       },
       required: ["arn", "keyId"],
-    };
+    }
   }
 
   public permissions: {
-    encrypt: DataAwsIamPolicyDocument;
-    decrypt: DataAwsIamPolicyDocument;
-  };
+    encrypt: DataAwsIamPolicyDocument
+    decrypt: DataAwsIamPolicyDocument
+  }
 
   public config: {
-    arn: string;
-    keyId: string;
-  };
+    arn: string
+    keyId: string
+  }
 
   constructor(scope: Construct, public id: string, key: KmsKey | KmsKeyConfig) {
-    super(scope, id);
+    super(scope, id)
 
-    this.key = key instanceof KmsKey ? key : new KmsKey(this, id, key);
+    this.key = key instanceof KmsKey ? key : new KmsKey(this, id, key)
 
     this.permissions = {
       encrypt: new DataAwsIamPolicyDocument(this, "encrypt", {
@@ -55,11 +56,11 @@ export class SdfResourceKmsKey extends SdfResource {
           },
         ],
       }),
-    };
+    }
 
     this.config = {
       arn: this.key.arn,
       keyId: this.key.keyId,
-    };
+    }
   }
 }

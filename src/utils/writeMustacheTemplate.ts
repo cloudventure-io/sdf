@@ -1,15 +1,16 @@
-import Mustache from "mustache";
-import { dirname } from "path";
-import { writeFile, mkdir, open } from "fs/promises";
-import { fileExists } from "../utils/fileExists";
+import { mkdir, writeFile } from "fs/promises"
+import Mustache from "mustache"
+import { dirname } from "path"
+
+import { fileExists } from "../utils/fileExists"
 
 export interface writeMustacheTemplateOptions {
-  template: string;
-  path: string;
-  overwrite?: boolean;
+  template: string
+  path: string
+  overwrite?: boolean
   context: {
-    [k in string]: any;
-  };
+    [k in string]: any
+  }
 }
 
 export const writeMustacheTemplate = async ({
@@ -19,11 +20,11 @@ export const writeMustacheTemplate = async ({
   context,
 }: writeMustacheTemplateOptions): Promise<void> => {
   if (!overwrite && (await fileExists(path))) {
-    return;
+    return
   }
 
-  await mkdir(dirname(path), { recursive: true });
+  await mkdir(dirname(path), { recursive: true })
 
-  const content = Mustache.render(template, context, {}, { escape: (v) => v });
-  await writeFile(path, content);
-};
+  const content = Mustache.render(template, context, {}, { escape: v => v })
+  await writeFile(path, content)
+}

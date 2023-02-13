@@ -1,28 +1,27 @@
-import { Command } from "commander";
+import { Command } from "commander"
+import * as esbuild from "esbuild"
+import { mkdir, readFile, rm, writeFile } from "fs/promises"
+import { join } from "path"
 
-import { mkdir, readFile, writeFile, rm } from "fs/promises";
-import { join } from "path";
-import { fileExists } from "../utils/fileExists";
+import type { SdfApp, SdfAppMetadata, SdfAppOptions } from "../SdfApp"
+import { esbuildPlugins } from "../esbuild-plugins"
+import { SdfConfig } from "../types"
+import { fileExists } from "../utils/fileExists"
 
-import { esbuildPlugins } from "../esbuild-plugins";
-import * as esbuild from "esbuild";
-import type { SdfApp, SdfAppMetadata, SdfAppOptions } from "../SdfApp";
-import { SdfConfig } from "../types";
+const cmd = new Command("sdf-cli")
 
-const cmd = new Command("sdf-cli");
+const rootDir = process.cwd()
+const tmpDir = join(rootDir, "tmp")
 
-const rootDir = process.cwd();
-const tmpDir = join(rootDir, "tmp");
-
-const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "14"}`;
+const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "14"}`
 
 cmd
   .command("synth")
   .requiredOption("-e, --entryPoint <entryPoint>")
   .action(async ({ entryPoint }: { entryPoint: string }) => {
-    await mkdir(tmpDir, { recursive: true });
+    await mkdir(tmpDir, { recursive: true })
 
-    const outfile = join(tmpDir, `synth.js`);
+    const outfile = join(tmpDir, `synth.js`)
 
     await esbuild.build({
       platform: "node",
@@ -38,25 +37,22 @@ cmd
         "process.env.SDF_PROJECT_TMP_DIR": JSON.stringify(tmpDir),
       },
       keepNames: true,
-    });
+    })
 
-    const synth: (options: SdfAppOptions) => Promise<SdfApp> =
-      require(outfile).synth;
+    const synth: (options: SdfAppOptions) => Promise<SdfApp> = require(outfile).synth
 
     if (!synth || typeof synth !== "function") {
-      throw new Error(
-        `the entryPoint file ${entryPoint} must export an async function 'synth'`
-      );
+      throw new Error(`the entryPoint file ${entryPoint} must export an async function 'synth'`)
     }
 
     const options: SdfAppOptions = {
       rootDir,
       tmpDir,
-    };
+    }
 
-    const app: SdfApp = await synth(options);
-    await app.synth();
-  });
+    const app: SdfApp = await synth(options)
+    await app.synth()
+  })
 
 /**
  * https://github.com/evanw/esbuild/pull/2067#issuecomment-1073039746
@@ -84,12 +80,12 @@ const ESM_REQUIRE_SHIM = `
       globalThis.require = module.createRequire(import.meta.url)
     }
  })()
- `;
+ `
 
 cmd.command("build").action(async () => {
-  let config: SdfConfig = {};
+  let config: SdfConfig = {}
   if (await fileExists("sdf.config.ts")) {
-    const configOutFile = join(tmpDir, "sdf.config.js");
+    const configOutFile = join(tmpDir, "sdf.config.js")
 
     await esbuild.build({
       platform: "node",
@@ -101,28 +97,21 @@ cmd.command("build").action(async () => {
       bundle: true,
       format: "cjs",
       keepNames: true,
-    });
+    })
 
-    config = require(configOutFile).default;
+    config = require(configOutFile).default
   }
 
-  const buildMetadata: SdfAppMetadata = JSON.parse(
-    await readFile(join(tmpDir, "sdf.manifest.json"), "utf8")
-  );
+  const buildMetadata: SdfAppMetadata = JSON.parse(await readFile(join(tmpDir, "sdf.manifest.json"), "utf8"))
 
   await Promise.all(
-    buildMetadata.stacks.map(async (stack) =>
+    buildMetadata.stacks.map(async stack =>
       Promise.all(
-        stack.services.map(async (service) => {
-          const serviceSrcDir = join(
-            process.cwd(),
-            buildMetadata.path,
-            stack.path,
-            service.path
-          );
+        stack.services.map(async service => {
+          const serviceSrcDir = join(process.cwd(), buildMetadata.path, stack.path, service.path)
 
-          const outdir = join(tmpDir, stack.path, service.path);
-          await rm(outdir, { recursive: true, force: true });
+          const outdir = join(tmpDir, stack.path, service.path)
+          await rm(outdir, { recursive: true, force: true })
 
           const esbuildOptions: esbuild.BuildOptions = {
             absWorkingDir: serviceSrcDir,
@@ -131,12 +120,7 @@ cmd.command("build").action(async () => {
             target,
             sourcemap: "inline",
             keepNames: true,
-            outbase: join(
-              process.cwd(),
-              buildMetadata.path,
-              stack.path,
-              service.path
-            ),
+            outbase: join(process.cwd(), buildMetadata.path, stack.path, service.path),
             outdir,
             bundle: true,
             format: "esm",
@@ -148,17 +132,11 @@ cmd.command("build").action(async () => {
               js: ESM_REQUIRE_SHIM,
             },
             mainFields: ["module", "main"],
-          };
+          }
 
-          await esbuild.build(
-            config.buildConfig
-              ? config.buildConfig(esbuildOptions)
-              : esbuildOptions
-          );
+          await esbuild.build(config.buildConfig ? config.buildConfig(esbuildOptions) : esbuildOptions)
 
-          const packageJson = JSON.parse(
-            await readFile(join(serviceSrcDir, service.packageJsonPath), "utf8")
-          );
+          const packageJson = JSON.parse(await readFile(join(serviceSrcDir, service.packageJsonPath), "utf8"))
 
           await writeFile(
             join(tmpDir, stack.path, service.path, "package.json"),
@@ -169,20 +147,20 @@ cmd.command("build").action(async () => {
                 type: "module",
               },
               null,
-              2
-            )
-          );
+              2,
+            ),
+          )
 
           if (config.postBuild) {
-            await config.postBuild(service, outdir);
+            await config.postBuild(service, outdir)
           }
-        })
-      )
-    )
-  );
-});
+        }),
+      ),
+    ),
+  )
+})
 
-cmd.parseAsync().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+cmd.parseAsync().catch(error => {
+  console.error(error)
+  process.exit(1)
+})

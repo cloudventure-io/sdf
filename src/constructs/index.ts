@@ -1,2 +1,2 @@
-export * from "./api-gateway-v2/";
-export * from "./lambda/SdfLambda";
+export * from "./api-gateway-v2/"
+export * from "./lambda/SdfLambda"
