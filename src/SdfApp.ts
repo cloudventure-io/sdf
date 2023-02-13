@@ -52,7 +52,7 @@ export class SdfApp extends App {
       ...options,
       outdir: join(rootDir, "cdktf.out"),
       context: {
-        [EXCLUDE_STACK_ID_FROM_LOGICAL_IDS]: "false",
+        [EXCLUDE_STACK_ID_FROM_LOGICAL_IDS]: "true",
         [ALLOW_SEP_CHARS_IN_LOGICAL_IDS]: "true",
         ...options.context,
       },
@@ -105,11 +105,11 @@ export class SdfApp extends App {
 
     const metadata: SdfAppMetadata = {
       path: this.relDir,
-      stacks: stacks.map((stack) => stack._getBuildMetadata()),
+      stacks: stacks.map((stack) => stack._getBuildManifest()),
     };
 
     await writeFile(
-      join(this.tmpDir, "metadata.json"),
+      join(this.tmpDir, "sdf.manifest.json"),
       JSON.stringify(metadata, null, 2)
     );
 

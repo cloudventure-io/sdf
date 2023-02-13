@@ -31,7 +31,7 @@ export class SdfStack extends TerraformStack {
     return join(this.sdfApp.absDir, this.relDir);
   }
 
-  _getBuildMetadata(): SdfStackBuildMetadata {
+  _getBuildManifest(): SdfStackBuildMetadata {
     return {
       name: this.node.id,
       path: this.relDir,
@@ -41,7 +41,7 @@ export class SdfStack extends TerraformStack {
           (construct): construct is SdfService =>
             construct instanceof SdfService
         )
-        .map((service) => service._getBuildMetadata()),
+        .map((service) => service._getBuildManifest()),
     };
   }
 

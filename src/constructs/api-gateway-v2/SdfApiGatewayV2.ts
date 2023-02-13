@@ -93,8 +93,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     // define lambda functions
     walkOperations({
       document: this.document,
-      operationHandler: (operation: OperationHandlerOptions<OperationType>) =>
-        this.defineLambda(operation),
+      operationHandler: (operation) => this.defineLambda(operation),
     });
 
     // define the Api Gateway V2
@@ -141,8 +140,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
       functionName: this.app._concatName(this.service.id, this.id, operationId),
       publish: true,
       runtime: "node16.x",
-      handler: async (): Promise<SdfLambdaHandler> =>
-        this.renderLambdaHandler(operation),
+      handler: async () => this.renderLambdaHandler(operation),
       resources: {
         ...this.document["x-sdf-resources"],
         ...operation.operationSpec["x-sdf-resources"],
@@ -169,10 +167,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     const schema = extractOperationSchema(operation);
     this.service._registerSchema(schema);
 
-    const entryPointPath = await this.renderLambdaFiles(
-      operation,
-      schema
-    );
+    const entryPointPath = await this.renderLambdaFiles(operation, schema);
 
     const entryPointRelPath = relative(this.service.absDir, entryPointPath);
 
@@ -207,6 +202,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
       // clean up before generating
       await rm(this.entryPointsDirectory, { force: true, recursive: true });
       await mkdir(this.entryPointsDirectory, { recursive: true });
+      await mkdir(this.validatorsDirectory, { recursive: true });
 
       // clone and dereference the document
       this.dereferencedDocument = (await SwaggerParser.dereference(
@@ -234,8 +230,6 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
       ajv,
       ajv.compile(schema.properties.request)
     );
-
-    await mkdir(this.validatorsDirectory, { recursive: true });
 
     const validatorPath = join(
       this.validatorsDirectory,
@@ -267,7 +261,7 @@ export class SdfApiGatewayV2<OperationType extends {} = {}> extends Construct {
     const handlerPath = join(this.handlersDirectory, operationId);
     const entryPointPath = join(
       this.entryPointsDirectory,
-      camelCase(`api-${operationId}`)
+      camelCase(`handler-${operationId}`)
     );
 
     await writeMustacheTemplate({

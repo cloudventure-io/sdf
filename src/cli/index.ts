@@ -107,7 +107,7 @@ cmd.command("build").action(async () => {
   }
 
   const buildMetadata: SdfAppMetadata = JSON.parse(
-    await readFile(join(tmpDir, "metadata.json"), "utf8")
+    await readFile(join(tmpDir, "sdf.manifest.json"), "utf8")
   );
 
   await Promise.all(

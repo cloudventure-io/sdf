@@ -76,7 +76,7 @@ export class SdfService extends Construct {
     return this.codeArchive;
   }
 
-  _getBuildMetadata(): SdfServiceMetadata {
+  _getBuildManifest(): SdfServiceMetadata {
     return {
       name: this.node.id,
       path: this.relDir,
