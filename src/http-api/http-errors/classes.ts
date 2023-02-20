@@ -1,4 +1,4 @@
-import { HttpStatusCodes } from "../utils/HttpStatusCodes"
+import { HttpStatusCodes } from "../HttpStatusCodes"
 import { HttpError } from "./HttpError"
 
 const defineHttpError = (statusCode: HttpStatusCodes) =>

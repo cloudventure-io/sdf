@@ -44,11 +44,15 @@ export class SdfStack extends TerraformStack {
   }
 
   async _synth() {
-    await Promise.all(
-      this.node
-        .findAll()
-        .filter<SdfBundler>((construct): construct is SdfBundler => construct instanceof SdfBundler)
-        .map(bundler => bundler._synth()),
-    )
+    const runSynth = async (prop: string) => {
+      for (const c of this.node.findAll()) {
+        if (c !== this && typeof c[prop] === "function") {
+          await (c[prop] as () => Promise<void>)()
+        }
+      }
+    }
+    await runSynth("_preSynth")
+    await runSynth("_synth")
+    await runSynth("_postSynth")
   }
 }

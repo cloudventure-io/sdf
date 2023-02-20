@@ -3,14 +3,15 @@ import {
   APIGatewayProxyEventPathParameters,
   APIGatewayProxyEventQueryStringParameters,
   APIGatewayProxyEventV2,
+  APIGatewayProxyEventV2WithLambdaAuthorizer,
   APIGatewayProxyStructuredResultV2,
 } from "aws-lambda"
 
-import { ApiResponse } from "../../../ApiResponse"
-import { HttpErrors } from "../../../http-errors"
-import { HttpError } from "../../../http-errors/HttpError"
-import { HttpHeaders } from "../../../utils/HttpHeaders"
-import { MimeTypes } from "../../../utils/MimeTypes"
+import { MimeTypes } from "../../utils/MimeTypes"
+import { HttpHeaders } from "../HttpHeaders"
+import { HttpErrors } from "../http-errors"
+import { HttpError } from "../http-errors/HttpError"
+import { ApiResponse } from "./ApiResponse"
 
 export interface Operation {
   request: {
@@ -20,6 +21,8 @@ export interface Operation {
 
     contentType?: "application/json" | "application/x-www-form-urlencoded"
     body?: unknown
+
+    authorizer?: unknown
   }
   responses: {
     statusCode: number
@@ -42,9 +45,13 @@ export type ExtractResponses<ResponseTypes extends Operation["responses"]> = Ext
   ? T
   : never
 
+export type EventType<OpType extends Operation> = OpType extends { request: { authorizer: unknown } }
+  ? APIGatewayProxyEventV2WithLambdaAuthorizer<OpType["request"]["authorizer"]>
+  : APIGatewayProxyEventV2
+
 export type LambdaHandler<OpType extends Operation> = (
   options: OpType["request"],
-  event: APIGatewayProxyEventV2,
+  event: EventType<OpType>,
 ) => Promise<ExtractResponses<OpType["responses"]>>
 
 interface ValidationError {
@@ -70,14 +77,27 @@ export interface Validator {
   errors?: Array<ValidationError>
 }
 
+const validate = <T>(name: string, data: any, validator?: Validator): T => {
+  if (validator) {
+    if (!validator(data)) {
+      throw new HttpErrors.BadRequest(`VALIDATION_ERROR_${name}`, "request validation failed", validator.errors)
+    }
+  }
+  return data as T
+}
+
 const buildRequest = <OpType extends Operation>(
-  event: APIGatewayProxyEventV2,
-  validator?: Validator,
+  event: APIGatewayProxyEventV2 | APIGatewayProxyEventV2WithLambdaAuthorizer<OpType["request"]["authorizer"]>,
+  validators: Validators,
 ): OpType["request"] => {
   const request: OpType["request"] = {
-    path: event.pathParameters || {},
-    query: event.queryStringParameters || {},
-    header: Object.entries(event.headers).reduce((acc, [key, value]) => ({ ...acc, [key.toLowerCase()]: value }), {}),
+    path: validate("PATH", event.pathParameters || {}, validators.path),
+    query: validate("QUERY_STRING", event.queryStringParameters || {}, validators.query),
+    header: validate(
+      "HEADER",
+      Object.entries(event.headers).reduce((acc, [key, value]) => ({ ...acc, [key.toLowerCase()]: value }), {}),
+      validators.header,
+    ),
   }
 
   const contentType = (
@@ -87,24 +107,29 @@ const buildRequest = <OpType extends Operation>(
     .split(";")[0]
     .trim()
 
-  const body = event.body
+  const eventBody = event.body
+  let body: Pick<OpType["request"], "contentType" | "body"> | null = null
 
-  if (body) {
+  if (eventBody) {
     if (contentType === MimeTypes.APPLICATION_JSON) {
-      request.contentType = MimeTypes.APPLICATION_JSON
-      request.body = JSON.parse(body)
+      body = {
+        contentType,
+        body: JSON.parse(eventBody),
+      }
     } else if (contentType === MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED) {
-      const params = new URLSearchParams(body)
-      request.contentType = MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED
-      request.body = Array.from(params.entries()).reduce<{
-        [key in string]: string | Array<string>
-      }>(
-        (acc, [key, value]) => ({
-          ...acc,
-          [key]: value,
-        }),
-        {},
-      )
+      const params = new URLSearchParams(eventBody)
+      body = {
+        contentType,
+        body: Array.from(params.entries()).reduce<{
+          [key in string]: string | Array<string>
+        }>(
+          (acc, [key, value]) => ({
+            ...acc,
+            [key]: value,
+          }),
+          {},
+        ),
+      }
     } else {
       throw new HttpErrors.UnsupportedMediaType(
         "UNSUPPORTED_MEDIA_TYPE",
@@ -113,29 +138,51 @@ const buildRequest = <OpType extends Operation>(
     }
   }
 
-  if (validator && !validator(request)) {
-    throw new HttpErrors.BadRequest("VALIDATION_ERROR", "request validation failed", validator.errors)
+  validate("BODY", body, validators.body)
+
+  request.body = body?.body
+  request.contentType = body?.contentType
+
+  if (validators.authorizer) {
+    const authorizerContext = (event as APIGatewayProxyEventV2WithLambdaAuthorizer<OpType["request"]["authorizer"]>)
+      .requestContext.authorizer
+
+    if (!validators.authorizer(authorizerContext)) {
+      throw new Error(`Authorizer context validation failed: ${JSON.stringify(validators.authorizer.errors)}`)
+    }
+    request.authorizer = authorizerContext
   }
 
   return request
 }
 
-export const handlerWrapper =
-  <OpType extends Operation>(cb: LambdaHandler<OpType>, validator?: Validator) =>
-  async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
-    let response: ExtractResponses<OpType["responses"]>
+export interface Validators {
+  path?: Validator
+  query?: Validator
+  cookie?: Validator
+  header?: Validator
+
+  body?: Validator
+  authorizer?: Validator
+}
+
+export const wrapper =
+  <OpType extends Operation>(cb: LambdaHandler<OpType>, validators: Validators) =>
+  async (event: EventType<OpType>): Promise<APIGatewayProxyStructuredResultV2> => {
+    type Responses = ExtractResponses<OpType["responses"]>
+    let response: Responses
 
     try {
-      response = await cb(buildRequest(event, validator), event)
+      response = await cb(buildRequest(event, validators), event)
     } catch (e) {
       if (e instanceof ApiResponse) {
-        response = e as ExtractResponses<OpType["responses"]>
+        response = e as Responses
       } else if (e instanceof HttpError) {
-        response = new ApiResponse(e, e.statusCode) as ExtractResponses<OpType["responses"]>
+        response = new ApiResponse(e, e.statusCode) as Responses
       } else {
         console.error(e)
         const error = new HttpErrors.InternalServerError("INTERNAL_SERVER_ERROR", "Internal Server Error")
-        response = new ApiResponse(error, error.statusCode) as ExtractResponses<OpType["responses"]>
+        response = new ApiResponse(error, error.statusCode) as Responses
       }
     }
 

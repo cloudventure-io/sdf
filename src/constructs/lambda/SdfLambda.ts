@@ -4,12 +4,13 @@ import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
 import { LambdaFunction, LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
-import { TerraformResource, Token } from "cdktf"
+import { Fn, TerraformResource, Token } from "cdktf"
 import { constantCase } from "change-case"
 import { Construct } from "constructs"
 
 import { SdfApp } from "../../SdfApp"
 import { SdfBundler } from "../../SdfBundler"
+import { SdfResource } from "../../SdfResource"
 
 export interface SdfLambdaHandler {
   /** The name of the function */
@@ -30,13 +31,15 @@ export interface SdfLambdaConfig extends SdfLambdaFunctionConfig {
 export class SdfLambda extends Construct {
   private bundler: SdfBundler
   private app: SdfApp
+
   public function: LambdaFunction
+  public role: IamRole
 
-  private handlerPromise: Promise<SdfLambdaHandler>
+  // private handlerPromise: Promise<SdfLambdaHandler>
   public handler?: SdfLambdaHandler
-  public config: Omit<SdfLambdaConfig, "handler">
+  public config: SdfLambdaConfig
 
-  public constructor(scope: Construct, id: string, { handler, ...config }: SdfLambdaConfig) {
+  public constructor(scope: Construct, id: string, config: SdfLambdaConfig) {
     super(scope, id)
     this.bundler = SdfBundler.getBundlerFromCtx(this)
     this.app = SdfApp.getAppFromContext(this)
@@ -56,7 +59,7 @@ export class SdfLambda extends Construct {
       ],
     })
 
-    const role = new IamRole(this, "role", {
+    this.role = new IamRole(this, "role", {
       name: this.app._concatName(config.functionName, "lambda"),
       assumeRolePolicy: assumeRolePolicy.json,
     })
@@ -65,7 +68,7 @@ export class SdfLambda extends Construct {
 
     dependsOn.push(
       new IamRolePolicyAttachment(this, "basic-execution-role-policy", {
-        role: role.name,
+        role: this.role.name,
         policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
       }),
     )
@@ -73,41 +76,15 @@ export class SdfLambda extends Construct {
     if (config.vpcConfig) {
       dependsOn.push(
         new IamRolePolicyAttachment(this, "eni-management-role-policy", {
-          role: role.name,
+          role: this.role.name,
           policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaENIManagementAccess",
         }),
       )
     }
 
-    const policies: Array<string> = []
-    const environment: { [name: string]: string } = {
-      NODE_OPTIONS: "--enable-source-maps",
-    }
     if (config.resources) {
       Object.entries(config.resources).forEach(([resourceName, permissions]) => {
-        const resource = this.bundler._getResource(resourceName)
-        permissions.forEach(permissionName => {
-          const permission = resource.permissions[permissionName]
-          if (!permission) {
-            throw new Error(
-              `permission '${permissionName}' is not defined for resource '${resourceName}' in the stack '${this.bundler.id}'`,
-            )
-          }
-          policies.push(permission.json)
-        })
-
-        const key = constantCase(`RESOURCE_${resourceName}`)
-        environment[key] = JSON.stringify(resource.config)
-      })
-    }
-
-    if (policies.length) {
-      const policy = new DataAwsIamPolicyDocument(this, "policy", {
-        sourcePolicyDocuments: policies,
-      })
-      new IamRolePolicy(this, "polocy", {
-        role: role.name,
-        policy: policy.json,
+        this.addResource(resourceName, permissions)
       })
     }
 
@@ -117,8 +94,6 @@ export class SdfLambda extends Construct {
       name: `/aws/lambda/${config.functionName}`,
       retentionInDays: 30,
     })
-
-    this.handlerPromise = Promise.resolve(typeof handler === "function" ? handler() : handler)
 
     this.function = new LambdaFunction(this, "lambda", {
       dependsOn,
@@ -133,23 +108,66 @@ export class SdfLambda extends Construct {
           return this.handler.handler
         },
       }),
-      role: role.arn,
+      role: this.role.arn,
       runtime: "nodejs16.x",
 
       filename: code.outputPath,
       sourceCodeHash: code.outputBase64Sha256,
 
-      ...(Object.keys(environment).length || config?.environment?.variables
-        ? {
-            environment: {
-              variables: { ...environment, ...config?.environment?.variables },
-            },
-          }
-        : {}),
+      environment: {
+        variables: Token.asStringMap({
+          resolve: (): { [key in string]: string } => Fn.mergeMaps([this.environment, this.config.environment]),
+        }),
+      },
+    })
+  }
+
+  private resources: Record<string, SdfResource> = {}
+  private policies: Array<DataAwsIamPolicyDocument> = []
+  private environment: Record<string, string> = { NODE_OPTIONS: "--enable-source-maps" }
+
+  public addResource(name: string, permissions: Array<string>) {
+    if (this.resources[name]) {
+      throw new Error(`the resource ${name} is already defined for function ${this.node.id}`)
+    }
+    const resource = this.bundler._getResource(name)
+    this.resources[name] = resource
+
+    permissions.forEach(permissionName => {
+      const permission = resource.permissions[permissionName]
+      if (!permission) {
+        throw new Error(
+          `permission '${permissionName}' is not defined for resource ${name}, function '${this.node.id}' in the stack '${this.bundler.id}'`,
+        )
+      }
+      this.policies.push(permission)
     })
   }
 
   async _synth() {
-    this.handler = await this.handlerPromise
+    this.handler = await Promise.resolve(
+      typeof this.config.handler === "function" ? this.config.handler() : this.config.handler,
+    )
+
+    if (this.policies.length) {
+      const policy = new DataAwsIamPolicyDocument(this, "policy", {
+        sourcePolicyDocuments: this.policies.map(policy => policy.json),
+      })
+      new IamRolePolicy(this, "policy", {
+        role: this.role.name,
+        policy: policy.json,
+      })
+    }
+
+    this.environment = {
+      ...this.environment,
+      ...Object.entries(this.resources).reduce(
+        (acc, [resourceName, resource]) => ({
+          ...acc,
+          [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config),
+        }),
+        {},
+      ),
+    }
   }
 }

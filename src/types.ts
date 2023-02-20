@@ -1,8 +1,8 @@
 import { BuildOptions } from "esbuild"
 
-import { SdfBundlerMetadata } from "./SdfBundler"
+import { SdfBundleMetadata } from "./SdfBundler"
 
 export interface SdfConfig {
   buildConfig?: (buildOptions: BuildOptions) => BuildOptions
-  postBuild?: (bundle: SdfBundlerMetadata, outdir: string) => Promise<void>
+  postBuild?: (bundle: SdfBundleMetadata, outdir: string) => Promise<void>
 }

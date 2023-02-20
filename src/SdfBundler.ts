@@ -10,7 +10,7 @@ import { SdfApp } from "./SdfApp"
 import { SdfResource } from "./SdfResource"
 import { SdfStack } from "./SdfStack"
 import { SdfLambda } from "./constructs/lambda/SdfLambda"
-import { schemaHandlerOptions, walkSchema } from "./openapi/walkSchema"
+import { schemaHandlerOptions, walkSchema } from "./http-api/openapi/walkSchema"
 import resoucesTemplate from "./resources.ts.mu"
 import { writeMustacheTemplate } from "./utils/writeMustacheTemplate"
 
@@ -110,7 +110,7 @@ export class SdfBundler extends Construct {
 
     // add tsEnumNames to all enums. this is required by
     // json-schema-to-typescript library to generate enum values
-    walkSchema(`/`, rootSchema, async ({ schema }: schemaHandlerOptions) => {
+    walkSchema(rootSchema, async ({ schema }: schemaHandlerOptions) => {
       if ("enum" in schema && schema.enum && !schema["x-no-ts-enum"]) {
         ;(schema as any).tsEnumNames = (schema.enum as Array<string>).map(e =>
           e.replace(/-(.)/g, m => m[1].toUpperCase()),
@@ -193,13 +193,7 @@ export class SdfBundler extends Construct {
     }
   }
 
-  async _synth() {
-    await Promise.all(
-      this.node
-        .findAll()
-        .filter<SdfLambda>((construct): construct is SdfLambda => construct instanceof SdfLambda)
-        .map(lambda => lambda._synth()),
-    )
+  async _postSynth() {
     await this._renderInterfaces()
     await this._renderResources()
   }

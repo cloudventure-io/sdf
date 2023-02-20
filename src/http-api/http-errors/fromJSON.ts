@@ -1,7 +1,7 @@
 import { HttpError } from "./HttpError"
 import { classes } from "./classes"
 
-export const fromJSON = (error: Record<string, unknown>): HttpError => {
+HttpError.fromJSON = (error: Record<string, unknown>): HttpError => {
   const className = error?.class
   const code = error?.code
   const message = error?.message

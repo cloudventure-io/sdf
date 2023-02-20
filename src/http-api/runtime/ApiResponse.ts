@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from "aws-lambda"
 
-import { HttpHeaders } from "./utils/HttpHeaders"
-import { MimeTypes } from "./utils/MimeTypes"
+import { MimeTypes } from "../../utils/MimeTypes"
+import { HttpHeaders } from "../HttpHeaders"
 
 export class ApiResponse<
   BodyType,

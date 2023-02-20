@@ -2,8 +2,7 @@ import SwaggerParser from "@apidevtools/swagger-parser"
 import * as esbuild from "esbuild"
 import { isAbsolute, join, relative } from "path"
 
-import { Document } from "../openapi/types"
-import { walkOperations } from "../openapi/walkOperations"
+import { Document } from "../http-api/openapi/types"
 
 export interface EsbuildSdfPluginOpenAPIOptions {
   rootDir: string
@@ -30,17 +29,6 @@ export const createEsbuildSdfPluginOpenAPI = (options: EsbuildSdfPluginOpenAPIOp
       const path = relative(options.rootDir, args.path)
 
       spec["x-sdf-spec-path"] = path
-
-      // Custom Validation
-      walkOperations({
-        document: spec,
-        operationHandler({ operationSpec, pathPattern, method }) {
-          if (!operationSpec.operationId) {
-            throw new Error(`Each operation must have a unique operationId (${path}#/paths/${pathPattern}/${method})`)
-          }
-        },
-      })
-      // TODO: validate other conditions defined in types.ts
 
       return {
         contents: JSON.stringify(spec),

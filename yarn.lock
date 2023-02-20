@@ -503,10 +503,10 @@
     fs-extra "^8.1.0"
     jsii-srcmak "^0.1.790"
 
-"@cloudventure/jest-transformer-esbuild@^1.0.10":
-  version "1.0.10"
-  resolved "https://registry.yarnpkg.com/@cloudventure/jest-transformer-esbuild/-/jest-transformer-esbuild-1.0.10.tgz#3c02f7fbf19a80d25623614627140e997e7f021a"
-  integrity sha512-+no6b1SQJTMBMCFEpNv+a6F5Oga0j7TDI4NClHk1NOLFVtj1qwnXOGk0kPwyhe77E6TlexlDVssevS28Eak0Aw==
+"@cloudventure/jest-transformer-esbuild@^1.0.13":
+  version "1.0.13"
+  resolved "https://registry.yarnpkg.com/@cloudventure/jest-transformer-esbuild/-/jest-transformer-esbuild-1.0.13.tgz#a8a30ece6996ef5d76ee8ce68b7a5c8edd20419e"
+  integrity sha512-X4pYHDUk1cLQR+x9YKLI2BHkJ1dWQP7afsdYcVFTZnVam7En3vya1poUwvXjnWK6BiAP5nXLrVbhxECGns84vQ==
   dependencies:
     babel-plugin-jest-hoist "28 || 29"
     esbuild "0.14 || 0.15 || 0.16 || 0.17"

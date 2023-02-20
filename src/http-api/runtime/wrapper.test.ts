@@ -1,18 +1,20 @@
 import { jest } from "@jest/globals"
-import Ajv from "ajv"
+import Ajv, { ValidateFunction } from "ajv"
 import { APIGatewayProxyEventV2 } from "aws-lambda"
 import { OpenAPIV3 } from "openapi-types"
 
-import { ApiResponse } from "../../../ApiResponse"
-import { HttpErrors } from "../../../http-errors"
-import { Document, OperationObject } from "../../../openapi/types"
-import { HttpHeaders } from "../../../utils/HttpHeaders"
-import { MimeTypes } from "../../../utils/MimeTypes"
-import { extractOperationSchema } from "../extractOperationSchema"
-import { LambdaHandler, Validator, handlerWrapper } from "./handlerWrapper"
+import { MimeTypes } from "../../utils/MimeTypes"
+import { HttpHeaders } from "../HttpHeaders"
+import { OperationParser } from "../SdfHttpApi/OperationParser"
+import { HttpErrors } from "../http-errors"
+import { Document, OperationObject } from "../openapi/types"
+import { ApiResponse } from "./ApiResponse"
+import { LambdaHandler, wrapper } from "./wrapper"
 
 describe("handler wrapper tests", () => {
-  const createDocumentFromOperation = (pathSpec: OperationObject<object>): Document<object> => ({
+  const createDocumentFromOperation = (
+    pathSpec: OperationObject<object, OpenAPIV3.SchemaObject>,
+  ): Document<object> => ({
     info: {
       title: "test",
       version: "1.0.0",
@@ -71,35 +73,38 @@ describe("handler wrapper tests", () => {
       },
     })
 
-  const createHandler = ({ required, callback }: { required: boolean; callback?: LambdaHandler<any> }) => {
+  const createHandler = async ({ required, callback }: { required: boolean; callback?: LambdaHandler<any> }) => {
     const document = createDocument({ required })
-    const schema = extractOperationSchema({
-      document,
-      method: OpenAPIV3.HttpMethods.POST,
-      pathPattern: "/test",
-      pathSpec: document.paths["/test"],
-      operationSpec: document.paths["/test"][OpenAPIV3.HttpMethods.POST] as OperationObject<object>,
-      trace: "test",
-    })
+    const operationParser = new OperationParser(document)
+
+    const operation = await operationParser.parseOperation("/test", OpenAPIV3.HttpMethods.POST)
+
+    const schemas = operationParser.createValidtorSchemas(operation)
 
     const ajv = new Ajv({
       strict: false,
       allErrors: true,
     })
 
-    const validator = ajv.compile(schema.properties.request)
+    const validators = schemas.reduce<Record<string, ValidateFunction>>(
+      (acc, schema) => ({
+        ...acc,
+        [schema.$id as string]: ajv.compile(schema),
+      }),
+      {},
+    )
 
-    return handlerWrapper(
+    return wrapper(
       callback ||
         (async ({ body }): Promise<ApiResponse<unknown, 200>> => {
           return new ApiResponse(body, 200)
         }),
-      validator as Validator,
+      validators,
     )
   }
 
   it("invalid body", async () => {
-    const handler = createHandler({ required: true })
+    const handler = await createHandler({ required: true })
     const res = await handler({
       headers: {
         [HttpHeaders.ContentType]: MimeTypes.APPLICATION_JSON,
@@ -112,11 +117,11 @@ describe("handler wrapper tests", () => {
     expect(res.statusCode).toBe(400)
     expect(res.body).toBeTruthy()
     const body = JSON.parse(res.body!)
-    expect(body.code).toBe("VALIDATION_ERROR")
+    expect(body.code).toBe("VALIDATION_ERROR_BODY")
   })
 
   it("unsupported media type", async () => {
-    const handler = createHandler({ required: true })
+    const handler = await createHandler({ required: true })
     const res = await handler({
       headers: {
         [HttpHeaders.ContentType]: "aaa",
@@ -133,7 +138,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("no content type", async () => {
-    const handler = createHandler({ required: true })
+    const handler = await createHandler({ required: true })
     const res = await handler({
       headers: {},
       body: JSON.stringify({
@@ -148,7 +153,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("valid body - application/json", async () => {
-    const handler = createHandler({ required: true })
+    const handler = await createHandler({ required: true })
     const res = await handler({
       headers: {
         [HttpHeaders.ContentType]: MimeTypes.APPLICATION_JSON,
@@ -162,7 +167,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("valid body - application/x-www-form-urlencoded", async () => {
-    const handler = createHandler({ required: true })
+    const handler = await createHandler({ required: true })
     const res = await handler({
       headers: {
         [HttpHeaders.ContentType]: MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED,
@@ -176,7 +181,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("optional body", async () => {
-    const handler = createHandler({ required: false })
+    const handler = await createHandler({ required: false })
 
     const res = await handler({
       headers: {},
@@ -185,7 +190,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("optional body - application/json", async () => {
-    const handler = createHandler({ required: false })
+    const handler = await createHandler({ required: false })
 
     const res = await handler({
       headers: {
@@ -199,7 +204,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("throwing ApiResponse", async () => {
-    const handler = createHandler({
+    const handler = await createHandler({
       required: false,
       callback: async (): Promise<ApiResponse<unknown, 200>> => {
         throw new ApiResponse(null, 201)
@@ -213,7 +218,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("throwing HttpError", async () => {
-    const handler = createHandler({
+    const handler = await createHandler({
       required: false,
       callback: async (): Promise<ApiResponse<unknown, 200>> => {
         throw new HttpErrors.BadGateway("TEST", "hello message")
@@ -232,7 +237,7 @@ describe("handler wrapper tests", () => {
   })
 
   it("throwing generic error", async () => {
-    const handler = createHandler({
+    const handler = await createHandler({
       required: false,
       callback: async (): Promise<ApiResponse<unknown, 200>> => {
         throw new Error("generic error")

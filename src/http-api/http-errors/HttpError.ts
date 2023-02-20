@@ -1,4 +1,4 @@
-import { HttpStatusCodes } from "../utils/HttpStatusCodes"
+import { HttpStatusCodes } from "../HttpStatusCodes"
 
 export abstract class HttpError extends Error {
   constructor(public code: string, public message: string, public details?: unknown) {
@@ -19,4 +19,8 @@ export abstract class HttpError extends Error {
       details: this.details,
     }
   }
+
+  // @ts-expect-error this function is overwritten
+  // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
+  static fromJSON(error: Record<string, unknown>): HttpError {}
 }
