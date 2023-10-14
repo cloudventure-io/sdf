@@ -6,7 +6,7 @@ export * from "./constructs"
 
 export * from "./SdfApp"
 export * from "./SdfStack"
-export * from "./SdfBundler"
+export * from "./bundlers"
 
 export * from "./SdfResource"
 export * from "./resources"

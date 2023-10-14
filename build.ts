@@ -49,7 +49,7 @@ const run = async () => {
   const esbuildOptions: esbuild.BuildOptions = {
     outdir: "dist",
     platform: "node",
-    target: "node16",
+    target: "node18",
     bundle: false,
     sourcemap: "inline",
     minify: true,

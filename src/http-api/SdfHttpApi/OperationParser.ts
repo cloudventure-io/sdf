@@ -4,14 +4,8 @@ import { camelCase } from "change-case"
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
-import {
-  DereferencedDocument,
-  Document,
-  DocumentTrace,
-  OperationObject,
-  ParameterObject,
-  PathItemObject,
-} from "../openapi/types"
+import { DocumentTrace } from "../openapi/DocumentTrace"
+import { DereferencedDocument, Document, OperationObject, ParameterObject, PathItemObject } from "../openapi/types"
 
 export interface OperationBundle<
   OperationType extends object,
@@ -38,7 +32,7 @@ export enum ParsedParameterType {
 }
 
 export type ParsedRequestParameters = {
-  [type in ParsedParameterType]?: OpenAPIV3.SchemaObject
+  [type in ParsedParameterType]: OpenAPIV3.SchemaObject
 }
 
 export interface ParsedRequestSchema {
@@ -204,7 +198,7 @@ export class OperationParser<OperationType extends object = object> {
       }
     }, {})
 
-    return Object.entries(mergedParameters).reduce<ParsedRequestParameters>(
+    return Object.entries(mergedParameters).reduce<Partial<ParsedRequestParameters>>(
       (acc, [type, params]) => ({
         ...acc,
         [type]: {
@@ -223,7 +217,7 @@ export class OperationParser<OperationType extends object = object> {
         } as OpenAPIV3.SchemaObject,
       }),
       {},
-    )
+    ) as ParsedRequestParameters
   }
 
   private extractRequestBody({
@@ -422,7 +416,7 @@ export class OperationParser<OperationType extends object = object> {
     Object.entries(this.rawDocument.paths).forEach(([pathPattern, pathSpec]) => {
       const pathTrace = documentTrace.append(["paths", pathPattern])
 
-      Object.values(OpenAPIV3.HttpMethods).forEach(async method => {
+      Object.values(OpenAPIV3.HttpMethods).forEach(method => {
         const operationSpec = pathSpec[method]
 
         if (!operationSpec) {

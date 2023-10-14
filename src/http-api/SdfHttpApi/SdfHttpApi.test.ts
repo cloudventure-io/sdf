@@ -1,16 +1,15 @@
 import { ArchiveProvider } from "@cdktf/provider-archive/lib/provider"
 import { AwsProvider } from "@cdktf/provider-aws/lib/provider"
-import { jest } from "@jest/globals"
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda"
-import { spawn } from "child_process"
-import * as esbuild from "esbuild"
-import { mkdir, mkdtemp, rm, writeFile } from "fs/promises"
 import { OpenAPIV3 } from "openapi-types"
-import { join, relative } from "path"
+import { join } from "path"
 
 import { SdfApp } from "../../SdfApp"
 import { SdfBundler } from "../../SdfBundler"
 import { SdfStack } from "../../SdfStack"
+import { requireFile } from "../../tests/requireFile"
+import * as setup from "../../tests/setup"
+import { tscCheck } from "../../tests/tscCheck"
 import { SdfHttpApiAuthorizer } from "../SdfHttpApiAuthorizer/SdfHttpApiAuthorizer"
 import { HttpError } from "../http-errors"
 import { Document } from "../openapi/types"
@@ -21,89 +20,17 @@ describe(SdfHttpApi.name, () => {
   const bundlerName = "test-service"
   let rootDir: string
   let tmpDir: string
-  let bundleDir: string
-  let packageJsonPath: string
-
-  const tscCheck = async () => {
-    const child = spawn("yarn", ["-s", "run", "tsc", "--noEmit", "-p", join(rootDir, "tsconfig.json")], {
-      cwd: rootDir,
-    })
-    const out: Array<string> = []
-    child.stdout.on("data", data => out.push(data))
-    child.stderr.on("data", data => out.push(data))
-
-    const code = await new Promise(resolve => child.on("close", code => resolve(code)))
-
-    if (code !== 0) {
-      throw new Error(`tsc exited with status code ${code}` + out.join("\n"))
-    }
-  }
-
-  const requireFile = async <T>(path: string): Promise<T> => {
-    const outfile = join(tmpDir, path).replace(/\.[^.]+$/, ".js")
-
-    await esbuild.build({
-      loader: {
-        ".mu": "text",
-      },
-      absWorkingDir: bundleDir,
-      platform: "node",
-      entryPoints: [join(bundleDir, path)],
-      outfile: outfile,
-      format: "cjs",
-      bundle: true,
-    })
-
-    return jest.requireActual(outfile)
-  }
+  let bundlePath: string
 
   beforeEach(async () => {
-    const testsTmpDir = join(process.cwd(), "tmp", "tests")
-    await mkdir(testsTmpDir, { recursive: true })
-    rootDir = await mkdtemp(join(testsTmpDir, `${SdfHttpApi.name}-`))
-
-    const relativePathToProjectRoot = relative(rootDir, process.cwd())
-
-    await writeFile(
-      join(rootDir, "tsconfig.json"),
-      JSON.stringify(
-        {
-          extends: `${relativePathToProjectRoot}/tsconfig.json`,
-          compilerOptions: {
-            emitDeclarationOnly: false,
-            noEmit: true,
-            rootDirs: ["./", `${relativePathToProjectRoot}/src`],
-            paths: {
-              "@cloudventure/sdf": [`${relativePathToProjectRoot}/src`],
-            },
-          },
-          include: ["./", `${relativePathToProjectRoot}/src`],
-        },
-        null,
-        2,
-      ),
-    )
-
-    tmpDir = join(rootDir, "tmp")
-    await mkdir(tmpDir, { recursive: true })
-    bundleDir = join(rootDir, "src", "services", bundlerName)
-
-    await mkdir(bundleDir, {
-      recursive: true,
-    })
-
-    packageJsonPath = join(bundleDir, "package.json")
-
-    // await writeFile(
-    //   packageJsonPath,
-    //   JSON.stringify({
-    //     name: bundlerName,
-    //   }),
-    // )
+    const res = await setup.beforeEach(SdfHttpApi.name)
+    rootDir = res.rootDir
+    tmpDir = res.tmpDir
+    bundlePath = join(rootDir, "src", bundlerName)
   })
 
   afterEach(async () => {
-    await rm(rootDir, { recursive: true, force: true })
+    await setup.afterEach(rootDir)
   })
 
   it("test validators", async () => {
@@ -112,7 +39,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath, naming: "expanded" })
 
     new SdfHttpApi(bundler, "api", {
       document: {
@@ -195,9 +122,13 @@ describe(SdfHttpApi.name, () => {
 
     await app.synth()
 
-    await tscCheck()
+    await tscCheck(rootDir)
 
-    const validators = await requireFile<Validators>(join("api", "entrypoints", "validators", "testPost.validator.js"))
+    const validators = await requireFile<Validators>(
+      join("api", "entrypoints", "validators", "testPost.validator.js"),
+      tmpDir,
+      bundlePath,
+    )
     expect(typeof validators.path).toBe("function")
     expect(typeof validators.query).toBe("function")
     expect(typeof validators.header).toBe("function")
@@ -205,7 +136,7 @@ describe(SdfHttpApi.name, () => {
 
     const { entrypoint } = await requireFile<{
       entrypoint: (event: Partial<APIGatewayProxyEventV2>) => Promise<APIGatewayProxyResult>
-    }>(join("api", "entrypoints", "handlerTestPost.ts"))
+    }>(join("api", "entrypoints", "handlerTestPost.ts"), tmpDir, bundlePath)
 
     expect(typeof entrypoint).toBe("function")
 
@@ -274,7 +205,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
 
     new SdfHttpApi(bundler, "api", {
       document: {
@@ -306,7 +237,7 @@ describe(SdfHttpApi.name, () => {
     })
 
     await app.synth()
-    await expect(tscCheck()).rejects.toThrowError(/Type 'number' is not assignable to type 'string'/)
+    await expect(tscCheck(rootDir)).rejects.toThrowError(/Type 'number' is not assignable to type 'string'/)
   })
 
   const createDocumentWithAuthorizer = (
@@ -347,7 +278,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath, naming: "expanded" })
 
     const authorizer = new SdfHttpApiAuthorizer(bundler, "my-auth", {
       authorizerResultTtlInSeconds: 5,
@@ -379,7 +310,7 @@ describe(SdfHttpApi.name, () => {
     })
 
     await app.synth()
-    await tscCheck()
+    await tscCheck(rootDir)
   })
 
   it("authorizer - $ref in security scheme", async () => {
@@ -388,7 +319,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {
@@ -407,7 +338,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {
@@ -427,7 +358,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {
@@ -447,7 +378,7 @@ describe(SdfHttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { packageJsonPath })
+    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {

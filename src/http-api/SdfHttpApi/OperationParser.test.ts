@@ -81,13 +81,12 @@ describe(OperationParser.name, () => {
 
     const operationSchema = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operationSchema.request.parameters.cookie).toBeTruthy()
-    expect(operationSchema.request.parameters.header).toBeTruthy()
-    // expect(operationSchema.request.parameters.query?.param1?.required).toBeTruthy()
-    // expect(operationSchema.request.parameters.query?.param1?.schema?.type).toBe("boolean")
-    // expect(operationSchema.request.parameters.query?.param2?.required).toBeFalsy()
-    // expect(operationSchema.request.parameters.query?.param2?.schema?.type).toBe("string")
-    // expect(operationSchema.request.parameters.path?.param3?.schema?.type).toBe("string")
+    expect(operationSchema.request.parameters.cookie?.properties).toStrictEqual({})
+    expect(operationSchema.request.parameters.header?.properties).toStrictEqual({})
+    expect(operationSchema.request.parameters.query.required).toStrictEqual(["param1"])
+    expect(operationSchema.request.parameters.query.properties?.param1).toStrictEqual({ type: "boolean" })
+    expect(operationSchema.request.parameters.query.properties?.param2).toStrictEqual({ type: "string" })
+    expect(operationSchema.request.parameters.path.properties?.param3).toStrictEqual({ type: "string" })
   })
 
   it("header parameter case-insensitivity", async () => {
@@ -125,7 +124,6 @@ describe(OperationParser.name, () => {
       "x-test-header",
       "x-test-header2",
     ])
-    // expect()
     expect(operationSchema.request.parameters.header?.required).toStrictEqual(["x-test-header"])
     expect(operationSchema.request.parameters.header?.properties?.["x-test-header"]).toStrictEqual({ type: "boolean" })
     expect(operationSchema.request.parameters.header?.properties?.["x-test-header2"]).toStrictEqual({ type: "string" })
@@ -407,5 +405,84 @@ describe(OperationParser.name, () => {
     expect(operation.authorizer).toBeTruthy()
     expect(operation.authorizer?.name).toBe("authorizer")
     expect(operation.authorizer?.value).toStrictEqual(["op", "level"])
+  })
+
+  it("operationId generation", async () => {
+    const parser = new OperationParser({
+      openapi: "3.0.0",
+      info: {
+        title: "test",
+        version: "1.0.0",
+      },
+      paths: {
+        "/test": {
+          get: {
+            responses: {
+              "200": {
+                description: "test",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "string",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "x-sdf-spec-path": "test",
+    })
+
+    const operation = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
+    expect(operation.operationId).toBe("testGet")
+  })
+
+  it("operationId duplicate", () => {
+    expect(
+      () =>
+        new OperationParser({
+          openapi: "3.0.0",
+          info: {
+            title: "test",
+            version: "1.0.0",
+          },
+          paths: {
+            "/test": {
+              get: {
+                responses: {
+                  "200": {
+                    description: "test",
+                    content: {
+                      "application/json": {
+                        schema: {
+                          type: "string",
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              post: {
+                operationId: "testGet",
+                responses: {
+                  "200": {
+                    description: "test",
+                    content: {
+                      "application/json": {
+                        schema: {
+                          type: "string",
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "x-sdf-spec-path": "test",
+        }),
+    ).toThrowError(/duplicate operation id testGet at/)
   })
 })

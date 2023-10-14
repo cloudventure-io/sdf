@@ -1,11 +1,9 @@
 import { App, AppConfig } from "cdktf"
-import { ALLOW_SEP_CHARS_IN_LOGICAL_IDS, EXCLUDE_STACK_ID_FROM_LOGICAL_IDS } from "cdktf/lib/features"
 import { Construct } from "constructs"
-import { writeFile } from "fs/promises"
-import { join } from "path"
+import { mkdir, writeFile } from "fs/promises"
+import { join, resolve } from "path"
 
-import { SdfBundler } from "./SdfBundler"
-import { SdfStack, SdfStackBuildMetadata } from "./SdfStack"
+import { SdfStack, SdfStackManifest } from "./SdfStack"
 
 export type NamingCase = "param-case" | "PascalCase"
 type namingCaseFunction = (...args: Array<string>) => string
@@ -18,41 +16,34 @@ const namingCaseFunction: {
 }
 
 export interface SdfAppOptions extends AppConfig {
-  rootDir: string
-  tmpDir: string
-
   namingCase?: NamingCase
+
+  outdir: string
 }
 
-export interface SdfAppMetadata {
-  path: string
-  stacks: Array<SdfStackBuildMetadata>
+export interface SdfAppManifest {
+  stacks: Array<SdfStackManifest>
 }
 
 export class SdfApp extends App {
-  // The root directory of the app
-  public rootDir: string
+  private _workdir: string
 
-  // The temporary directory of the app.
-  // Defaults to ${rootDir}/tmp.
-  public tmpDir: string
+  /** The working directory of SDF */
+  get workdir(): string {
+    return this._workdir
+  }
 
   private namingCaseFunction: namingCaseFunction
 
-  constructor({ rootDir, tmpDir, namingCase = "param-case", ...options }: SdfAppOptions) {
+  constructor({ outdir: outdir, namingCase = "param-case", ...options }: SdfAppOptions) {
     super({
       ...options,
-      outdir: join(rootDir, "cdktf.out"),
-      context: {
-        [EXCLUDE_STACK_ID_FROM_LOGICAL_IDS]: "true",
-        [ALLOW_SEP_CHARS_IN_LOGICAL_IDS]: "true",
-        ...options.context,
-      },
+      outdir: resolve(outdir),
     })
 
     this.node.setContext(SdfApp.name, this)
-    this.rootDir = rootDir
-    this.tmpDir = tmpDir
+
+    this._workdir = join(this.outdir, ".sdf")
     this.namingCaseFunction = namingCaseFunction[namingCase]
   }
 
@@ -60,11 +51,11 @@ export class SdfApp extends App {
     return this.namingCaseFunction(...args)
   }
 
-  public static getFromContext<T extends typeof SdfApp | typeof SdfStack | typeof SdfBundler>(
+  public static getFromContext<T extends (new (...args: any[]) => any) | (abstract new (...args: any[]) => any)>(
     construct: Construct,
     type: T,
   ): InstanceType<T> {
-    const value: InstanceType<T> = construct.node.tryGetContext(type.name)
+    const value: any = construct.node.tryGetContext(type.name)
     if (!value) {
       throw new Error(`cannot find ${type.name} in context`)
     } else if (!(value instanceof type)) {
@@ -77,27 +68,20 @@ export class SdfApp extends App {
     return SdfApp.getFromContext(construct, SdfApp)
   }
 
-  get relDir(): string {
-    return "src"
-  }
-
-  get absDir(): string {
-    return join(this.rootDir, this.relDir)
-  }
-
   async synth(): Promise<void> {
+    await mkdir(this.workdir, { recursive: true })
+
     const stacks = this.node
       .findAll()
       .filter<SdfStack>((construct): construct is SdfStack => construct instanceof SdfStack)
 
     await Promise.all(stacks.map(stack => stack._synth()))
 
-    const metadata: SdfAppMetadata = {
-      path: this.relDir,
-      stacks: stacks.map(stack => stack._getBuildManifest()),
+    const metadata: SdfAppManifest = {
+      stacks: stacks.map(stack => stack._getStackManifest()),
     }
 
-    await writeFile(join(this.tmpDir, "sdf.manifest.json"), JSON.stringify(metadata, null, 2))
+    await writeFile(join(this.workdir, "sdf.manifest.json"), JSON.stringify(metadata, null, 2))
 
     super.synth()
   }

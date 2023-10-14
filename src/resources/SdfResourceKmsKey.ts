@@ -34,7 +34,11 @@ export class SdfResourceKmsKey extends SdfResource {
     keyId: string
   }
 
-  constructor(scope: Construct, public id: string, key: KmsKey | KmsKeyConfig) {
+  constructor(
+    scope: Construct,
+    public id: string,
+    key: KmsKey | KmsKeyConfig,
+  ) {
     super(scope, id)
 
     this.key = key instanceof KmsKey ? key : new KmsKey(this, id, key)

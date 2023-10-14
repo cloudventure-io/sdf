@@ -4,46 +4,71 @@ import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
 import { LambdaFunction, LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
-import { Fn, TerraformResource, Token } from "cdktf"
+import { Fn, TerraformResource, Token, dependable } from "cdktf"
 import { constantCase } from "change-case"
+
 import { Construct } from "constructs"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfBundler } from "../../SdfBundler"
+import { SdfBundler } from "../../bundlers/SdfBundler"
 import { SdfResource } from "../../SdfResource"
+import { SdfStack } from "../../SdfStack"
 
-export interface SdfLambdaHandler {
-  /** The name of the function */
-  handler: string
+export type SdfLambdaFunctionConfig = Omit<LambdaFunctionConfig, "role">
 
-  /** The file path of the entry point */
-  entryPoint: string
-}
-
-type SdfLambdaFunctionConfig = Omit<LambdaFunctionConfig, "role" | "handler"> & {
-  handler: SdfLambdaHandler | (() => Promise<SdfLambdaHandler>)
-}
-
-export interface SdfLambdaConfig extends SdfLambdaFunctionConfig {
+export interface SdfLambdaConfig<Bundler extends SdfBundler> extends SdfLambdaFunctionConfig {
   resources?: { [name in string]: Array<string> }
+  bundler: Required<Bundler>["_context_type"]
 }
 
-export class SdfLambda extends Construct {
-  private bundler: SdfBundler
+/**
+ * Resolvable is a helper structure for constructing
+ * IResolvable objects with async implementation and
+ * a reference to a value which will be resolved
+ * during async synth process.
+ */
+interface Resolvable {
+  key: string
+  resolve: () => Promise<unknown>
+  ref: unknown
+}
+
+export class SdfLambda<Bundler extends SdfBundler> extends Construct {
+  private bundler: Bundler
   private app: SdfApp
+  private stack: SdfStack
 
   public function: LambdaFunction
   public role: IamRole
 
-  // private handlerPromise: Promise<SdfLambdaHandler>
-  public handler?: SdfLambdaHandler
-  public config: SdfLambdaConfig
+  private resolvables: Array<Resolvable> = []
+  public createResolvable(key: string, resolve: () => Promise<unknown>, ref?: unknown) {
+    const resolvable: Resolvable = {
+      key,
+      ref,
+      resolve,
+    }
 
-  public constructor(scope: Construct, id: string, config: SdfLambdaConfig) {
-    super(scope, id)
-    this.bundler = SdfBundler.getBundlerFromCtx(this)
+    this.resolvables.push(resolvable)
+
+    return {
+      resolve() {
+        return resolvable.ref
+      },
+    }
+  }
+
+  public context: Required<Bundler>["_context_type"]
+
+  public constructor(bundler: Bundler, id: string, config: SdfLambdaConfig<Bundler>) {
+    super(bundler, id)
+
     this.app = SdfApp.getAppFromContext(this)
-    this.config = config
+    this.stack = SdfStack.getStackFromCtx(this)
+    this.bundler = bundler
+
+    const { bundler: context, resources, ...restConfig } = config
+    this.context = context
 
     const assumeRolePolicy = new DataAwsIamPolicyDocument(this, "assume-role-policy", {
       statement: [
@@ -82,62 +107,56 @@ export class SdfLambda extends Construct {
       )
     }
 
-    if (config.resources) {
-      Object.entries(config.resources).forEach(([resourceName, permissions]) => {
+    if (resources) {
+      Object.entries(resources).forEach(([resourceName, permissions]) => {
         this.addResource(resourceName, permissions)
       })
     }
-
-    const code = this.bundler.code
 
     new CloudwatchLogGroup(this, "logs", {
       name: `/aws/lambda/${config.functionName}`,
       retentionInDays: 30,
     })
 
+    const bundlerConfig = this.bundler.lambdaConfig(this)
+
+    const lambdaConfig: SdfLambdaFunctionConfig = {
+      ...bundlerConfig,
+      ...restConfig,
+
+      // merging environment variabables from all sources
+      environment: {
+        variables: Token.asStringMap(
+          this.createResolvable("environment.variables", async () => {
+            return Fn.merge([bundlerConfig.environment?.variables, restConfig.environment?.variables, this.environment])
+          }),
+        ),
+      },
+    }
+
     this.function = new LambdaFunction(this, "lambda", {
       dependsOn,
-
-      ...config,
-
-      handler: Token.asString({
-        resolve: (): string => {
-          if (this.handler === undefined) {
-            throw new Error(`the lambda function handler was not resolved`)
-          }
-          return this.handler.handler
-        },
-      }),
       role: this.role.arn,
-      runtime: "nodejs16.x",
-
-      filename: code.outputPath,
-      sourceCodeHash: code.outputBase64Sha256,
-
-      environment: {
-        variables: Token.asStringMap({
-          resolve: (): { [key in string]: string } => Fn.mergeMaps([this.environment, this.config.environment]),
-        }),
-      },
+      ...lambdaConfig,
     })
   }
 
   private resources: Record<string, SdfResource> = {}
   private policies: Array<DataAwsIamPolicyDocument> = []
-  private environment: Record<string, string> = { NODE_OPTIONS: "--enable-source-maps" }
+  public environment: Record<string, string> = { NODE_OPTIONS: "--enable-source-maps" }
 
   public addResource(name: string, permissions: Array<string>) {
     if (this.resources[name]) {
       throw new Error(`the resource ${name} is already defined for function ${this.node.id}`)
     }
-    const resource = this.bundler._getResource(name)
+    const resource = this.bundler.getResource(name)
     this.resources[name] = resource
 
     permissions.forEach(permissionName => {
       const permission = resource.permissions[permissionName]
       if (!permission) {
         throw new Error(
-          `permission '${permissionName}' is not defined for resource ${name}, function '${this.node.id}' in the stack '${this.bundler.id}'`,
+          `permission '${permissionName}' is not defined for resource ${name}, function '${this.node.id}' in the stack '${this.bundler.node.id}'`,
         )
       }
       this.policies.push(permission)
@@ -145,18 +164,15 @@ export class SdfLambda extends Construct {
   }
 
   async _synth() {
-    this.handler = await Promise.resolve(
-      typeof this.config.handler === "function" ? this.config.handler() : this.config.handler,
-    )
-
     if (this.policies.length) {
-      const policy = new DataAwsIamPolicyDocument(this, "policy", {
+      const policy = new DataAwsIamPolicyDocument(this, "policy-document", {
         sourcePolicyDocuments: this.policies.map(policy => policy.json),
       })
-      new IamRolePolicy(this, "policy", {
+      const rolePolicy = new IamRolePolicy(this, "policy", {
         role: this.role.name,
         policy: policy.json,
       })
+      this.function.dependsOn?.push(dependable(rolePolicy))
     }
 
     this.environment = {
@@ -164,10 +180,15 @@ export class SdfLambda extends Construct {
       ...Object.entries(this.resources).reduce(
         (acc, [resourceName, resource]) => ({
           ...acc,
-          [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config),
+          [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config).replace(/"/g, `\\"`),
         }),
         {},
       ),
+    }
+
+    // resolve all  resolvabales
+    for (const result of this.resolvables) {
+      result.ref = await result.resolve()
     }
   }
 }

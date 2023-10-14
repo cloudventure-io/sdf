@@ -4,13 +4,9 @@ import { isAbsolute, join, relative } from "path"
 
 import { Document } from "../http-api/openapi/types"
 
-export interface EsbuildSdfPluginOpenAPIOptions {
-  rootDir: string
-}
-
 const name = "sdf-plugin-openapi"
 
-export const createEsbuildSdfPluginOpenAPI = (options: EsbuildSdfPluginOpenAPIOptions): esbuild.Plugin => ({
+export const createEsbuildSdfPluginOpenAPI = (): esbuild.Plugin => ({
   name,
   setup(build: esbuild.PluginBuild) {
     build.onResolve({ filter: /openapi.ya?ml$/ }, args => {
@@ -26,9 +22,7 @@ export const createEsbuildSdfPluginOpenAPI = (options: EsbuildSdfPluginOpenAPIOp
       // duplicate interfaces.
       const spec = (await SwaggerParser.bundle(args.path)) as Document<object>
 
-      const path = relative(options.rootDir, args.path)
-
-      spec["x-sdf-spec-path"] = path
+      spec["x-sdf-spec-path"] = relative(process.cwd(), args.path)
 
       return {
         contents: JSON.stringify(spec),

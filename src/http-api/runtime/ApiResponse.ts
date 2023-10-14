@@ -8,7 +8,11 @@ export class ApiResponse<
   StatusCode extends number,
   HeadersType extends Record<string, string> = Record<string, never>,
 > {
-  constructor(public body: BodyType, public statusCode: StatusCode, public headers?: HeadersType) {}
+  constructor(
+    public body: BodyType,
+    public statusCode: StatusCode,
+    public headers?: HeadersType,
+  ) {}
 
   public render(): APIGatewayProxyResult {
     return {

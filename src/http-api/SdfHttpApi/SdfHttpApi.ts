@@ -1,6 +1,5 @@
 import { Apigatewayv2Api } from "@cdktf/provider-aws/lib/apigatewayv2-api"
 import { Apigatewayv2Stage } from "@cdktf/provider-aws/lib/apigatewayv2-stage"
-import { LambdaPermission } from "@cdktf/provider-aws/lib/lambda-permission"
 import Ajv, { Schema } from "ajv"
 import standaloneCode from "ajv/dist/standalone"
 import { camelCase, pascalCase } from "change-case"
@@ -11,23 +10,33 @@ import { join } from "path"
 import { relative } from "path"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfBundler } from "../../SdfBundler"
-import { SdfLambda, SdfLambdaConfig, SdfLambdaHandler } from "../../constructs/lambda/SdfLambda"
+import { SdfLambda, SdfLambdaConfig } from "../../constructs/lambda/SdfLambda"
 import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
-import { SdfHttpApiAuthorizer } from "../SdfHttpApiAuthorizer/SdfHttpApiAuthorizer"
-import { Document, DocumentTrace } from "../openapi/types"
+import { DocumentTrace } from "../openapi/DocumentTrace"
+import { Document } from "../openapi/types"
 import { OperationBundle, OperationParser, ParsedOperation, ParsedOperationAuthorizer } from "./OperationParser"
 import entryPointTemplate from "./templates/entryPoint.ts.mu"
 import handlerTemplate from "./templates/handler.ts.mu"
 import validatorTemplate from "./templates/validator.d.ts.mu"
+import { SdfHttpApiAuthorizer } from "../SdfHttpApiAuthorizer/SdfHttpApiAuthorizer"
+import { SdfHttpApiJwtAuthorizer, SdfHttpApiLambdaAuthorizer } from "../SdfHttpApiAuthorizer"
+import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
+import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
+import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
+import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
+import { SdfBundlerTypeScript, SdfBundlerTypeScriptHandler } from "../../bundlers"
 
-export interface SdfApiGatewayV2Config<T extends object> {
+export interface SdfHttpApiConfig<T extends object> {
+  /** the OpenAPI Document */
   document: Document<T>
 
+  /** name of the API Gateway stage. defaults to `id` of the SdfHttpApi */
   stageName?: string
 
-  lambdaConfig?: Omit<SdfLambdaConfig, "handler" | "runtime" | "functionName">
+  /** lambda function configuration */
+  lambdaConfig?: Omit<SdfLambdaConfig<SdfBundlerTypeScript>, "handler" | "runtime" | "functionName">
 
+  /** map of authorizers */
   authorizers?: Record<string, SdfHttpApiAuthorizer>
 
   /** the response body of the generated handler fuction, defaults to `{}` */
@@ -38,28 +47,26 @@ const entryPointFunctionName = "entrypoint"
 
 export class SdfHttpApi<OperationType extends object = object> extends Construct {
   /** lambda functions defined based on the provided OpenAPI Document */
-  public lambdas: { [operationId in string]: SdfLambda } = {}
+  public lambdas: { [operationId in string]: SdfLambda<SdfBundlerTypeScript> } = {}
 
-  private bundler: SdfBundler
+  private bundler: SdfBundlerTypeScript
   private app: SdfApp
+  private stageName: string
 
   private document: Document<OperationType>
 
   /**
-   * the entry points directory of the api,
-   * `services/{serviceName}/api/entrypoints`.
+   * the entry points directory of the api
    */
   private entryPointsDirectory: string
 
   /**
-   * the validators directory of the api,
-   * `services/{serviceName}/api/entrypoints/validators`
+   * the validators directory of the api
    */
   private validatorsDirectory: string
 
   /**
-   * the handlers directory of the api,
-   * `services/{serviceName}/api/handlers`
+   * the handlers directory of the api
    */
   private handlersDirectory: string
 
@@ -70,20 +77,55 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
   private authorizers: Record<string, SdfHttpApiAuthorizer> = {}
 
-  constructor(scope: Construct, private id: string, private config: SdfApiGatewayV2Config<OperationType>) {
+  public integrationRole: IamRole
+
+  constructor(
+    scope: Construct,
+    private id: string,
+    private config: SdfHttpApiConfig<OperationType>,
+  ) {
     super(scope, id)
-    this.bundler = SdfBundler.getBundlerFromCtx(this)
+    this.bundler = SdfApp.getFromContext(this, SdfBundlerTypeScript) as SdfBundlerTypeScript
     this.app = SdfApp.getAppFromContext(this)
 
+    this.stageName = config.stageName || "$default"
+
     // define directories
-    const apiDirectory = join(this.bundler.absDir, this.id)
-    this.entryPointsDirectory = join(apiDirectory, "entrypoints")
+    this.entryPointsDirectory = this.bundler.registerDirectory(this, "entrypoints", true)
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators")
-    this.handlersDirectory = join(apiDirectory, "handlers")
+    this.handlersDirectory = this.bundler.registerDirectory(this, "handlers", false)
 
     // clone the document, since document will be mutated in further operations
     this.document = JSON.parse(JSON.stringify(this.config.document)) as Document<OperationType>
     this.operationParser = new OperationParser<OperationType>(this.document)
+
+    // define API GW integration role
+    this.integrationRole = new IamRole(this, "integration-role", {
+      name: this.app._concatName(this.bundler.node.id, this.id, `integration`),
+      assumeRolePolicy: new DataAwsIamPolicyDocument(this, "integration-role-assume-role-policy-doc", {
+        statement: [
+          {
+            actions: ["sts:AssumeRole"],
+            principals: [{ type: "Service", identifiers: ["apigateway.amazonaws.com"] }],
+          },
+        ],
+      }).json,
+    })
+    new IamRolePolicyAttachment(this, "integration-role-policy-attachment", {
+      role: this.integrationRole.name,
+      policyArn: "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs",
+    })
+    new IamRolePolicy(this, "integration-role-access-policy", {
+      role: this.integrationRole.name,
+      policy: new DataAwsIamPolicyDocument(this, "integration-role-access-policy-doc", {
+        statement: [
+          {
+            actions: ["lambda:InvokeFunction"],
+            resources: ["*"],
+          },
+        ],
+      }).json,
+    })
 
     // map provided authorizers with security schemes from Document
     this.authorizers = this.parseAuthorizers()
@@ -91,44 +133,17 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     // define lambda functions
     this.operationParser.walkOperations(operation => this.defineLambda(operation))
 
-    // define the Api Gateway V2
+    // define the AWS HTTP API
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
-      name: this.app._concatName(this.bundler.id, this.id),
+      name: this.document.info.title,
+      version: this.document.info.version,
       protocolType: "HTTP",
       body: JSON.stringify(this.document),
     }))
 
-    // add lambda permissions
-    this.operationParser.walkOperations(
-      (operation: OperationBundle<OperationType, OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>) => {
-        const { operationId } = operation
-
-        new LambdaPermission(this, `${operationId}-apigw-lambda-permission`, {
-          statementId: "AllowApiGateway",
-          action: "lambda:InvokeFunction",
-          functionName: this.lambdas[operationId].function.functionName,
-          principal: "apigateway.amazonaws.com",
-          // TODO: point to the exact path
-          sourceArn: `${api.executionArn}/*/*/*`,
-        })
-      },
-    )
-
-    // add authorizer lambda permissions
-    Object.entries(this.authorizers).forEach(([name, authorizer]) => {
-      new LambdaPermission(this, `${name}-apigw-authorizer-permission`, {
-        statementId: pascalCase(`AllowApiGateway-${id}`),
-        action: "lambda:InvokeFunction",
-        functionName: authorizer.lambda.function.functionName,
-        principal: "apigateway.amazonaws.com",
-        // TODO: point to exact path
-        sourceArn: `${api.executionArn}/authorizers/*`,
-      })
-    })
-
     this.stage = new Apigatewayv2Stage(this, "deployment", {
       apiId: api.id,
-      name: config.stageName || this.bundler.id,
+      name: this.stageName,
       autoDeploy: true,
     })
 
@@ -142,19 +157,24 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
         if ("$ref" in securityScheme) {
           throw new Error(`$ref in securityScheme definition is not supported at ${trace}`)
-        } else if (securityScheme.type !== "apiKey") {
-          throw new Error(`only 'apiKey' authorizer type is supported at ${trace.append("type")}`)
-        } else if (securityScheme.in !== "header") {
-          throw new Error(`only 'header' value is supported at ${trace.append("in")}`)
         }
 
         const authorizer = this.config.authorizers?.[name]
-
         if (!authorizer) {
           throw new Error(`authorizer '${name}' is defined in the document, but not provided at ${trace}`)
         }
 
-        securityScheme["x-amazon-apigateway-authorizer"] = authorizer.getApiGatewaySpec()
+        if (
+          securityScheme.type === "apiKey" &&
+          securityScheme.in === "header" &&
+          !(authorizer instanceof SdfHttpApiLambdaAuthorizer)
+        ) {
+          throw new Error(`lambda authorizer is required for 'apiKey' authorization at ${trace}`)
+        } else if (securityScheme.type === "oauth2" && !(authorizer instanceof SdfHttpApiJwtAuthorizer)) {
+          throw new Error(`jwt authorizer is required for 'apiKey' authorization at ${trace}`)
+        }
+
+        securityScheme["x-amazon-apigateway-authorizer"] = authorizer.spec(this)
 
         return {
           ...acc,
@@ -171,7 +191,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     if (operationAuthorizer) {
       const authorizer = this.authorizers[operationAuthorizer.name]
       if (!authorizer) {
-        throw new Error(`authorizer '${operationAuthorizer.name}'`)
+        throw new Error(`authorizer '${operationAuthorizer.name}' not found`)
       }
       return authorizer
     }
@@ -180,15 +200,16 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
   private defineLambda(operation: OperationBundle<OperationType, OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>) {
     const operationId = operation.operationId
 
-    const lambda = new SdfLambda(this, `api-handler-${operationId}`, {
+    const lambda = new SdfLambda(this.bundler, `api-handler-${operationId}`, {
       timeout: 29,
       memorySize: 512,
       ...this.config.lambdaConfig,
 
-      functionName: this.app._concatName(this.bundler.id, this.id, operationId),
+      functionName: this.app._concatName(this.bundler.node.id, this.id, operationId),
       publish: true,
-      runtime: "node16.x",
-      handler: async () => this.renderLambdaHandler(operation),
+      bundler: {
+        handler: async () => await this.renderLambdaHandler(operation),
+      },
       resources: {
         ...this.config.lambdaConfig?.resources,
         ...this.document["x-sdf-resources"],
@@ -205,6 +226,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       httpMethod: "POST",
       uri: lambda.function.qualifiedInvokeArn,
       connectionType: "INTERNET",
+      credentials: this.integrationRole.arn,
     }
   }
 
@@ -226,10 +248,10 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     }): OpenAPIV3.SchemaObject => ({
       type: "object",
       properties: {
-        path: path || { type: "object", additionalProperties: false },
-        query: query || { type: "object", additionalProperties: false },
-        cookie: cookie || { type: "object", additionalProperties: false },
-        header: header || { type: "object", additionalProperties: false },
+        path: path,
+        query: query,
+        cookie: cookie,
+        header: header,
         ...(body
           ? {
               contentType: {
@@ -240,7 +262,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
               body: body.schema,
             }
           : {}),
-        ...(authorizer ? { authorizer: authorizer.config.context } : {}),
+        ...(authorizer ? { authorizer: authorizer.context() } : {}),
       },
       required: ["path", "query", "cookie", "header"]
         .concat(body ? ["contentType", "body"] : [])
@@ -264,7 +286,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
           ],
         },
         responses: {
-          title: pascalCase(`operation ${operationId}-responses`),
+          title: pascalCase(`operation-${operationId}-responses`),
           oneOf: responses,
         },
       },
@@ -278,15 +300,17 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
   private async renderLambdaHandler({
     pathPattern,
     method,
-  }: OperationBundle<OperationType, OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>): Promise<SdfLambdaHandler> {
+  }: OperationBundle<
+    OperationType,
+    OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject
+  >): Promise<SdfBundlerTypeScriptHandler> {
     // get dereferenced version of the operation
     const operation = await this.operationParser.parseOperation(pathPattern, method)
     const operationTitle = this.registerSchema(operation)
 
     // render lambda function entry point, handler and validator
     const entryPointPath = await this.renderLambdaFiles(operation, operationTitle)
-
-    const entryPointRelPath = relative(this.bundler.absDir, entryPointPath)
+    const entryPointRelPath = relative(this.bundler.gendir, entryPointPath)
 
     return {
       handler: `${entryPointRelPath}.${entryPointFunctionName}`,
@@ -301,7 +325,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     await mkdir(this.validatorsDirectory, { recursive: true })
   }
 
-  public createValidtors(operation: ParsedOperation<OperationType>): { ajv: Ajv; schemas: Array<Schema> } {
+  private createValidtors(operation: ParsedOperation<OperationType>): { ajv: Ajv; schemas: Array<Schema> } {
     const schemas = this.operationParser.createValidtorSchemas(operation)
 
     if (operation.authorizer) {
@@ -315,7 +339,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       }
       schemas.push({
         $id: "authorizer",
-        schema: authorizer.config.context,
+        schema: authorizer.context(),
       })
     }
 

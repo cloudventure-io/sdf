@@ -1,8 +1,11 @@
-import { BuildOptions } from "esbuild"
+import type { BuildOptions } from "esbuild"
 
-import { SdfBundleMetadata } from "./SdfBundler"
+import type { SdfBundleManifest } from "./bundlers/SdfBundler"
+import type { SdfApp, SdfAppOptions } from "./SdfApp"
 
 export interface SdfConfig {
   buildConfig?: (buildOptions: BuildOptions) => BuildOptions
-  postBuild?: (bundle: SdfBundleMetadata, outdir: string) => Promise<void>
+  postBuild?: (bundle: SdfBundleManifest, outdir: string) => Promise<void>
 }
+
+export type SdfSynth = (options: SdfAppOptions) => Promise<SdfApp>

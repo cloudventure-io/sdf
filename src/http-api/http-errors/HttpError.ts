@@ -1,7 +1,11 @@
 import { HttpStatusCodes } from "../HttpStatusCodes"
 
 export abstract class HttpError extends Error {
-  constructor(public code: string, public message: string, public details?: unknown) {
+  constructor(
+    public code: string,
+    public message: string,
+    public details?: unknown,
+  ) {
     super(`[${code}]: ${message}`)
   }
 

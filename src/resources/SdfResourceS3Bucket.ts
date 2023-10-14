@@ -1,13 +1,15 @@
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
-import { S3Bucket, S3BucketConfig } from "@cdktf/provider-aws/lib/s3-bucket"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
 import { SdfResource } from "../SdfResource"
 
-export class SdfResourceS3Bucket extends SdfResource {
-  public bucket: S3Bucket
+export interface SdfResourceS3BucketConfig {
+  arn: string
+  bucket: string
+}
 
+export class SdfResourceS3Bucket extends SdfResource {
   get configSpec(): OpenAPIV3.SchemaObject {
     return {
       type: "object",
@@ -34,10 +36,14 @@ export class SdfResourceS3Bucket extends SdfResource {
     bucket: string
   }
 
-  constructor(scope: Construct, public id: string, bucket: S3Bucket | S3BucketConfig) {
+  constructor(
+    scope: Construct,
+    public id: string,
+    public bucket: SdfResourceS3BucketConfig,
+  ) {
     super(scope, id)
 
-    this.bucket = bucket instanceof S3Bucket ? bucket : new S3Bucket(this, id, bucket)
+    // this.bucket = bucket instanceof S3Bucket ? bucket : new S3Bucket(this, id, bucket)
 
     this.permissions = {
       read: new DataAwsIamPolicyDocument(this, "read", {

@@ -1,4 +1,4 @@
-import { DocumentTrace } from "./types"
+import { DocumentTrace } from "./DocumentTrace"
 
 describe("openapi", () => {
   it("traceStr tests", () => {

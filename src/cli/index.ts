@@ -1,17 +1,20 @@
 import { Command } from "commander"
 import * as esbuild from "esbuild"
-import { mkdir, readFile, rm, writeFile } from "fs/promises"
-import { join } from "path"
+import { readFile, rm, writeFile } from "fs/promises"
+import { join, relative, resolve } from "path"
 
-import type { SdfApp, SdfAppMetadata, SdfAppOptions } from "../SdfApp"
+import type { SdfApp, SdfAppManifest, SdfAppOptions } from "../SdfApp"
 import { esbuildPlugins } from "../esbuild-plugins"
-import { SdfConfig } from "../types"
+import { SdfConfig, SdfSynth } from "../types"
 import { fileExists } from "../utils/fileExists"
+import { SdfBundleTypeScriptManifest } from "../bundlers/SdfBundlerTypeScript"
 
-const cmd = new Command("sdf-cli")
+const cmd = new Command("sdf")
 
-const rootDir = process.cwd()
-const tmpDir = join(rootDir, "tmp")
+// const rootDir = process.cwd()
+// const tmpDir = join(rootDir, "tmp")
+const outdir = join(process.cwd(), "cdktf.out")
+const workdir = join(outdir, ".sdf")
 
 const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "14"}`
 
@@ -19,35 +22,30 @@ cmd
   .command("synth")
   .requiredOption("-e, --entryPoint <entryPoint>")
   .action(async ({ entryPoint }: { entryPoint: string }) => {
-    await mkdir(tmpDir, { recursive: true })
+    // await mkdir(tmpDir, { recursive: true })
 
-    const outfile = join(tmpDir, `synth.js`)
+    const outfile = join(workdir, `synth.js`)
 
     await esbuild.build({
       platform: "node",
       target,
-      plugins: esbuildPlugins({ rootDir }),
+      plugins: esbuildPlugins(),
       entryPoints: [entryPoint],
       outfile,
       sourcemap: "inline",
       bundle: true,
       format: "cjs",
-      define: {
-        "process.env.SDF_PROJECT_ROOT_DIR": JSON.stringify(rootDir),
-        "process.env.SDF_PROJECT_TMP_DIR": JSON.stringify(tmpDir),
-      },
       keepNames: true,
     })
 
-    const synth: (options: SdfAppOptions) => Promise<SdfApp> = require(outfile).synth
+    const synth: SdfSynth = require(outfile).synth
 
     if (!synth || typeof synth !== "function") {
       throw new Error(`the entryPoint file ${entryPoint} must export an async function 'synth'`)
     }
 
     const options: SdfAppOptions = {
-      rootDir,
-      tmpDir,
+      outdir,
     }
 
     const app: SdfApp = await synth(options)
@@ -85,12 +83,12 @@ const ESM_REQUIRE_SHIM = `
 cmd.command("build").action(async () => {
   let config: SdfConfig = {}
   if (await fileExists("sdf.config.ts")) {
-    const configOutFile = join(tmpDir, "sdf.config.js")
+    const configOutFile = join(workdir, "sdf.config.js")
 
     await esbuild.build({
       platform: "node",
       target,
-      plugins: esbuildPlugins({ rootDir }),
+      plugins: esbuildPlugins(),
       entryPoints: ["sdf.config.ts"],
       outfile: configOutFile,
       sourcemap: "inline",
@@ -102,26 +100,37 @@ cmd.command("build").action(async () => {
     config = require(configOutFile).default
   }
 
-  const buildMetadata: SdfAppMetadata = JSON.parse(await readFile(join(tmpDir, "sdf.manifest.json"), "utf8"))
+  const buildMetadata: SdfAppManifest = JSON.parse(await readFile(join(workdir, "sdf.manifest.json"), "utf8"))
 
   await Promise.all(
     buildMetadata.stacks.map(async stack =>
       Promise.all(
-        stack.bundles.map(async bundle => {
-          const bundleSrcDir = join(process.cwd(), buildMetadata.path, stack.path, bundle.path)
+        stack.bundles.map(async bundleUntyped => {
+          if (bundleUntyped.type !== "typescript") {
+            return
+          }
 
-          const outdir = join(tmpDir, stack.path, bundle.path)
-          await rm(outdir, { recursive: true, force: true })
+          const bundle: SdfBundleTypeScriptManifest = bundleUntyped as SdfBundleTypeScriptManifest
+
+          const bundlePath = resolve(workdir, bundle.path)
+          const bundlePrefix = resolve(workdir, bundle.prefix)
+          const bundleDist = resolve(workdir, bundle.dist)
+          // console.log("bundlePath", bundlePath)
+          // console.log("bundlePrefix", bundlePrefix)
+          // console.log("bundleDist", bundleDist)
+
+          // const outdir = join(tmpDir, stack.name, bundle.name)
+          await rm(bundleDist, { recursive: true, force: true })
 
           const esbuildOptions: esbuild.BuildOptions = {
-            absWorkingDir: bundleSrcDir,
-            entryPoints: bundle.entryPoints,
+            absWorkingDir: bundlePath,
+            entryPoints: bundle.entryPoints.map(entryPoint => relative(bundlePath, join(bundlePrefix, entryPoint))),
             platform: "node",
             target,
             sourcemap: "inline",
             keepNames: true,
-            outbase: join(process.cwd(), buildMetadata.path, stack.path, bundle.path),
-            outdir,
+            outbase: bundlePrefix,
+            outdir: bundleDist,
             bundle: true,
             format: "esm",
             splitting: true,
@@ -132,18 +141,16 @@ cmd.command("build").action(async () => {
               js: ESM_REQUIRE_SHIM,
             },
             mainFields: ["module", "main"],
+            external: ["@aws-sdk"],
           }
 
           await esbuild.build(config.buildConfig ? config.buildConfig(esbuildOptions) : esbuildOptions)
 
-          const packageJson = JSON.parse(await readFile(join(bundleSrcDir, bundle.packageJsonPath), "utf8"))
-
           await writeFile(
-            join(tmpDir, stack.path, bundle.path, "package.json"),
+            join(bundleDist, "package.json"),
             JSON.stringify(
               {
-                name: packageJson.name,
-                version: packageJson.version,
+                name: `${stack.id}-${bundle.id}`,
                 type: "module",
               },
               null,
@@ -152,7 +159,7 @@ cmd.command("build").action(async () => {
           )
 
           if (config.postBuild) {
-            await config.postBuild(bundle, outdir)
+            await config.postBuild(bundle, bundleDist)
           }
         }),
       ),

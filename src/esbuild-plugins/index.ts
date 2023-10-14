@@ -1,7 +1,4 @@
 import { createEsbuildSdfPluginFilePathAPI } from "./EsbuildSdfPluginFilePath"
-import { EsbuildSdfPluginOpenAPIOptions, createEsbuildSdfPluginOpenAPI } from "./EsbuildSdfPluginOpenapi"
+import { createEsbuildSdfPluginOpenAPI } from "./EsbuildSdfPluginOpenapi"
 
-export const esbuildPlugins = (options: EsbuildSdfPluginOpenAPIOptions) => [
-  createEsbuildSdfPluginOpenAPI(options),
-  createEsbuildSdfPluginFilePathAPI(),
-]
+export const esbuildPlugins = () => [createEsbuildSdfPluginOpenAPI(), createEsbuildSdfPluginFilePathAPI()]

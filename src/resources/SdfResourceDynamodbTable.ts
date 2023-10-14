@@ -27,6 +27,7 @@ export class SdfResourceDynamodbTable extends SdfResource {
   public permissions: {
     read: DataAwsIamPolicyDocument
     write: DataAwsIamPolicyDocument
+    subscribe: DataAwsIamPolicyDocument
   }
 
   public config: {
@@ -34,7 +35,11 @@ export class SdfResourceDynamodbTable extends SdfResource {
     name: string
   }
 
-  constructor(scope: Construct, public id: string, table: DynamodbTable | DynamodbTableConfig) {
+  constructor(
+    scope: Construct,
+    public id: string,
+    table: DynamodbTable | DynamodbTableConfig,
+  ) {
     super(scope, id)
 
     this.table = table instanceof DynamodbTable ? table : new DynamodbTable(this, id, table)
@@ -53,6 +58,18 @@ export class SdfResourceDynamodbTable extends SdfResource {
           {
             actions: ["dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:BatchWriteItem"],
             resources: [this.table.arn, `${this.table.arn}/*`],
+          },
+        ],
+      }),
+      subscribe: new DataAwsIamPolicyDocument(this, "subscribe", {
+        statement: [
+          {
+            actions: ["dynamodb:DescribeStream", "dynamodb:GetRecords", "dynamodb:GetShardIterator"],
+            resources: [this.table.streamArn],
+          },
+          {
+            actions: ["dynamodb:ListStreams"],
+            resources: ["*"],
           },
         ],
       }),
