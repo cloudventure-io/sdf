@@ -139,6 +139,14 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       version: this.document.info.version,
       protocolType: "HTTP",
       body: JSON.stringify(this.document),
+      corsConfiguration: {
+        allowHeaders: ["*"],
+        allowMethods: ["*"],
+        allowOrigins: ["*"],
+        maxAge: 3600,
+        exposeHeaders: ["*"],
+        allowCredentials: false,
+      },
     }))
 
     this.stage = new Apigatewayv2Stage(this, "deployment", {
@@ -272,7 +280,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
     const operationTitle = pascalCase(`operation-${operationId}`)
 
-    this.bundler._registerSchema({
+    this.bundler.registerSchema({
       title: operationTitle,
       type: "object",
       properties: {

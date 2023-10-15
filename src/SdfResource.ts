@@ -2,8 +2,7 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { SdfBundler } from "./bundlers/SdfBundler"
-import { SdfApp } from "./SdfApp"
+import { SdfStack } from "./SdfStack"
 
 export interface SdfResourcePermissions {
   [key: string]: DataAwsIamPolicyDocument
@@ -12,8 +11,8 @@ export interface SdfResourcePermissions {
 export abstract class SdfResource extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id)
-    const bundler = SdfApp.getFromContext(this, SdfBundler)
-    bundler.registerResource(this, id)
+    const stack = SdfStack.getStackFromCtx(this)
+    stack.registerResource(this, id)
   }
 
   abstract get id(): string

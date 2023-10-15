@@ -41,7 +41,7 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
     const app = SdfApp.getAppFromContext(this)
     this.bundler = SdfApp.getFromContext(this, SdfBundlerTypeScript)
 
-    this.bundler._registerSchema(config.context)
+    this.bundler.registerSchema(config.context)
 
     this.entryPointsDirectory = this.bundler.registerDirectory(this, "entrypoints", true)
     this.authorizersDirectory = this.bundler.registerDirectory(this, "authorizers", false)

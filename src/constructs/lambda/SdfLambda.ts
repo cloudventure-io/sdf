@@ -60,14 +60,16 @@ export class SdfLambda<Bundler extends SdfBundler> extends Construct {
 
   public context: Required<Bundler>["_context_type"]
 
-  public constructor(bundler: Bundler, id: string, config: SdfLambdaConfig<Bundler>) {
+  public constructor(
+    bundler: Bundler,
+    id: string,
+    { bundler: context, resources, ...config }: SdfLambdaConfig<Bundler>,
+  ) {
     super(bundler, id)
 
     this.app = SdfApp.getAppFromContext(this)
     this.stack = SdfStack.getStackFromCtx(this)
     this.bundler = bundler
-
-    const { bundler: context, resources, ...restConfig } = config
     this.context = context
 
     const assumeRolePolicy = new DataAwsIamPolicyDocument(this, "assume-role-policy", {
@@ -122,13 +124,13 @@ export class SdfLambda<Bundler extends SdfBundler> extends Construct {
 
     const lambdaConfig: SdfLambdaFunctionConfig = {
       ...bundlerConfig,
-      ...restConfig,
+      ...config,
 
       // merging environment variabables from all sources
       environment: {
         variables: Token.asStringMap(
           this.createResolvable("environment.variables", async () => {
-            return Fn.merge([bundlerConfig.environment?.variables, restConfig.environment?.variables, this.environment])
+            return Fn.merge([bundlerConfig.environment?.variables, config.environment?.variables, this.environment])
           }),
         ),
       },
@@ -149,7 +151,7 @@ export class SdfLambda<Bundler extends SdfBundler> extends Construct {
     if (this.resources[name]) {
       throw new Error(`the resource ${name} is already defined for function ${this.node.id}`)
     }
-    const resource = this.bundler.getResource(name)
+    const resource = this.stack.getResource(name)
     this.resources[name] = resource
 
     permissions.forEach(permissionName => {

@@ -123,7 +123,7 @@ export class SdfBundlerTypeScript extends SdfBundler {
       this._gendir = this._srcdir
     }
 
-    this._distdir = join(this.sdfApp.workdir, "build", this.sdfStack.node.id, this.node.id)
+    this._distdir = join(this.app.workdir, "build", this.stack.node.id, this.node.id)
   }
 
   private codeArchive?: DataArchiveFile
@@ -132,7 +132,7 @@ export class SdfBundlerTypeScript extends SdfBundler {
       this.codeArchive = new DataArchiveFile(this, "code", {
         outputPath: `\${path.module}/${this.node.id}.zip`,
         type: "zip",
-        sourceDir: relative(join(this.sdfApp.outdir, "stacks", this.sdfStack.node.id), this.distdir),
+        sourceDir: relative(join(this.app.outdir, "stacks", this.stack.node.id), this.distdir),
       })
     }
     return this.codeArchive
@@ -170,9 +170,9 @@ export class SdfBundlerTypeScript extends SdfBundler {
     const resourcesPath = `${this._resourcesAbsPath}.ts`
     await rm(resourcesPath, { force: true })
 
-    if (Object.keys(this.resources).length) {
+    if (Object.keys(this.stack.resources).length) {
       const resourceSchemasMap: { [name in string]: OpenAPIV3.SchemaObject } = {}
-      Object.entries(this.resources).map(([id, resource]) => {
+      Object.entries(this.stack.resources).map(([id, resource]) => {
         const title = `${pascalCase(id)}Config`
 
         resourceSchemasMap[title] = {
@@ -203,7 +203,7 @@ export class SdfBundlerTypeScript extends SdfBundler {
         overwrite: true,
         context: {
           interfaces: resourceInterfaces,
-          resources: Object.keys(this.resources).map(id => ({
+          resources: Object.keys(this.stack.resources).map(id => ({
             type: `${pascalCase(id)}Config`,
             envName: constantCase(`RESOURCE_${id}`),
             id,
@@ -259,9 +259,9 @@ export class SdfBundlerTypeScript extends SdfBundler {
     return {
       id: this.node.id,
       type: "typescript",
-      path: relative(this.sdfApp.workdir, this.srcdir),
-      prefix: relative(this.sdfApp.workdir, this.gendir),
-      dist: relative(this.sdfApp.workdir, this.distdir),
+      path: relative(this.app.workdir, this.srcdir),
+      prefix: relative(this.app.workdir, this.gendir),
+      dist: relative(this.app.workdir, this.distdir),
       entryPoints: Array.from(this.entryPoints),
     }
   }

@@ -43,10 +43,19 @@ export class SdfBundlerDocker extends SdfBundler {
   }
 
   public lambdaConfig(lambda: SdfLambda<SdfBundlerDocker>): Partial<LambdaFunctionConfig> {
-    return {
+    const imageConfig = { ...this.config.imageConfig, ...lambda.context }
+
+    const config: Partial<{
+      -readonly [P in keyof LambdaFunctionConfig]: LambdaFunctionConfig[P]
+    }> = {
       packageType: "Image",
       imageUri: this.config.imageUri,
-      imageConfig: lambda.context || this.config.imageConfig,
     }
+
+    if (Object.values(imageConfig).length > 0) {
+      config.imageConfig = imageConfig
+    }
+
+    return config
   }
 }

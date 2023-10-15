@@ -3,6 +3,7 @@ import { Construct } from "constructs"
 
 import { SdfApp } from "./SdfApp"
 import { SdfBundleManifest, SdfBundler } from "./bundlers/SdfBundler"
+import { SdfResource } from "./SdfResource"
 
 export interface SdfStackManifest {
   id: string
@@ -44,5 +45,21 @@ export class SdfStack extends TerraformStack {
     await runSynth("_preSynth")
     await runSynth("_synth")
     await runSynth("_postSynth")
+  }
+
+  public resources: { [id in string]: SdfResource } = {}
+  public registerResource(resource: SdfResource, id: string) {
+    if (this.resources[id] && this.resources[id] !== resource) {
+      throw new Error(`resource with id '${id}' already exists in the bundler '${this.node.id}'`)
+    }
+    this.resources[id] = resource
+  }
+
+  public getResource(id: string) {
+    const resource = this.resources[id]
+    if (!resource) {
+      throw new Error(`resource with id '${id}' was not found in the bundler '${this.node.id}'`)
+    }
+    return resource
   }
 }
