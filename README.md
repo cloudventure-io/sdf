@@ -5,6 +5,16 @@ SDF provides convenient interfaces for implementing cloud-native applications.
 
 It includes a bundler for TypeScript language and a basic bundler for dockerized Lambda functions.
 
+## Install
+
+```
+npm i -D @cloudventure/sdf
+```
+
+```
+yarn add -D @cloudventure/sdf
+```
+
 ## Concepts
 
 ### App
