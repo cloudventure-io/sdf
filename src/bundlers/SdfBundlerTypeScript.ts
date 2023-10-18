@@ -1,17 +1,21 @@
-import { constantCase, pascalCase } from "change-case"
-import { SdfBundleManifest, SdfBundler } from "./SdfBundler"
-import { writeMustacheTemplate } from "../utils/writeMustacheTemplate"
-import { mkdir, rm, writeFile } from "fs/promises"
-import { OpenAPIV3 } from "openapi-types"
-import { compile } from "json-schema-to-typescript"
-import resoucesTemplate from "./resources.ts.mu"
-import { schemaHandlerOptions, walkSchema } from "../utils/walkSchema"
-import { Construct } from "constructs"
-import { join, relative } from "path"
 import { DataArchiveFile } from "@cdktf/provider-archive/lib/data-archive-file"
 import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
+import { S3Object } from "@cdktf/provider-aws/lib/s3-object"
+import { Resource } from "@cdktf/provider-null/lib/resource"
 import { Token } from "cdktf"
+import { Fn } from "cdktf"
+import { constantCase, pascalCase } from "change-case"
+import { Construct } from "constructs"
+import { mkdir, rm, writeFile } from "fs/promises"
+import { compile } from "json-schema-to-typescript"
+import { OpenAPIV3 } from "openapi-types"
+import { join, relative } from "path"
+
 import { SdfLambda } from "../constructs"
+import { schemaHandlerOptions, walkSchema } from "../utils/walkSchema"
+import { writeMustacheTemplate } from "../utils/writeMustacheTemplate"
+import { SdfBundleManifest, SdfBundler } from "./SdfBundler"
+import resoucesTemplate from "./resources.ts.mu"
 
 export interface SdfBundlerTypeScriptHandler {
   handler: string
@@ -81,6 +85,22 @@ export interface SdfBundlerTypeScriptConfig {
    * If specified generated files will resolve relative to this path.
    */
   prefix?: string
+
+  /**
+   * The S3 bucket location for using for storing the code. The bucket must have
+   * versioning enabled for proper operation.
+   */
+  s3?: {
+    /**
+     * S3 bucket name
+     */
+    bucket: string
+
+    /**
+     * The path prefix
+     */
+    prefix?: string
+  }
 }
 
 export class SdfBundlerTypeScript extends SdfBundler {
@@ -108,6 +128,18 @@ export class SdfBundlerTypeScript extends SdfBundler {
 
   public entryPoints: Set<string> = new Set<string>()
 
+  private baseLambdaConfig: Partial<{
+    -readonly [P in keyof LambdaFunctionConfig]: LambdaFunctionConfig[P]
+  }> = {
+    runtime: "nodejs18.x",
+
+    environment: {
+      variables: {
+        NODE_OPTIONS: "--enable-source-maps",
+      },
+    },
+  }
+
   constructor(
     scope: Construct,
     id: string,
@@ -124,18 +156,38 @@ export class SdfBundlerTypeScript extends SdfBundler {
     }
 
     this._distdir = join(this.app.workdir, "build", this.stack.node.id, this.node.id)
-  }
 
-  private codeArchive?: DataArchiveFile
-  get code(): DataArchiveFile {
-    if (!this.codeArchive) {
-      this.codeArchive = new DataArchiveFile(this, "code", {
-        outputPath: `\${path.module}/${this.node.id}.zip`,
-        type: "zip",
-        sourceDir: relative(join(this.app.outdir, "stacks", this.stack.node.id), this.distdir),
+    const codeArchive = new DataArchiveFile(this, "code-archive", {
+      outputPath: `\${path.module}/${this.stack.node.id}-${this.node.id}.zip`,
+      type: "zip",
+      sourceDir: relative(join(this.app.outdir, "stacks", this.stack.node.id), this.distdir),
+    })
+
+    if (config.s3) {
+      const key = `${config.s3.prefix ? `${config.s3.prefix}/` : ""}${this.stack.node.id}-${this.node.id}.zip`
+
+      const s3Object = new S3Object(this, "code-s3", {
+        bucket: config.s3.bucket,
+        key: key,
+        source: codeArchive.outputPath,
+        sourceHash: codeArchive.outputMd5,
+        contentType: "application/zip",
       })
+
+      const updateTrigger = new Resource(this, "code-update-trigger", {
+        triggers: {
+          hash: codeArchive.outputMd5,
+          version: s3Object.versionId,
+        },
+      })
+
+      this.baseLambdaConfig.s3Bucket = config.s3.bucket
+      this.baseLambdaConfig.s3Key = s3Object.key
+      this.baseLambdaConfig.s3ObjectVersion = Fn.lookupNested(updateTrigger.triggers, ["version"])
+    } else {
+      this.baseLambdaConfig.filename = codeArchive.outputPath
+      this.baseLambdaConfig.sourceCodeHash = codeArchive.outputBase64Sha256
     }
-    return this.codeArchive
   }
 
   public registerDirectory(scope: Construct, type: string, deleteBeforeSynth: boolean): string {
@@ -277,17 +329,8 @@ export class SdfBundlerTypeScript extends SdfBundler {
     })
 
     return {
-      runtime: "nodejs18.x",
-
-      filename: this.code.outputPath,
-      sourceCodeHash: this.code.outputBase64Sha256,
+      ...this.baseLambdaConfig,
       handler: Token.asString(handlerResolvable),
-
-      environment: {
-        variables: {
-          NODE_OPTIONS: "--enable-source-maps",
-        },
-      },
     }
   }
 }
