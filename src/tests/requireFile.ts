@@ -5,7 +5,7 @@ import { join } from "path"
 export const requireFile = async <T>(path: string, tmpDir: string, bundleDir: string): Promise<T> => {
   const outfile = join(tmpDir, path).replace(/\.[^.]+$/, ".js")
 
-  await esbuild.build({
+  const options: esbuild.BuildOptions = {
     loader: {
       ".mu": "text",
     },
@@ -15,7 +15,9 @@ export const requireFile = async <T>(path: string, tmpDir: string, bundleDir: st
     outfile: outfile,
     format: "cjs",
     bundle: true,
-  })
+  }
+
+  await esbuild.build(options)
 
   return jest.requireActual(outfile)
 }

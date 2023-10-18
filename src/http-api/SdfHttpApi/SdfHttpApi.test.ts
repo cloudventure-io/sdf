@@ -5,27 +5,27 @@ import { OpenAPIV3 } from "openapi-types"
 import { join } from "path"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfBundler } from "../../SdfBundler"
+import { SdfBundlerTypeScript } from "../../bundlers/SdfBundlerTypeScript"
 import { SdfStack } from "../../SdfStack"
 import { requireFile } from "../../tests/requireFile"
 import * as setup from "../../tests/setup"
 import { tscCheck } from "../../tests/tscCheck"
-import { SdfHttpApiAuthorizer } from "../SdfHttpApiAuthorizer/SdfHttpApiAuthorizer"
 import { HttpError } from "../http-errors"
 import { Document } from "../openapi/types"
 import { Validators } from "../runtime/wrapper"
 import { SdfHttpApi } from "./SdfHttpApi"
+import { SdfHttpApiLambdaAuthorizer } from "../SdfHttpApiAuthorizer"
 
 describe(SdfHttpApi.name, () => {
   const bundlerName = "test-service"
   let rootDir: string
-  let tmpDir: string
+  let outDir: string
   let bundlePath: string
 
   beforeEach(async () => {
     const res = await setup.beforeEach(SdfHttpApi.name)
     rootDir = res.rootDir
-    tmpDir = res.tmpDir
+    outDir = res.outDir
     bundlePath = join(rootDir, "src", bundlerName)
   })
 
@@ -34,12 +34,16 @@ describe(SdfHttpApi.name, () => {
   })
 
   it("test validators", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath, naming: "expanded" })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
     new SdfHttpApi(bundler, "api", {
       document: {
@@ -126,7 +130,7 @@ describe(SdfHttpApi.name, () => {
 
     const validators = await requireFile<Validators>(
       join("api", "entrypoints", "validators", "testPost.validator.js"),
-      tmpDir,
+      outDir,
       bundlePath,
     )
     expect(typeof validators.path).toBe("function")
@@ -136,7 +140,7 @@ describe(SdfHttpApi.name, () => {
 
     const { entrypoint } = await requireFile<{
       entrypoint: (event: Partial<APIGatewayProxyEventV2>) => Promise<APIGatewayProxyResult>
-    }>(join("api", "entrypoints", "handlerTestPost.ts"), tmpDir, bundlePath)
+    }>(join("api", "entrypoints", "handlerTestPost.ts"), outDir, bundlePath)
 
     expect(typeof entrypoint).toBe("function")
 
@@ -200,12 +204,16 @@ describe(SdfHttpApi.name, () => {
   })
 
   it("broken typescript", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
     new SdfHttpApi(bundler, "api", {
       document: {
@@ -273,14 +281,18 @@ describe(SdfHttpApi.name, () => {
   })
 
   it("authorizer", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath, naming: "expanded" })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
-    const authorizer = new SdfHttpApiAuthorizer(bundler, "my-auth", {
+    const authorizer = new SdfHttpApiLambdaAuthorizer(bundler, "my-auth", {
       authorizerResultTtlInSeconds: 5,
       identitySource: "$request.header.Authorization",
       context: {
@@ -314,12 +326,16 @@ describe(SdfHttpApi.name, () => {
   })
 
   it("authorizer - $ref in security scheme", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {
@@ -333,12 +349,16 @@ describe(SdfHttpApi.name, () => {
   })
 
   it("authorizer - apiKey", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {
@@ -349,16 +369,20 @@ describe(SdfHttpApi.name, () => {
           } as unknown as OpenAPIV3.SecuritySchemeObject,
         }),
       })
-    }).toThrowError(/only 'apiKey' authorizer type is supported/)
+    }).toThrowError(/authorizer 'myAuth' is defined in the document, but not provided at/)
   })
 
   it("authorizer - header", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {
@@ -369,16 +393,20 @@ describe(SdfHttpApi.name, () => {
           } as unknown as OpenAPIV3.SecuritySchemeObject,
         }),
       })
-    }).toThrowError(/only 'header' value is supported/)
+    }).toThrowError(/authorizer 'myAuth' is defined in the document, but not provided at/)
   })
 
   it("authorizer - no authorizer", async () => {
-    const app = new SdfApp({ rootDir, tmpDir })
+    const app = new SdfApp({ outdir: outDir })
     const stack = new SdfStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new SdfBundler(stack, bundlerName, { path: bundlePath })
+    const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
+      path: rootDir,
+      prefix: join("src", bundlerName),
+      layout: "expanded",
+    })
 
     expect(() => {
       new SdfHttpApi(bundler, "api", {

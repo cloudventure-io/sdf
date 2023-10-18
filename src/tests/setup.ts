@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "fs/promises"
 import { join, relative } from "path"
 
-const beforeEach = async (prefix: string): Promise<{ rootDir: string; tmpDir: string }> => {
+const beforeEach = async (prefix: string): Promise<{ rootDir: string; outDir: string }> => {
   const testsTmpDir = join(process.cwd(), "tmp", "tests")
   await mkdir(testsTmpDir, { recursive: true })
   const rootDir = await mkdtemp(join(testsTmpDir, `${prefix}-`))
@@ -27,12 +27,12 @@ const beforeEach = async (prefix: string): Promise<{ rootDir: string; tmpDir: st
     ),
   )
 
-  const tmpDir = join(rootDir, "tmp")
-  await mkdir(tmpDir, { recursive: true })
+  const outDir = join(rootDir, "cdktf.out")
+  await mkdir(outDir, { recursive: true })
 
   return {
     rootDir,
-    tmpDir,
+    outDir,
   }
 }
 
