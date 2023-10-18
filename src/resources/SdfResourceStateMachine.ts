@@ -1,8 +1,9 @@
-import { SfnStateMachine } from "@cdktf/provider-aws/lib/sfn-state-machine"
-import { SdfResource } from "../SdfResource"
-import { OpenAPIV3 } from "openapi-types"
-import { Construct } from "constructs"
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
+import { SfnStateMachine } from "@cdktf/provider-aws/lib/sfn-state-machine"
+import { Construct } from "constructs"
+import { OpenAPIV3 } from "openapi-types"
+
+import { SdfResource } from "../SdfResource"
 
 export class SdfResourceStateMachine extends SdfResource {
   get configSpec(): OpenAPIV3.SchemaObject {

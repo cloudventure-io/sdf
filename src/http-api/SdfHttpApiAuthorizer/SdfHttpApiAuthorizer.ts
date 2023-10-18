@@ -1,6 +1,7 @@
 import { Construct } from "constructs"
-import { SdfHttpApi } from "../SdfHttpApi/SdfHttpApi"
 import { OpenAPIV3 } from "openapi-types"
+
+import { SdfHttpApi } from "../SdfHttpApi/SdfHttpApi"
 
 export abstract class SdfHttpApiAuthorizer extends Construct {
   /** The spec method should return the OpenAPI spec for the authorizer */

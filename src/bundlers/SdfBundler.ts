@@ -1,9 +1,9 @@
+import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
 import { SdfApp } from "../SdfApp"
 import { SdfStack } from "../SdfStack"
-import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
 import { SdfLambda } from "../constructs"
 
 export interface SdfBundleManifest {

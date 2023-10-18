@@ -6,13 +6,12 @@ import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy
 import { LambdaFunction, LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
 import { Fn, TerraformResource, Token, dependable } from "cdktf"
 import { constantCase } from "change-case"
-
 import { Construct } from "constructs"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfBundler } from "../../bundlers/SdfBundler"
 import { SdfResource } from "../../SdfResource"
 import { SdfStack } from "../../SdfStack"
+import { SdfBundler } from "../../bundlers/SdfBundler"
 
 export type SdfLambdaFunctionConfig = Omit<LambdaFunctionConfig, "role">
 

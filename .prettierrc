@@ -7,11 +7,11 @@
   "trailingComma": "all",
   "arrowParens": "avoid",
   "importOrder": [
-    "^source-map-support/register$",
     "^(?!@cloudventure/|\\.|/).+",
     "^@cloudventure/",
     "^[.|/]"
   ],
   "importOrderSeparation": true,
-  "importOrderSortSpecifiers": true
+  "importOrderSortSpecifiers": true,
+  "plugins": ["@trivago/prettier-plugin-sort-imports"]
 }

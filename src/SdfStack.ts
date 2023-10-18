@@ -2,8 +2,8 @@ import { TerraformStack } from "cdktf"
 import { Construct } from "constructs"
 
 import { SdfApp } from "./SdfApp"
-import { SdfBundleManifest, SdfBundler } from "./bundlers/SdfBundler"
 import { SdfResource } from "./SdfResource"
+import { SdfBundleManifest, SdfBundler } from "./bundlers/SdfBundler"
 
 export interface SdfStackManifest {
   id: string

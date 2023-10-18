@@ -1,7 +1,8 @@
-import { Construct } from "constructs"
-import { SdfHttpApiAuthorizer } from "./SdfHttpApiAuthorizer"
-import { OpenAPIV3 } from "openapi-types"
 import { pascalCase } from "change-case"
+import { Construct } from "constructs"
+import { OpenAPIV3 } from "openapi-types"
+
+import { SdfHttpApiAuthorizer } from "./SdfHttpApiAuthorizer"
 
 export interface SdfHttpApiJwtAuthorizerConfig {
   /**

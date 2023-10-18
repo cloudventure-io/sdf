@@ -1,7 +1,7 @@
 import type { BuildOptions } from "esbuild"
 
-import type { SdfBundleManifest } from "./bundlers/SdfBundler"
 import type { SdfApp, SdfAppOptions } from "./SdfApp"
+import type { SdfBundleManifest } from "./bundlers/SdfBundler"
 
 export interface SdfConfig {
   buildConfig?: (buildOptions: BuildOptions) => BuildOptions

@@ -5,16 +5,16 @@ import { OpenAPIV3 } from "openapi-types"
 import { join } from "path"
 
 import { SdfApp } from "../../SdfApp"
-import { SdfBundlerTypeScript } from "../../bundlers/SdfBundlerTypeScript"
 import { SdfStack } from "../../SdfStack"
+import { SdfBundlerTypeScript } from "../../bundlers/SdfBundlerTypeScript"
 import { requireFile } from "../../tests/requireFile"
 import * as setup from "../../tests/setup"
 import { tscCheck } from "../../tests/tscCheck"
+import { SdfHttpApiLambdaAuthorizer } from "../SdfHttpApiAuthorizer"
 import { HttpError } from "../http-errors"
 import { Document } from "../openapi/types"
 import { Validators } from "../runtime/wrapper"
 import { SdfHttpApi } from "./SdfHttpApi"
-import { SdfHttpApiLambdaAuthorizer } from "../SdfHttpApiAuthorizer"
 
 describe(SdfHttpApi.name, () => {
   const bundlerName = "test-service"

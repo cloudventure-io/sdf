@@ -4,13 +4,13 @@ import { OpenAPIV3 } from "openapi-types"
 import { join, relative } from "path"
 
 import { SdfApp } from "../../SdfApp"
+import { SdfBundlerTypeScript, SdfBundlerTypeScriptHandler } from "../../bundlers"
 import { SdfLambda, SdfLambdaConfig } from "../../constructs/lambda/SdfLambda"
 import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
+import { SdfHttpApi } from "../SdfHttpApi/SdfHttpApi"
+import { SdfHttpApiAuthorizer } from "./SdfHttpApiAuthorizer"
 import entryPointTemplate from "./templates/entryPoint.ts.mu"
 import handlerTemplate from "./templates/handler.ts.mu"
-import { SdfHttpApiAuthorizer } from "./SdfHttpApiAuthorizer"
-import { SdfHttpApi } from "../SdfHttpApi/SdfHttpApi"
-import { SdfBundlerTypeScript, SdfBundlerTypeScriptHandler } from "../../bundlers"
 
 export interface SdfHttpApiLambdaAuthorizerConfig {
   context: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">>

@@ -4,10 +4,10 @@ import { readFile, rm, writeFile } from "fs/promises"
 import { join, relative, resolve } from "path"
 
 import type { SdfApp, SdfAppManifest, SdfAppOptions } from "../SdfApp"
+import { SdfBundleTypeScriptManifest } from "../bundlers/SdfBundlerTypeScript"
 import { esbuildPlugins } from "../esbuild-plugins"
 import { SdfConfig, SdfSynth } from "../types"
 import { fileExists } from "../utils/fileExists"
-import { SdfBundleTypeScriptManifest } from "../bundlers/SdfBundlerTypeScript"
 
 const cmd = new Command("sdf")
 

@@ -1,7 +1,8 @@
 import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
-import { SdfBundleManifest, SdfBundler } from "./SdfBundler"
 import { Construct } from "constructs"
+
 import { SdfLambda } from "../constructs"
+import { SdfBundleManifest, SdfBundler } from "./SdfBundler"
 
 export interface SdfBundlerDockerContext {
   command?: Array<string>
