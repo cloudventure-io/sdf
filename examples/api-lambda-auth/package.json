@@ -1,0 +1,14 @@
+{
+  "name": "@cloudventure/example-authorizer",
+  "author": "Vahe Sahakyan <vahe@cloudventure.io>",
+  "version": "0.0.1",
+  "license": "MIT",
+  "dependencies": {
+    "@cloudventure/sdf": "file:../../dist"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "synth": "yarn run sdf synth -e ./src/infrastructure/synth.ts",
+    "build": "yarn run sdf build"
+  }
+}

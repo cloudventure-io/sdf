@@ -1,8 +1,8 @@
 {
   "name": "@cloudventure/sdf",
   "description": "Serverless Development Framework",
-  "version": "0.0.1-alpha1",
-  "author": "Vahe Sahakyan <vahe@cloudventure.io>",
+  "version": "0.0.1",
+  "author": "Vahe Sahakyan <vahe@spir.me>",
   "license": "MIT",
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",

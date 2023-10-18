@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "module": "ES2020",
+        "rootDir": "./",
+        "outDir": "./dist",
+        "target": "ES2020",
+        "esModuleInterop": true,
+        "noImplicitAny": false,
+        "sourceMap": false,
+        "moduleResolution": "node",
+        "types": ["node", "jest", "@cloudventure/sdf/types"],
+        "declaration": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "noEmit": true
+    },
+    "include": ["src"]
+}

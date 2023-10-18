@@ -1,0 +1,34 @@
+openapi: 3.0.1
+info:
+  title: SDF Example - Authorizer
+  version: 0.0.1
+
+paths:
+  /test:
+    get:
+      operationId: test
+      description: test
+      responses:
+        "200":
+          description: "test"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Response" }
+      security:
+        - authorizer: []
+
+components:
+  schemas:
+    Response:
+      type: "object"
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+
+  securitySchemes:
+    authorizer:
+      type: "apiKey"
+      name: "ApiKey"
+      in: "header"
