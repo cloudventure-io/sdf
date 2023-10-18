@@ -62,7 +62,7 @@ jobs:
           token: ${{ secrets.NPMJS_TOKEN }}
           access: public
           check-version: true
-          package: "dist/"
+          package: dist/package.json
 
       - name: Tag
         if: steps.publish.outputs.type != 'none'
