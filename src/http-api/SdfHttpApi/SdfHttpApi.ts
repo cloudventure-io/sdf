@@ -8,14 +8,15 @@ import Ajv, { Schema } from "ajv"
 import standaloneCode from "ajv/dist/standalone"
 import { camelCase, pascalCase } from "change-case"
 import { Construct } from "constructs"
-import { mkdir, rm, writeFile } from "fs/promises"
+import { mkdir, rm } from "fs/promises"
 import { OpenAPIV3 } from "openapi-types"
-import { join } from "path"
+import { dirname, join } from "path"
 import { relative } from "path"
 
 import { SdfApp } from "../../SdfApp"
 import { SdfBundlerTypeScript, SdfBundlerTypeScriptHandler } from "../../bundlers"
 import { SdfLambda, SdfLambdaConfig } from "../../constructs/lambda/SdfLambda"
+import { writeFile } from "../../utils/writeFile"
 import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
 import { SdfHttpApiJwtAuthorizer, SdfHttpApiLambdaAuthorizer } from "../SdfHttpApiAuthorizer"
 import { SdfHttpApiAuthorizer } from "../SdfHttpApiAuthorizer/SdfHttpApiAuthorizer"
@@ -93,7 +94,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     // define directories
     this.entryPointsDirectory = this.bundler.registerDirectory(this, "entrypoints", true)
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators")
-    this.handlersDirectory = this.bundler.registerDirectory(this, "handlers", false)
+    this.handlersDirectory = this.bundler.registerDirectory(this, "api", false)
 
     // clone the document, since document will be mutated in further operations
     this.document = JSON.parse(JSON.stringify(this.config.document)) as Document<OperationType>
@@ -208,7 +209,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
   private defineLambda(operation: OperationBundle<OperationType, OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>) {
     const operationId = operation.operationId
 
-    const lambda = new SdfLambda(this.bundler, `api-handler-${operationId}`, {
+    const lambda = new SdfLambda(this.bundler, `api-handler-${camelCase(operationId)}`, {
       timeout: 29,
       memorySize: 512,
       ...this.config.lambdaConfig,
@@ -389,7 +390,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     const validatorPath = await this.renderValidator(operation)
 
     const handlerPath = join(this.handlersDirectory, operationId)
-    const entryPointPath = join(this.entryPointsDirectory, camelCase(`handler-${operationId}`))
+    const entryPointPath = join(this.entryPointsDirectory, camelCase(`api-${operationId}`))
 
     await writeMustacheTemplate({
       template: entryPointTemplate,
@@ -397,9 +398,9 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       overwrite: true,
       context: {
         OperationModel: operationTitle,
-        InterfacesImport: relative(this.entryPointsDirectory, this.bundler._interfacesAbsPath),
-        HandlerImport: relative(this.entryPointsDirectory, handlerPath),
-        ValidatorsImport: relative(this.entryPointsDirectory, validatorPath),
+        InterfacesImport: relative(dirname(entryPointPath), this.bundler._interfacesAbsPath),
+        HandlerImport: relative(dirname(entryPointPath), handlerPath),
+        ValidatorsImport: relative(dirname(entryPointPath), validatorPath),
         EntryPointFunctionName: entryPointFunctionName,
       },
     })
@@ -409,7 +410,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       path: `${handlerPath}.ts`,
       overwrite: false,
       context: {
-        WrapperImport: relative(this.handlersDirectory, entryPointPath),
+        WrapperImport: relative(dirname(handlerPath), entryPointPath),
         HandlerBody: this.config.handlerBody || "{}",
       },
     })

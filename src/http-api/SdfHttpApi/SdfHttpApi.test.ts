@@ -140,7 +140,7 @@ describe(SdfHttpApi.name, () => {
 
     const { entrypoint } = await requireFile<{
       entrypoint: (event: Partial<APIGatewayProxyEventV2>) => Promise<APIGatewayProxyResult>
-    }>(join("api", "entrypoints", "handlerTestPost.ts"), outDir, bundlePath)
+    }>(join("api", "entrypoints", "apiTestPost.ts"), outDir, bundlePath)
 
     expect(typeof entrypoint).toBe("function")
 
