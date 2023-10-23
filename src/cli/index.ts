@@ -16,7 +16,7 @@ const cmd = new Command("sdf")
 const outdir = join(process.cwd(), "cdktf.out")
 const workdir = join(outdir, ".sdf")
 
-const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "14"}`
+const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "18"}`
 
 cmd
   .command("synth")

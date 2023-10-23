@@ -275,7 +275,7 @@ export class SdfBundlerTypeScript extends SdfBundler {
 
     // add tsEnumNames to all enums. this is required by
     // json-schema-to-typescript library to generate enum values
-    walkSchema(rootSchema, async ({ schema }: schemaHandlerOptions) => {
+    walkSchema(rootSchema, ({ schema }: schemaHandlerOptions) => {
       if ("enum" in schema && schema.enum && !schema["x-no-ts-enum"]) {
         ;(schema as any).tsEnumNames = (schema.enum as Array<string>).map(e =>
           e.replace(/-(.)/g, m => m[1].toUpperCase()),

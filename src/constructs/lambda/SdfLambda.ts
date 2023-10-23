@@ -4,7 +4,7 @@ import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
 import { LambdaFunction, LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
-import { Fn, TerraformResource, Token, dependable } from "cdktf"
+import { Fn, IResolvable, TerraformResource, Token, dependable } from "cdktf"
 import { constantCase } from "change-case"
 import { Construct } from "constructs"
 
@@ -41,7 +41,7 @@ export class SdfLambda<Bundler extends SdfBundler> extends Construct {
   public role: IamRole
 
   private resolvables: Array<Resolvable> = []
-  public createResolvable(key: string, resolve: () => Promise<unknown>, ref?: unknown) {
+  public createResolvable(key: string, resolve: () => Promise<unknown>, ref?: unknown): IResolvable {
     const resolvable: Resolvable = {
       key,
       ref,
@@ -51,6 +51,7 @@ export class SdfLambda<Bundler extends SdfBundler> extends Construct {
     this.resolvables.push(resolvable)
 
     return {
+      creationStack: [],
       resolve() {
         return resolvable.ref
       },

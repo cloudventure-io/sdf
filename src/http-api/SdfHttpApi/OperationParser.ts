@@ -4,6 +4,7 @@ import { camelCase } from "change-case"
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
+import { sanitizeSchema } from "../../utils/sanitizeSchema"
 import { DocumentTrace } from "../openapi/DocumentTrace"
 import { DereferencedDocument, Document, OperationObject, ParameterObject, PathItemObject } from "../openapi/types"
 
@@ -406,7 +407,7 @@ export class OperationParser<OperationType extends object = object> {
       })
     }
 
-    return schemas
+    return schemas.map(sanitizeSchema)
   }
 
   public walkOperations(

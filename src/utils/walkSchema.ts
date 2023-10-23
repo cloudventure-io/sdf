@@ -9,41 +9,59 @@ export interface schemaHandlerOptions {
 
 export const walkSchema = (
   schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
-  handler: (options: schemaHandlerOptions) => void,
+  handler: (options: schemaHandlerOptions) => OpenAPIV3.SchemaObject | void,
   trace?: string,
-): void => doWalkSchema(schema, handler, trace || "/", new Set())
+): OpenAPIV3.SchemaObject => doWalkSchema(schema, handler, trace || "/", new Set())
 
 const doWalkSchema = (
   schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
-  handler: (options: schemaHandlerOptions) => void,
+  handler: (options: schemaHandlerOptions) => OpenAPIV3.SchemaObject | void,
   trace: string,
   visited: Set<OpenAPIV3.SchemaObject>,
   parent?: OpenAPIV3.SchemaObject,
-): void => {
+): OpenAPIV3.SchemaObject => {
   if ("$ref" in schema) {
     throw new Error(`unexpected $ref at ${trace}, schema must be dereferenced`)
   } else if (visited.has(schema)) {
-    return
+    return schema
   }
 
-  handler({ trace, schema, parent })
+  let s = handler({ trace, schema, parent })
+  if (s === undefined) {
+    s = schema
+  }
 
-  if (schema.type === "array") {
-    doWalkSchema(schema.items, handler, `${trace}/items`, visited, schema)
+  if (s.type === "array" && s.items) {
+    s.items = doWalkSchema(s.items, handler, `${trace}/items`, visited, s)
   }
-  if (schema.properties) {
-    Object.entries(schema.properties).map(([name, entry]) => [
-      name,
-      doWalkSchema(entry, handler, `${trace}/properties/${encodeURIComponent(name)}`, visited, schema),
-    ])
+
+  if (s.properties) {
+    for (const key in s.properties) {
+      s.properties[key] = doWalkSchema(
+        s.properties[key],
+        handler,
+        `${trace}/properties/${encodeURIComponent(key)}`,
+        visited,
+        s,
+      )
+    }
   }
-  if (schema.allOf) {
-    schema.allOf.forEach((entry, index) => doWalkSchema(entry, handler, `${trace}/allOf/${index}`, visited, schema))
+
+  if (s.allOf) {
+    for (const key in s.allOf) {
+      s.allOf[key] = doWalkSchema(s.allOf[key], handler, `${trace}/allOf/${key}`, visited, s)
+    }
   }
-  if (schema.oneOf) {
-    schema.oneOf.forEach((entry, index) => doWalkSchema(entry, handler, `${trace}/oneOf/${index}`, visited, schema))
+  if (s.oneOf) {
+    for (const key in s.oneOf) {
+      s.oneOf[key] = doWalkSchema(s.oneOf[key], handler, `${trace}/oneOf/${key}`, visited, s)
+    }
   }
-  if (schema.anyOf) {
-    schema.anyOf.forEach((entry, index) => doWalkSchema(entry, handler, `${trace}/anyOf/${index}`, visited, schema))
+  if (s.anyOf) {
+    for (const key in s.anyOf) {
+      s.anyOf[key] = doWalkSchema(s.anyOf[key], handler, `${trace}/anyOf/${key}`, visited, s)
+    }
   }
+
+  return s
 }
