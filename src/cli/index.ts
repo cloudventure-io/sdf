@@ -6,51 +6,42 @@ import { join, relative, resolve } from "path"
 import type { SdfApp, SdfAppManifest, SdfAppOptions } from "../SdfApp"
 import { SdfBundleTypeScriptManifest } from "../bundlers/SdfBundlerTypeScript"
 import { esbuildPlugins } from "../esbuild-plugins"
-import { SdfConfig, SdfSynth } from "../types"
-import { fileExists } from "../utils/fileExists"
+import { SdfConfig } from "../types"
 
 const cmd = new Command("sdf")
 
-// const rootDir = process.cwd()
-// const tmpDir = join(rootDir, "tmp")
 const outdir = join(process.cwd(), "cdktf.out")
-const workdir = join(outdir, ".sdf")
 
 const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "18"}`
 
-cmd
-  .command("synth")
-  .requiredOption("-e, --entryPoint <entryPoint>")
-  .action(async ({ entryPoint }: { entryPoint: string }) => {
-    // await mkdir(tmpDir, { recursive: true })
-
-    const outfile = join(workdir, `synth.js`)
-
-    await esbuild.build({
-      platform: "node",
-      target,
-      plugins: esbuildPlugins(),
-      entryPoints: [entryPoint],
-      outfile,
-      sourcemap: "inline",
-      bundle: true,
-      format: "cjs",
-      keepNames: true,
-    })
-
-    const synth: SdfSynth = require(outfile).synth
-
-    if (!synth || typeof synth !== "function") {
-      throw new Error(`the entryPoint file ${entryPoint} must export an async function 'synth'`)
-    }
-
-    const options: SdfAppOptions = {
-      outdir,
-    }
-
-    const app: SdfApp = await synth(options)
-    await app.synth()
+const loadConfig = async (filename: string = "./sdf.config.ts"): Promise<SdfConfig> => {
+  const transpilationResult = await esbuild.build({
+    platform: "node",
+    target,
+    plugins: esbuildPlugins(),
+    entryPoints: [filename],
+    sourcemap: "inline",
+    bundle: true,
+    format: "cjs",
+    keepNames: true,
+    write: false,
   })
+
+  const result = eval(transpilationResult.outputFiles[0].text)
+
+  return result.default
+}
+
+cmd.command("synth").action(async () => {
+  const config = await loadConfig()
+
+  const options: SdfAppOptions = {
+    outdir,
+  }
+
+  const app: SdfApp = await config.synth(options)
+  await app.synth()
+})
 
 /**
  * https://github.com/evanw/esbuild/pull/2067#issuecomment-1073039746
@@ -81,25 +72,9 @@ const ESM_REQUIRE_SHIM = `
  `
 
 cmd.command("build").action(async () => {
-  let config: SdfConfig = {}
-  if (await fileExists("sdf.config.ts")) {
-    const configOutFile = join(workdir, "sdf.config.js")
+  const config = await loadConfig()
 
-    await esbuild.build({
-      platform: "node",
-      target,
-      plugins: esbuildPlugins(),
-      entryPoints: ["sdf.config.ts"],
-      outfile: configOutFile,
-      sourcemap: "inline",
-      bundle: true,
-      format: "cjs",
-      keepNames: true,
-    })
-
-    config = require(configOutFile).default
-  }
-
+  const workdir = join(outdir, ".sdf")
   const buildMetadata: SdfAppManifest = JSON.parse(await readFile(join(workdir, "sdf.manifest.json"), "utf8"))
 
   await Promise.all(
@@ -115,11 +90,7 @@ cmd.command("build").action(async () => {
           const bundlePath = resolve(workdir, bundle.path)
           const bundlePrefix = resolve(workdir, bundle.prefix)
           const bundleDist = resolve(workdir, bundle.dist)
-          // console.log("bundlePath", bundlePath)
-          // console.log("bundlePrefix", bundlePrefix)
-          // console.log("bundleDist", bundleDist)
 
-          // const outdir = join(tmpDir, stack.name, bundle.name)
           await rm(bundleDist, { recursive: true, force: true })
 
           const esbuildOptions: esbuild.BuildOptions = {

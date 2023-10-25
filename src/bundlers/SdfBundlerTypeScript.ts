@@ -23,9 +23,7 @@ export interface SdfBundlerTypeScriptHandler {
   entryPoint: string
 }
 
-export interface SdfBundlerTypeScriptContext {
-  handler: SdfBundlerTypeScriptHandler | (() => Promise<SdfBundlerTypeScriptHandler>)
-}
+export type SdfBundlerTypeScriptContext = SdfBundlerTypeScriptHandler | (() => Promise<SdfBundlerTypeScriptHandler>)
 
 export interface SdfBundleTypeScriptManifest extends SdfBundleManifest {
   type: "typescript"
@@ -321,8 +319,7 @@ export class SdfBundlerTypeScript extends SdfBundler {
 
   public lambdaConfig(lambda: SdfLambda<SdfBundlerTypeScript>): Partial<LambdaFunctionConfig> {
     const handlerResolvable = lambda.createResolvable("handler", async (): Promise<string> => {
-      const { handler, entryPoint } =
-        typeof lambda.context.handler == "function" ? await lambda.context.handler() : lambda.context.handler
+      const { handler, entryPoint } = typeof lambda.context == "function" ? await lambda.context() : lambda.context
 
       this.entryPoints.add(entryPoint)
 

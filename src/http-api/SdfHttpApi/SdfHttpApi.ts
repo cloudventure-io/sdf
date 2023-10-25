@@ -216,9 +216,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
       functionName: this.app._concatName(this.bundler.node.id, this.id, operationId),
       publish: true,
-      bundler: {
-        handler: async () => await this.renderLambdaHandler(operation),
-      },
+      bundler: () => this.renderLambdaHandler(operation),
       resources: {
         ...this.config.lambdaConfig?.resources,
         ...this.document["x-sdf-resources"],

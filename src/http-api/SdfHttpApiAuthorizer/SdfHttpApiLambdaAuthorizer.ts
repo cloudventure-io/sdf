@@ -54,9 +54,7 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
       functionName: app._concatName(this.bundler.node.id, "authorizer", id),
       publish: true,
 
-      bundler: {
-        handler: () => this.renderLambda(),
-      },
+      bundler: () => this.renderLambda(),
     })
   }
 
