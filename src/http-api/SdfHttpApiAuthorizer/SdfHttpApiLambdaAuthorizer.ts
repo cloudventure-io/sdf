@@ -1,4 +1,4 @@
-import { camelCase } from "change-case"
+import { camelCase, pascalCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 import { join, relative } from "path"
@@ -32,6 +32,8 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
   private entryPointsDirectory: string
   private authorizersDirectory: string
 
+  private contextSchema: OpenAPIV3.SchemaObject
+
   constructor(
     scope: Construct,
     public id: string,
@@ -56,6 +58,15 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
 
       bundler: () => this.renderLambda(),
     })
+
+    this.contextSchema = {
+      title: pascalCase(`AuthorzierContext-${id}`),
+      type: "object",
+      properties: {
+        lambda: config.context,
+      },
+      required: ["lambda"],
+    }
   }
 
   public spec(api: SdfHttpApi) {
@@ -105,6 +116,6 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
   }
 
   public context(): OpenAPIV3.SchemaObject {
-    return this.config.context
+    return this.contextSchema
   }
 }

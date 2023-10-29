@@ -279,7 +279,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
     const operationTitle = pascalCase(`operation-${operationId}`)
 
-    this.bundler.registerSchema({
+    const operationSchema: OpenAPIV3.SchemaObject = {
       title: operationTitle,
       type: "object",
       properties: {
@@ -299,7 +299,9 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       },
       required: ["request", "responses"],
       additionalProperties: false,
-    })
+    }
+
+    this.bundler.registerSchema(operationSchema)
 
     return operationTitle
   }
@@ -346,7 +348,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       }
       schemas.push({
         $id: "authorizer",
-        schema: authorizer.context(),
+        ...authorizer.context(),
       })
     }
 
