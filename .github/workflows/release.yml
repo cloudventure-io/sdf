@@ -57,15 +57,15 @@ jobs:
         env:
           TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
           TF_STATE_LOCK_TABLE: ${{ secrets.TF_STATE_LOCK_TABLE }}
+        working-directory: examples/${{ matrix.example }}
         run: |
-          cd examples/${{ matrix.example }}
           pnpm install
           pnpm synth -n test
           pnpm build
 
       - name: Deploy the example
+        working-directory: examples/${{ matrix.example }}/cdktf.out/stacks/deployment
         run: |
-          cd cdktf.out/stacks/deployment
           terraform init
           terraform plan
 
