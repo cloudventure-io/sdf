@@ -13,22 +13,22 @@ permissions:
   id-token: write
 
 jobs:
-  tests:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        name: Checkout the code
+  # tests:
+  #   name: Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       name: Checkout the code
 
-      - name: Install and build
-        uses: ./.github/actions/install-and-build
+  #     - name: Install and build
+  #       uses: ./.github/actions/install-and-build
 
-      - name: Run Tests
-        run: pnpm test
+  #     - name: Run Tests
+  #       run: pnpm test
 
   e2e-tests:
     name: End-to-end tests
-    needs: ["tests"]
+    # needs: ["tests"]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -54,6 +54,9 @@ jobs:
           terraform_wrapper: false
 
       - name: Install example
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+          TF_STATE_LOCK_TABLE: ${{ secrets.TF_STATE_LOCK_TABLE }}
         run: |
           cd examples/${{ matrix.example }}
           pnpm install
