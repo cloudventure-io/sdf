@@ -6,7 +6,7 @@ export const authorizer: APIGatewayRequestSimpleAuthorizerHandlerV2WithContext<A
   return {
     isAuthorized: true,
     context: {
-      name: "test",
+      name: event.identitySource[0],
     },
   }
 }

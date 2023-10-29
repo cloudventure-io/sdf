@@ -1,18 +1,11 @@
 # Serverless Development Framework
 
-An opinionated Serverless Development Framework based on Terraform CDK and OpenAPI.
-SDF provides convenient interfaces for implementing cloud-native applications.
-
-It includes a bundler for TypeScript language and a basic bundler for dockerized Lambda functions.
+An opinionated Serverless Development Framework for AWS based cloud-native applications primarly based on TypeScript.
 
 ## Install
 
-```
+```bash
 npm i -D @cloudventure/sdf
-```
-
-```
-yarn add -D @cloudventure/sdf
 ```
 
 ## Concepts

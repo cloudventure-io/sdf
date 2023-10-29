@@ -19,47 +19,59 @@ jobs:
       - uses: actions/checkout@v3
         name: Checkout the code
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: "yarn"
-
-      - name: Install
-        run: yarn install --frozen-lockfile
-
-      - name: Lint
-        run: yarn lint
-
-      - name: Build
-        run: yarn build
+      - name: Install and build
+        uses: ./.github/actions/install-and-build
 
       - name: Run Tests
-        run: yarn test
+        run: pnpm test
+
+  e2e-tests:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        example: [api-lambda-auth]
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout the code
+
+      - name: Install and build
+        uses: ./.github/actions/install-and-build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      - name: Install example
+        run: |
+          cd examples/${{ matrix.example }}
+          pnpm install
+          pnpm synth
+          pnpm build
+
+      - name: Deploy the example
+        run: |
+          cd cdktf.out/stacks/deployment
+          terraform init
+          terraform plan
 
   publish:
-    needs: [tests]
+    needs: [tests, e2e-tests]
     name: Publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         name: Checkout the code
 
-      - run: jq -r '"version=v" + .version' package.json >> $GITHUB_OUTPUT
-        id: package-json
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: "yarn"
-
-      - name: Install
-        run: yarn install --frozen-lockfile
-
-      - name: Build
-        run: yarn build
-
-      - name: Add README
-        run: cp README.md dist/README.md
+      - name: Install and build
+        uses: ./.github/actions/install-and-build
 
       - name: Publish
         uses: JS-DevTools/npm-publish@v1

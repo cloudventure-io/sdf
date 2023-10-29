@@ -4,13 +4,13 @@ info:
   version: 0.0.1
 
 paths:
-  /test:
+  /testing:
     get:
-      operationId: test
-      description: test
+      operationId: testing
+      description: testing
       responses:
         "200":
-          description: "test"
+          description: "testing"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Response" }
@@ -23,9 +23,14 @@ components:
       type: "object"
       properties:
         ok:
+          description: indicates the status
           type: boolean
+        user:
+          description: indicates the username
+          type: string
       required:
         - ok
+        - user
 
   securitySchemes:
     authorizer:

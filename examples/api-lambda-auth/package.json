@@ -4,11 +4,19 @@
   "version": "0.0.1",
   "license": "MIT",
   "dependencies": {
-    "@cloudventure/sdf": "file:../../dist"
+    "@cloudventure/sdf": "file:../../dist",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1"
   },
   "sideEffects": false,
   "scripts": {
-    "synth": "yarn run sdf synth -e ./src/infrastructure/synth.ts",
-    "build": "yarn run sdf build"
+    "synth": "sdf synth",
+    "build": "sdf build"
+  },
+  "devDependencies": {
+    "@cloudventure/jest-transformer-esbuild": "^1.0.13",
+    "@types/aws-lambda": "^8.10.125",
+    "axios": "^1.6.0",
+    "jest": "^29.7.0"
   }
 }

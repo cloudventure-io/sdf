@@ -1,0 +1,25 @@
+---
+name: Install and Build
+description: Install and Build
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+        cache: pnpm
+
+    - name: Install
+      shell: bash
+      run: pnpm install
+
+    - name: Lint
+      shell: bash
+      run: pnpm lint
+
+    - name: Build
+      shell: bash
+      run: pnpm build

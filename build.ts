@@ -95,6 +95,7 @@ const run = async () => {
     ),
 
     await copyFile("publish/types.d.ts", "dist/types.d.ts"),
+    await copyFile("README.md", "dist/README.md"),
 
     await esbuild.build({
       ...esbuildOptions,

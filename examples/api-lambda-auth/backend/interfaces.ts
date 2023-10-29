@@ -5,7 +5,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type OperationTestRequest = {
+export type OperationTestingRequest = {
   path: {
     [k: string]: string | undefined;
   };
@@ -18,25 +18,39 @@ export type OperationTestRequest = {
   header: {
     [k: string]: string | undefined;
   };
-  authorizer: AuthContext;
+  authorizer: AuthorzierContextAuthorizer;
 };
-export type OperationTestResponses = {
+export type OperationTestingResponses = {
   statusCode: 200;
   headers: {};
   body: {
+    /**
+     * indicates the status
+     */
     ok: boolean;
+    /**
+     * indicates the username
+     */
+    user: string;
     [k: string]: unknown | undefined;
   };
 };
 
 export interface _ {
   AuthContext?: AuthContext;
-  OperationTest?: OperationTest;
+  OperationTesting?: OperationTesting;
+  OperationTestingRequest?: OperationTestingRequest;
+  AuthorzierContextAuthorizer?: AuthorzierContextAuthorizer;
+  OperationTestingResponses?: OperationTestingResponses;
 }
 export interface AuthContext {
   name: string;
 }
-export interface OperationTest {
-  request: OperationTestRequest;
-  responses: OperationTestResponses;
+export interface OperationTesting {
+  request: OperationTestingRequest;
+  responses: OperationTestingResponses;
+}
+export interface AuthorzierContextAuthorizer {
+  lambda: AuthContext;
+  [k: string]: unknown | undefined;
 }

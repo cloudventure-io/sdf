@@ -8,11 +8,11 @@
         "noImplicitAny": false,
         "sourceMap": false,
         "moduleResolution": "node",
-        "types": ["node", "jest", "@cloudventure/sdf/types"],
+        "types": ["node", "jest", "@cloudventure/sdf/types", "@types/aws-lambda"],
         "declaration": true,
         "strict": true,
         "skipLibCheck": true,
         "noEmit": true
     },
-    "include": ["src"]
+    "include": ["backend", "infrastructure"]
 }
