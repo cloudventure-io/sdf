@@ -40,6 +40,8 @@ jobs:
 
       - name: Install and build
         uses: ./.github/actions/install-and-build
+        with:
+          lint: false
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -55,7 +57,7 @@ jobs:
         run: |
           cd examples/${{ matrix.example }}
           pnpm install
-          pnpm synth
+          pnpm synth -n test
           pnpm build
 
       - name: Deploy the example

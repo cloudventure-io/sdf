@@ -2,6 +2,12 @@
 name: Install and Build
 description: Install and Build
 
+inputs:
+  lint:
+    description: Run the linter
+    required: false
+    default: "true"
+
 runs:
   using: "composite"
 
@@ -22,6 +28,7 @@ runs:
       run: pnpm install
 
     - name: Lint
+      if: inputs.lint == 'true'
       shell: bash
       run: pnpm lint
 
