@@ -12,6 +12,9 @@ runs:
         node-version: 18
         cache: pnpm
 
+    - uses: pnpm/action-setup@v2
+      name: Install pnpm
+
     - name: Install
       shell: bash
       run: pnpm install
