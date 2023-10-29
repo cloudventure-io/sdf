@@ -28,6 +28,7 @@ jobs:
 
   e2e-tests:
     name: End-to-end tests
+    needs: ["tests"]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
