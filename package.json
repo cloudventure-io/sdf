@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@cloudventure/jest-transformer-esbuild": "^1.0.13",
+    "@jest/globals": "^29.7.0",
     "@trivago/prettier-plugin-sort-imports": "^4.2.0",
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.5",
@@ -47,12 +48,12 @@
   "scripts": {
     "prepare": "esbuild --platform=node --target=node18 --outfile=tmp/prepare.js --bundle --sourcemap=inline --external:esbuild --external:typescript --log-level=error prepare.ts",
     "postprepare": "node tmp/prepare.js",
-    "prebuild": "yarn prepare",
+    "prebuild": "pnpm prepare",
     "build": "node tmp/build.js",
-    "postbuild": "yarn run tsc",
-    "test": "NODE_OPTIONS=--experimental-vm-modules yarn run jest --coverage",
-    "typecheck": "yarn run tsc --noEmit --emitDeclarationOnly false",
-    "prelint": "yarn run -s typecheck",
-    "lint": "yarn run eslint ./"
+    "postbuild": "tsc",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false",
+    "prelint": "pnpm run -s typecheck",
+    "lint": "eslint ./"
   }
 }
