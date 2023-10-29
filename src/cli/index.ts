@@ -14,12 +14,14 @@ const outdir = join(process.cwd(), "cdktf.out")
 
 const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "18"}`
 
-const loadConfig = async (filename: string = "./sdf.config.ts"): Promise<SdfConfig> => {
+const configFilename = "./sdf.config.ts"
+
+const loadConfig = async (): Promise<SdfConfig> => {
   const transpilationResult = await esbuild.build({
     platform: "node",
     target,
     plugins: esbuildPlugins(),
-    entryPoints: [filename],
+    entryPoints: [configFilename],
     sourcemap: "inline",
     bundle: true,
     format: "cjs",
@@ -32,16 +34,20 @@ const loadConfig = async (filename: string = "./sdf.config.ts"): Promise<SdfConf
   return result.default
 }
 
-cmd.command("synth").action(async () => {
-  const config = await loadConfig()
+cmd
+  .command("synth")
+  .allowUnknownOption(true)
+  .action(async (_, cmd: Command) => {
+    const config = await loadConfig()
 
-  const options: SdfAppOptions = {
-    outdir,
-  }
+    const options: SdfAppOptions = {
+      argv: [process.argv[0], resolve(configFilename), ...cmd.args],
+      outdir,
+    }
 
-  const app: SdfApp = await config.synth(options)
-  await app.synth()
-})
+    const app: SdfApp = await config.synth(options)
+    await app.synth()
+  })
 
 /**
  * https://github.com/evanw/esbuild/pull/2067#issuecomment-1073039746

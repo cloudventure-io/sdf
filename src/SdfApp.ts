@@ -16,6 +16,8 @@ const namingCaseFunction: {
 }
 
 export interface SdfAppOptions extends AppConfig {
+  argv: Array<string>
+
   namingCase?: NamingCase
 
   outdir: string

@@ -189,13 +189,13 @@ export class SdfBundlerTypeScript extends SdfBundler {
     }
   }
 
-  public registerDirectory(scope: Construct, type: string, deleteBeforeSynth: boolean): string {
+  public registerDirectory(scope: Construct, namespace: string, deleteBeforeSynth: boolean): string {
     let result: string
 
     if (this.config.layout == "expanded") {
-      result = join(this.gendir, scope.node.id, type)
+      result = join(this.gendir, scope.node.id, namespace)
     } else {
-      result = join(this.gendir, type)
+      result = join(this.gendir, namespace)
     }
 
     if (result in this.directories && this.directories[result] !== deleteBeforeSynth) {
