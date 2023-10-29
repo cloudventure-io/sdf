@@ -13,22 +13,22 @@ permissions:
   id-token: write
 
 jobs:
-  # tests:
-  #   name: Tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #       name: Checkout the code
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout the code
 
-  #     - name: Install and build
-  #       uses: ./.github/actions/install-and-build
+      - name: Install and build
+        uses: ./.github/actions/install-and-build
 
-  #     - name: Run Tests
-  #       run: pnpm test
+      - name: Run Tests
+        run: pnpm test
 
   e2e-tests:
     name: End-to-end tests
-    # needs: ["tests"]
+    needs: ["tests"]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -83,28 +83,28 @@ jobs:
         working-directory: examples/${{ matrix.example }}/cdktf.out/stacks/deployment
         run: terraform apply -destroy -auto-approve
 
-  # publish:
-  #   needs: [tests, e2e-tests]
-  #   name: Publish
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #       name: Checkout the code
+  publish:
+    needs: [tests, e2e-tests]
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout the code
 
-  #     - name: Install and build
-  #       uses: ./.github/actions/install-and-build
+      - name: Install and build
+        uses: ./.github/actions/install-and-build
 
-  #     - name: Publish
-  #       uses: JS-DevTools/npm-publish@v1
-  #       id: publish
-  #       with:
-  #         token: ${{ secrets.NPMJS_TOKEN }}
-  #         access: public
-  #         check-version: true
-  #         package: dist/package.json
+      - name: Publish
+        uses: JS-DevTools/npm-publish@v1
+        id: publish
+        with:
+          token: ${{ secrets.NPMJS_TOKEN }}
+          access: public
+          check-version: true
+          package: dist/package.json
 
-  #     - name: Tag
-  #       if: steps.publish.outputs.type != 'none'
-  #       run: |
-  #         git tag v${{ steps.publish.outputs.version }}
-  #         git push --tags
+      - name: Tag
+        if: steps.publish.outputs.type != 'none'
+        run: |
+          git tag v${{ steps.publish.outputs.version }}
+          git push --tags
