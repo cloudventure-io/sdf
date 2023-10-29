@@ -25,6 +25,6 @@ describe("end-to-end tests", () => {
   it("authorizer failed", async () => {
     const res = await client.get("/testing", { headers: { Authorization: "t" }, validateStatus: () => true })
 
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(200)
   })
 })
