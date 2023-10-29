@@ -8,7 +8,7 @@ describe("end-to-end tests", () => {
   }
 
   const client = axios.create({
-    baseURL: "https://cumj0btl71.execute-api.eu-central-1.amazonaws.com",
+    baseURL: process.env.SDF_TEST_API_URL,
   })
 
   it("basic", async () => {

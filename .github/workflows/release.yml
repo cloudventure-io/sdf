@@ -79,7 +79,7 @@ jobs:
           pnpm jest
 
       - name: Cleanup
-        if: ${{ steps.deploy.conclusion == 'success' }}
+        if: ${{ always() && steps.deploy.conclusion == 'success' }}
         working-directory: examples/${{ matrix.example }}/cdktf.out/stacks/deployment
         run: terraform apply -destroy -auto-approve
 
