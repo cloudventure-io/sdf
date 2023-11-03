@@ -4,8 +4,8 @@
  */
 
 import { httpApiRuntime } from "@cloudventure/sdf";
-import { AuthContext as AuthorizerContext } from "./../interfaces";
-import { authorizer } from "./../authorizers/authorizer";
+import { AuthContext as AuthorizerContext } from "./../../interfaces";
+import { authorizer } from "./../../../authorizer/authorizer";
 
 export { AuthorizerContext }
 

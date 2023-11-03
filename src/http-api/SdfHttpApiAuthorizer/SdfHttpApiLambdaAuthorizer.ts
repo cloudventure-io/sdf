@@ -21,6 +21,8 @@ export interface SdfHttpApiLambdaAuthorizerConfig {
   lambdaConfig?: Omit<SdfLambdaConfig<SdfBundlerTypeScript>, "handler" | "runtime" | "functionName">
 
   authorizerBody?: string
+
+  prefix?: string
 }
 
 const entryPointFunctionName = "entrypoint"
@@ -30,9 +32,11 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
   private bundler: SdfBundlerTypeScript
 
   private entryPointsDirectory: string
-  private authorizersDirectory: string
+  private authorizerDirectory: string
 
   private contextSchema: OpenAPIV3.SchemaObject
+
+  private prefix: string
 
   constructor(
     scope: Construct,
@@ -43,10 +47,12 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
     const app = SdfApp.getAppFromContext(this)
     this.bundler = SdfApp.getFromContext(this, SdfBundlerTypeScript)
 
+    this.prefix = config.prefix ?? id
+
     this.bundler.registerSchema(config.context)
 
-    this.entryPointsDirectory = this.bundler.registerDirectory(this, "entrypoints", true)
-    this.authorizersDirectory = this.bundler.registerDirectory(this, "authorizers", false)
+    this.entryPointsDirectory = join(this.bundler.entryPointsDir, this.prefix)
+    this.authorizerDirectory = this.bundler.registerDirectory(this.prefix)
 
     this.lambda = new SdfLambda(this.bundler, `authorizer-${id}`, {
       timeout: 29,
@@ -82,8 +88,8 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
   }
 
   private async renderLambda(): Promise<SdfBundlerTypeScriptHandler> {
-    const handlerPath = join(this.authorizersDirectory, camelCase(this.id))
-    const entryPointPath = join(this.entryPointsDirectory, camelCase(`authorizer-${this.id}`))
+    const handlerPath = join(this.authorizerDirectory, camelCase(this.id))
+    const entryPointPath = join(this.entryPointsDirectory, camelCase(this.id))
 
     await writeMustacheTemplate({
       template: entryPointTemplate,
@@ -102,12 +108,12 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
       path: `${handlerPath}.ts`,
       overwrite: false,
       context: {
-        WrapperImport: relative(this.authorizersDirectory, entryPointPath),
+        WrapperImport: relative(this.authorizerDirectory, entryPointPath),
         AuthorizerBody: this.config.authorizerBody || "{}",
       },
     })
 
-    const entryPointRelPath = relative(this.bundler.gendir, entryPointPath)
+    const entryPointRelPath = relative(this.bundler.genDir, entryPointPath)
 
     return {
       handler: `${entryPointRelPath}.${entryPointFunctionName}`,

@@ -4,9 +4,9 @@
  */
 
 import { httpApiRuntime } from "@cloudventure/sdf";
-import { OperationTesting as Operation } from "./../interfaces";
+import { OperationTesting as Operation } from "./../../interfaces";
 import * as validators from "./validators/testing.validator";
-import { handler } from "./../api/testing";
+import { handler } from "./../../../api/testing";
 
 export type OperationRequest = Operation["request"];
 export type OperationResponses = httpApiRuntime.ExtractResponses<Operation["responses"]>;

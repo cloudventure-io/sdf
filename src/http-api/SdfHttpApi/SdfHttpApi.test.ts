@@ -42,7 +42,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     new SdfHttpApi(bundler, "api", {
@@ -129,7 +128,7 @@ describe(SdfHttpApi.name, () => {
     await tscCheck(rootDir)
 
     const validators = await requireFile<Validators>(
-      join("api", "entrypoints", "validators", "testPost.validator.js"),
+      join(".gen", "entrypoints", "api", "validators", "testPost.validator.js"),
       outDir,
       bundlePath,
     )
@@ -140,7 +139,7 @@ describe(SdfHttpApi.name, () => {
 
     const { entrypoint } = await requireFile<{
       entrypoint: (event: Partial<APIGatewayProxyEventV2>) => Promise<APIGatewayProxyResult>
-    }>(join("api", "entrypoints", "apiTestPost.ts"), outDir, bundlePath)
+    }>(join(".gen", "entrypoints", "api", "testPost.ts"), outDir, bundlePath)
 
     expect(typeof entrypoint).toBe("function")
 
@@ -212,7 +211,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     new SdfHttpApi(bundler, "api", {
@@ -289,7 +287,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     const authorizer = new SdfHttpApiLambdaAuthorizer(bundler, "my-auth", {
@@ -334,7 +331,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     expect(() => {
@@ -357,7 +353,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     expect(() => {
@@ -381,7 +376,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     expect(() => {
@@ -405,7 +399,6 @@ describe(SdfHttpApi.name, () => {
     const bundler = new SdfBundlerTypeScript(stack, bundlerName, {
       path: rootDir,
       prefix: join("src", bundlerName),
-      layout: "expanded",
     })
 
     expect(() => {

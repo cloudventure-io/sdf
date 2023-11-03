@@ -8,7 +8,6 @@ import Ajv, { Schema } from "ajv"
 import standaloneCode from "ajv/dist/standalone"
 import { camelCase, pascalCase } from "change-case"
 import { Construct } from "constructs"
-import { mkdir, rm } from "fs/promises"
 import { OpenAPIV3 } from "openapi-types"
 import { dirname, join } from "path"
 import { relative } from "path"
@@ -42,6 +41,9 @@ export interface SdfHttpApiConfig<T extends object> {
 
   /** the response body of the generated handler fuction, defaults to `{}` */
   handlerBody?: string
+
+  /** the path prefix for the API */
+  prefix?: string
 }
 
 const entryPointFunctionName = "entrypoint"
@@ -80,6 +82,8 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
   public integrationRole: IamRole
 
+  private prefix: string
+
   constructor(
     scope: Construct,
     private id: string,
@@ -88,13 +92,14 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     super(scope, id)
     this.bundler = SdfApp.getFromContext(this, SdfBundlerTypeScript) as SdfBundlerTypeScript
     this.app = SdfApp.getAppFromContext(this)
+    this.prefix = config.prefix ?? id
 
     this.stageName = config.stageName || "$default"
 
     // define directories
-    this.entryPointsDirectory = this.bundler.registerDirectory(this, "entrypoints", true)
+    this.entryPointsDirectory = join(this.bundler.entryPointsDir, this.prefix)
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators")
-    this.handlersDirectory = this.bundler.registerDirectory(this, "api", false)
+    this.handlersDirectory = this.bundler.registerDirectory(this.prefix)
 
     // clone the document, since document will be mutated in further operations
     this.document = JSON.parse(JSON.stringify(this.config.document)) as Document<OperationType>
@@ -319,19 +324,12 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
 
     // render lambda function entry point, handler and validator
     const entryPointPath = await this.renderLambdaFiles(operation, operationTitle)
-    const entryPointRelPath = relative(this.bundler.gendir, entryPointPath)
+    const entryPointRelPath = relative(this.bundler.bundleDir, entryPointPath)
 
     return {
       handler: `${entryPointRelPath}.${entryPointFunctionName}`,
       entryPoint: `${entryPointRelPath}.ts`,
     }
-  }
-
-  async _preSynth() {
-    // clean up
-    await rm(this.entryPointsDirectory, { force: true, recursive: true })
-    await mkdir(this.entryPointsDirectory, { recursive: true })
-    await mkdir(this.validatorsDirectory, { recursive: true })
   }
 
   private createValidtors(operation: ParsedOperation<OperationType>): { ajv: Ajv; schemas: Array<Schema> } {
@@ -390,7 +388,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     const validatorPath = await this.renderValidator(operation)
 
     const handlerPath = join(this.handlersDirectory, operationId)
-    const entryPointPath = join(this.entryPointsDirectory, camelCase(`api-${operationId}`))
+    const entryPointPath = join(this.entryPointsDirectory, operationId)
 
     await writeMustacheTemplate({
       template: entryPointTemplate,

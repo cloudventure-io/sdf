@@ -9,7 +9,7 @@ import { Construct } from "constructs"
 import { mkdir, rm } from "fs/promises"
 import { compile } from "json-schema-to-typescript"
 import { OpenAPIV3 } from "openapi-types"
-import { join, relative } from "path"
+import { join, relative, resolve } from "path"
 
 import { SdfLambda } from "../constructs"
 import { schemaHandlerOptions, walkSchema } from "../utils/walkSchema"
@@ -43,37 +43,6 @@ export interface SdfBundleTypeScriptManifest extends SdfBundleManifest {
 
 export interface SdfBundlerTypeScriptConfig {
   /**
-   * The layout of the files and directories. The default
-   * value is `compact`.
-   *
-   * `compact` mode:
-   * ```
-   * ├── entrypoints
-   * │   ├── myApiOperation.ts
-   * │   └── myAuthorizer.ts
-   * ├── handlers
-   * │   └── myApiOperation.ts
-   * └── authorizers
-   *     └── myAuthorizer.ts
-   * ```
-   *
-   * `expanded` mode:
-   * ```
-   * ├── my-api
-   * │   ├── entrypoints
-   * │   │   └── myApiOperation.ts
-   * │   └── handlers
-   * │       └── myApiOperation.ts
-   * └── my-authorizer
-   *     ├── entrypoints
-   *     │   └── myAuthorizer.ts
-   *     └── authorizers
-   *         └── myAuthorizer.ts
-   * ```
-   */
-  layout?: "compact" | "expanded"
-
-  /**
    * The path of the bundle. Build of this bundle
    * will run from this path. This path usually includes
    * package.json file.
@@ -106,21 +75,31 @@ export class SdfBundlerTypeScript extends SdfBundler {
   public _context_type?: SdfBundlerTypeScriptContext
 
   /** The path of the source code root directory */
-  private _srcdir: string
-  get srcdir(): string {
-    return this._srcdir
+  private _srcDir: string
+  get srcDir(): string {
+    return this._srcDir
+  }
+
+  private _bundleDir: string
+  get bundleDir(): string {
+    return this._bundleDir
   }
 
   /** The path of the generated files directory */
-  private _gendir: string
-  get gendir(): string {
-    return this._gendir
+  private _genDir: string
+  get genDir(): string {
+    return this._genDir
   }
 
   /** The path of the build output directory */
-  private _distdir: string
-  get distdir(): string {
-    return this._distdir
+  private _buildDir: string
+  get buildDir(): string {
+    return this._buildDir
+  }
+
+  private _entryPointsDir: string
+  get entryPointsDir(): string {
+    return this._entryPointsDir
   }
 
   private directories: Record<string, boolean> = {}
@@ -146,20 +125,16 @@ export class SdfBundlerTypeScript extends SdfBundler {
   ) {
     super(scope, id)
 
-    this._srcdir = config.path
-
-    if (config.prefix) {
-      this._gendir = join(this._srcdir, config.prefix)
-    } else {
-      this._gendir = this._srcdir
-    }
-
-    this._distdir = join(this.app.workdir, "build", this.stack.node.id, this.node.id)
+    this._srcDir = config.path
+    this._bundleDir = config.prefix === undefined ? this.srcDir : join(this.srcDir, config.prefix)
+    this._genDir = this.registerDirectory(".gen", true)
+    this._buildDir = join(this.app.workdir, "build", this.stack.node.id, this.node.id)
+    this._entryPointsDir = join(this.genDir, "entrypoints")
 
     const codeArchive = new DataArchiveFile(this, "code-archive", {
       outputPath: `\${path.module}/${this.stack.node.id}-${this.node.id}.zip`,
       type: "zip",
-      sourceDir: relative(join(this.app.outdir, "stacks", this.stack.node.id), this.distdir),
+      sourceDir: relative(join(this.app.outdir, "stacks", this.stack.node.id), this.buildDir),
     })
 
     if (config.s3) {
@@ -189,22 +164,26 @@ export class SdfBundlerTypeScript extends SdfBundler {
     }
   }
 
-  public registerDirectory(scope: Construct, namespace: string, deleteBeforeSynth: boolean): string {
-    let result: string
+  public registerDirectory(prefix: string, deleteBeforeSynth: boolean = false): string {
+    const path = resolve(this.bundleDir, prefix)
 
-    if (this.config.layout == "expanded") {
-      result = join(this.gendir, scope.node.id, namespace)
-    } else {
-      result = join(this.gendir, namespace)
+    // make sure we will not remove a drectory which contains a directory that should not be removed
+    for (const p in Object.keys(this.directories)) {
+      if (path.startsWith(p) && this.directories[p] && !deleteBeforeSynth) {
+        throw new Error(
+          `the directory '${p}' was registered with deleteBeforeSynth=true,` +
+            ` cannot register '${path}' with deleteBeforeSynth=false`,
+        )
+      } else if (p.startsWith(path) && !this.directories[p] && deleteBeforeSynth) {
+        throw new Error(
+          `the directory '${p}' was registered with deleteBeforeSynth=false,` +
+            ` cannot register '${path}' with deleteBeforeSynth=true`,
+        )
+      }
     }
 
-    if (result in this.directories && this.directories[result] !== deleteBeforeSynth) {
-      throw new Error(`the directory ${result} was already registered with different deleteBeforeSynth value`)
-    }
-
-    this.directories[result] = deleteBeforeSynth
-
-    return result
+    this.directories[path] = deleteBeforeSynth
+    return path
   }
 
   async _preSynth() {
@@ -299,20 +278,20 @@ export class SdfBundlerTypeScript extends SdfBundler {
   }
 
   get _interfacesAbsPath(): string {
-    return join(this.gendir, "interfaces")
+    return join(this.genDir, "interfaces")
   }
 
   get _resourcesAbsPath(): string {
-    return join(this.gendir, "resources")
+    return join(this.genDir, "resources")
   }
 
   public getBundleManifest(): SdfBundleTypeScriptManifest {
     return {
       id: this.node.id,
       type: "typescript",
-      path: relative(this.app.workdir, this.srcdir),
-      prefix: relative(this.app.workdir, this.gendir),
-      dist: relative(this.app.workdir, this.distdir),
+      path: relative(this.app.workdir, this.srcDir),
+      prefix: relative(this.app.workdir, this.genDir),
+      dist: relative(this.app.workdir, this.buildDir),
       entryPoints: Array.from(this.entryPoints),
     }
   }

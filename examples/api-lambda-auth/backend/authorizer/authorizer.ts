@@ -1,6 +1,6 @@
 import { APIGatewayRequestSimpleAuthorizerHandlerV2WithContext } from "aws-lambda"
 
-import { AuthorizerContext } from "./../entrypoints/authorizerAuthorizer"
+import { AuthorizerContext } from "./../.gen/entrypoints/authorizer/authorizer"
 
 export const authorizer: APIGatewayRequestSimpleAuthorizerHandlerV2WithContext<AuthorizerContext> = async event => {
   return {
