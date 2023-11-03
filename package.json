@@ -27,6 +27,7 @@
   "devDependencies": {
     "@cloudventure/jest-transformer-esbuild": "^1.0.13",
     "@jest/globals": "^29.7.0",
+    "@jest/transform": "^29.7.0",
     "@trivago/prettier-plugin-sort-imports": "^4.2.0",
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.5",
