@@ -113,7 +113,7 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
       },
     })
 
-    const entryPointRelPath = relative(this.bundler.genDir, entryPointPath)
+    const entryPointRelPath = relative(this.bundler.bundleDir, entryPointPath)
 
     return {
       handler: `${entryPointRelPath}.${entryPointFunctionName}`,

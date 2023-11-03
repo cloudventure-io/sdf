@@ -290,7 +290,7 @@ export class SdfBundlerTypeScript extends SdfBundler {
       id: this.node.id,
       type: "typescript",
       path: relative(this.app.workdir, this.srcDir),
-      prefix: relative(this.app.workdir, this.genDir),
+      prefix: relative(this.app.workdir, this.bundleDir),
       dist: relative(this.app.workdir, this.buildDir),
       entryPoints: Array.from(this.entryPoints),
     }
