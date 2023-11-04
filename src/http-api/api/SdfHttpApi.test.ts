@@ -293,7 +293,7 @@ describe(SdfHttpApi.name, () => {
       authorizerResultTtlInSeconds: 5,
       identitySource: "$request.header.Authorization",
       context: {
-        title: "AuthorzierMyAuth",
+        title: "AuthorizerMyAuth",
         type: "object",
         properties: {
           name: { type: "string" },

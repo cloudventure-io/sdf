@@ -49,7 +49,7 @@ export class SdfHttpApiJwtAuthorizer extends SdfHttpApiAuthorizer {
     }
 
     this.contextSchema = {
-      title: pascalCase(`AuthorzierContext-${id}`),
+      title: pascalCase(`AuthorizerContext-${id}`),
       type: "object",
       properties: {
         jwt: {

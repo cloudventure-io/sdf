@@ -54,19 +54,19 @@ export class SdfHttpApiLambdaAuthorizer extends SdfHttpApiAuthorizer {
     this.entryPointsDirectory = join(this.bundler.entryPointsDir, this.prefix)
     this.authorizerDirectory = this.bundler.registerDirectory(this.prefix)
 
-    this.lambda = new SdfLambda(this.bundler, `authorizer-${id}`, {
+    this.lambda = new SdfLambda(this.bundler, `lambda`, {
       timeout: 29,
       memorySize: 512,
       ...config.lambdaConfig,
 
-      functionName: app._concatName(this.bundler.node.id, "authorizer", id),
+      functionName: app._concatName(this.bundler.node.id, id),
       publish: true,
 
       bundler: () => this.renderLambda(),
     })
 
     this.contextSchema = {
-      title: pascalCase(`AuthorzierContext-${id}`),
+      title: pascalCase(`AuthorizerContext-${id}`),
       type: "object",
       properties: {
         lambda: config.context,

@@ -18,7 +18,7 @@ export type OperationIdentityMeRequest = {
   header: {
     [k: string]: string | undefined;
   };
-  authorizer: AuthorzierContextAuthorizer;
+  authorizer: AuthorizerContextAuthorizer;
 };
 export type OperationIdentityMeResponses = {
   statusCode: 200;
@@ -40,7 +40,7 @@ export interface _ {
   AuthContext?: AuthContext;
   OperationIdentityMe?: OperationIdentityMe;
   OperationIdentityMeRequest?: OperationIdentityMeRequest;
-  AuthorzierContextAuthorizer?: AuthorzierContextAuthorizer;
+  AuthorizerContextAuthorizer?: AuthorizerContextAuthorizer;
   OperationIdentityMeResponses?: OperationIdentityMeResponses;
 }
 export interface AuthContext {
@@ -50,7 +50,7 @@ export interface OperationIdentityMe {
   request: OperationIdentityMeRequest;
   responses: OperationIdentityMeResponses;
 }
-export interface AuthorzierContextAuthorizer {
+export interface AuthorizerContextAuthorizer {
   lambda: AuthContext;
   [k: string]: unknown | undefined;
 }
