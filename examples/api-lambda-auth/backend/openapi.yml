@@ -4,13 +4,13 @@ info:
   version: 0.0.1
 
 paths:
-  /testing:
+  /identity:
     get:
-      operationId: testing
-      description: testing
+      operationId: identity/me
+      description: Get current user
       responses:
         "200":
-          description: "testing"
+          description: Current user
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Response" }
