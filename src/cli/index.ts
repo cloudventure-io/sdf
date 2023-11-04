@@ -93,21 +93,21 @@ cmd.command("build").action(async () => {
 
           const bundle: SdfBundleTypeScriptManifest = bundleUntyped as SdfBundleTypeScriptManifest
 
-          const bundlePath = resolve(workdir, bundle.path)
-          const bundlePrefix = resolve(workdir, bundle.prefix)
-          const bundleDist = resolve(workdir, bundle.dist)
+          const srcDir = resolve(workdir, bundle.srcDir)
+          const bundleDir = resolve(workdir, bundle.bundleDir)
+          const buildDir = resolve(workdir, bundle.buildDir)
 
-          await rm(bundleDist, { recursive: true, force: true })
+          await rm(buildDir, { recursive: true, force: true })
 
           const esbuildOptions: esbuild.BuildOptions = {
-            absWorkingDir: bundlePath,
-            entryPoints: bundle.entryPoints.map(entryPoint => relative(bundlePath, join(bundlePrefix, entryPoint))),
+            absWorkingDir: srcDir,
+            entryPoints: bundle.entryPoints.map(entryPoint => relative(srcDir, join(bundleDir, entryPoint))),
             platform: "node",
             target,
             sourcemap: "inline",
             keepNames: true,
-            outbase: bundlePrefix,
-            outdir: bundleDist,
+            outbase: bundleDir,
+            outdir: buildDir,
             bundle: true,
             format: "esm",
             splitting: true,
@@ -124,7 +124,7 @@ cmd.command("build").action(async () => {
           await esbuild.build(config.buildConfig ? config.buildConfig(esbuildOptions) : esbuildOptions)
 
           await writeFile(
-            join(bundleDist, "package.json"),
+            join(buildDir, "package.json"),
             JSON.stringify(
               {
                 name: `${stack.id}-${bundle.id}`,
@@ -136,7 +136,7 @@ cmd.command("build").action(async () => {
           )
 
           if (config.postBuild) {
-            await config.postBuild(bundle, bundleDist)
+            await config.postBuild(bundle, buildDir)
           }
         }),
       ),

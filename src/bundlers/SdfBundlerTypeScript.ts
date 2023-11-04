@@ -29,13 +29,13 @@ export interface SdfBundleTypeScriptManifest extends SdfBundleManifest {
   type: "typescript"
 
   /** Relative path of the bundle from SdfApp outdir */
-  path: string
+  srcDir: string
 
   /** Relative path of the entryPoints from SdfApp outdir */
-  prefix: string
+  bundleDir: string
 
   /** The path of dist */
-  dist: string
+  buildDir: string
 
   /** List of entryPoints */
   entryPoints: Array<string>
@@ -289,9 +289,9 @@ export class SdfBundlerTypeScript extends SdfBundler {
     return {
       id: this.node.id,
       type: "typescript",
-      path: relative(this.app.workdir, this.srcDir),
-      prefix: relative(this.app.workdir, this.bundleDir),
-      dist: relative(this.app.workdir, this.buildDir),
+      srcDir: relative(this.app.workdir, this.srcDir),
+      bundleDir: relative(this.app.workdir, this.bundleDir),
+      buildDir: relative(this.app.workdir, this.buildDir),
       entryPoints: Array.from(this.entryPoints),
     }
   }
