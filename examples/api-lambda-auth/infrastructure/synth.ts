@@ -44,7 +44,6 @@ export const synth = async (options: SdfAppOptions): Promise<SdfApp> => {
 
   const bundler = new SdfBundlerTypeScript(stack, "api-with-authorizer", {
     path: srcpath,
-    layout: "compact",
   })
 
   const authorizer = new SdfHttpApiLambdaAuthorizer(bundler, "authorizer", {
