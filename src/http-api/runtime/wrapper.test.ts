@@ -5,7 +5,7 @@ import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpHeaders } from "../HttpHeaders"
-import { OperationParser } from "../SdfHttpApi/OperationParser"
+import { OperationParser } from "../api/OperationParser"
 import { HttpErrors } from "../http-errors"
 import { Document, OperationObject } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"

@@ -2,7 +2,7 @@ import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
 
 import { SdfApp } from "../SdfApp"
 import { SdfStack } from "../SdfStack"
-import { SdfHttpApi } from "../http-api/SdfHttpApi/SdfHttpApi"
+import { SdfHttpApi } from "../http-api/api/SdfHttpApi"
 import * as setup from "../tests/setup"
 import { SdfBundleManifest, SdfBundler } from "./SdfBundler"
 
