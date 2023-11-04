@@ -6,7 +6,7 @@ import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
 import Ajv, { Schema } from "ajv"
 import standaloneCode from "ajv/dist/standalone"
-import { camelCase, pascalCase, snakeCase } from "change-case"
+import { camelCase, paramCase, pascalCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 import { dirname, join } from "path"
@@ -219,7 +219,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       memorySize: 512,
       ...this.config.lambdaConfig,
 
-      functionName: this.app._concatName(this.bundler.node.id, this.id, snakeCase(operationId)),
+      functionName: this.app._concatName(this.bundler.node.id, this.id, paramCase(operationId)),
       publish: true,
       bundler: () => this.renderLambdaHandler(operation),
       resources: {
