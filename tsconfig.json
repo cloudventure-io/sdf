@@ -15,7 +15,8 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": false,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
   },
   "include": ["./src"],
   "exclude": ["./publish", "./src/**/*.test.ts"]

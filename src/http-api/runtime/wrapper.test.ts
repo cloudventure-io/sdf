@@ -94,13 +94,15 @@ describe("handler wrapper tests", () => {
       {},
     )
 
-    return wrapper(
-      callback ||
+    return wrapper({
+      handler:
+        callback ||
         (async ({ body }): Promise<ApiResponse<unknown, 200>> => {
           return new ApiResponse(body, 200)
         }),
       validators,
-    )
+      operation: operation.bundle,
+    })
   }
 
   it("invalid body", async () => {

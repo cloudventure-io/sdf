@@ -6,11 +6,15 @@ import {
   APIGatewayProxyEventV2WithLambdaAuthorizer,
   APIGatewayProxyStructuredResultV2,
 } from "aws-lambda"
+import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpHeaders } from "../HttpHeaders"
+import { OperationBundle } from "../api/OperationParser"
 import { HttpErrors } from "../http-errors"
 import { HttpError } from "../http-errors/HttpError"
+import { DocumentTrace } from "../openapi/DocumentTrace"
+import { DereferencedDocument } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"
 
 export interface Operation {
@@ -26,7 +30,7 @@ export interface Operation {
   }
   responses: {
     statusCode: number
-    body: unknown
+    body?: unknown
     headers: Record<string, string>
   }
 }
@@ -166,14 +170,44 @@ export interface Validators {
   authorizer?: Validator
 }
 
+export type RequestInterceptor = <OpType extends Operation>(
+  event: EventType<OpType>,
+  operation: OperationBundle<object>,
+) => Promise<EventType<OpType>>
+
+export type ResponseInterceptor = (
+  response: APIGatewayProxyStructuredResultV2,
+  operation: OperationBundle<object>,
+) => Promise<APIGatewayProxyStructuredResultV2>
+
+export interface wrapperOptions<OpType extends Operation> {
+  handler: LambdaHandler<OpType>
+  validators: Validators
+  operation: OperationBundle<object>
+
+  requestInterceptor?: RequestInterceptor
+  responseInterceptor?: ResponseInterceptor
+}
+
 export const wrapper =
-  <OpType extends Operation>(cb: LambdaHandler<OpType>, validators: Validators) =>
+  <OpType extends Operation>({
+    handler,
+    validators,
+    operation,
+    requestInterceptor,
+    responseInterceptor,
+  }: wrapperOptions<OpType>) =>
   async (event: EventType<OpType>): Promise<APIGatewayProxyStructuredResultV2> => {
     type Responses = ExtractResponses<OpType["responses"]>
     let response: Responses
 
     try {
-      response = await cb(buildRequest(event, validators), event)
+      if (requestInterceptor) {
+        event = await requestInterceptor(event, operation)
+      }
+      const request = buildRequest(event, validators)
+
+      response = await handler(request, event)
     } catch (e) {
       if (e instanceof ApiResponse) {
         response = e as Responses
@@ -186,7 +220,39 @@ export const wrapper =
       }
     }
 
-    const result = (response as ApiResponse<unknown, number>).render()
+    let result = (response as ApiResponse<unknown, number>).render()
+
+    if (responseInterceptor) {
+      result = await responseInterceptor(result, operation)
+    }
 
     return result
   }
+
+export const createOperationBundle = <OperationType extends object>(
+  document: DereferencedDocument<OperationType>,
+  pathPattern: string,
+  method: string,
+): OperationBundle<OperationType> => {
+  const documentTrace = new DocumentTrace(document["x-sdf-spec-path"])
+  const pathSpec = document.paths[pathPattern]
+  const pathTrace = documentTrace.append(["paths", pathPattern])
+
+  const operationSpec = pathSpec[method] as OperationBundle<OperationType>["operationSpec"]
+  const operationTrace = pathTrace.append([method])
+
+  return {
+    document,
+    documentTrace,
+
+    pathPattern,
+    pathSpec,
+    pathTrace,
+
+    method: method as OpenAPIV3.HttpMethods,
+
+    operationId: operationSpec?.operationId as string,
+    operationSpec,
+    operationTrace,
+  }
+}

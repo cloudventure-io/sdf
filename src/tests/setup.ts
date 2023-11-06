@@ -19,6 +19,7 @@ const beforeEach = async (prefix: string): Promise<{ rootDir: string; outDir: st
           paths: {
             "@cloudventure/sdf": [`${rootRel}/src`],
           },
+          resolveJsonModule: true,
         },
         include: ["./", `${rootRel}/src`],
       },

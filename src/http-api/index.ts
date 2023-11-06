@@ -1,4 +1,5 @@
 export * from "./openapi/types"
+export { DocumentTrace } from "./openapi/DocumentTrace"
 export * as httpApiRuntime from "./runtime"
 export * from "./HttpHeaders"
 export * from "./HttpStatusCodes"

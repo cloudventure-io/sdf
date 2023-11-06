@@ -44,6 +44,18 @@ export interface SdfHttpApiConfig<T extends object> {
 
   /** the path prefix for the API */
   prefix?: string
+
+  /** the request interceptor path relative to the bundler path */
+  requestInterceptor?: string
+
+  /** the response interceptor path relative to the bundler path */
+  responseInterceptor?: string
+
+  /**
+   * When true the list of security scopes will not be sent to API Gateway
+   * allowing using those parameters for role based authorization.
+   * */
+  stripSecurityScopes?: boolean
 }
 
 const entryPointFunctionName = "entrypoint"
@@ -83,6 +95,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
   public integrationRole: IamRole
 
   private prefix: string
+  private documentOutputPath: string
 
   constructor(
     scope: Construct,
@@ -100,6 +113,7 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     this.entryPointsDirectory = join(this.bundler.entryPointsDir, this.prefix)
     this.validatorsDirectory = join(this.entryPointsDirectory, "validators")
     this.handlersDirectory = this.bundler.registerDirectory(this.prefix)
+    this.documentOutputPath = join(this.entryPointsDirectory, "openapi.json")
 
     // clone the document, since document will be mutated in further operations
     this.document = JSON.parse(JSON.stringify(this.config.document)) as Document<OperationType>
@@ -139,12 +153,26 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     // define lambda functions
     this.operationParser.walkOperations(operation => this.defineLambda(operation))
 
+    let apiGwBody = this.document
+
+    if (config.stripSecurityScopes) {
+      apiGwBody = JSON.parse(JSON.stringify(this.document))
+
+      new OperationParser<OperationType>(apiGwBody).walkOperations(operation => {
+        if (operation.operationSpec.security) {
+          operation.operationSpec.security = operation.operationSpec.security.map(security =>
+            Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
+          )
+        }
+      })
+    }
+
     // define the AWS HTTP API
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
       name: this.document.info.title,
       version: this.document.info.version,
       protocolType: "HTTP",
-      body: JSON.stringify(this.document),
+      body: JSON.stringify(apiGwBody),
       corsConfiguration: {
         allowHeaders: ["*"],
         allowMethods: ["*"],
@@ -395,11 +423,22 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
       path: `${entryPointPath}.ts`,
       overwrite: true,
       context: {
+        PathPatternString: JSON.stringify(operation.bundle.pathPattern),
+        MethodString: JSON.stringify(operation.bundle.method),
+        DocumentImport: relative(dirname(entryPointPath), this.documentOutputPath),
         OperationModel: operationTitle,
         InterfacesImport: relative(dirname(entryPointPath), this.bundler._interfacesAbsPath),
         HandlerImport: relative(dirname(entryPointPath), handlerPath),
         ValidatorsImport: relative(dirname(entryPointPath), validatorPath),
         EntryPointFunctionName: entryPointFunctionName,
+        RequestInterceptor:
+          this.config.requestInterceptor === undefined
+            ? undefined
+            : relative(dirname(entryPointPath), join(this.bundler.bundleDir, this.config.requestInterceptor)),
+        ResponseInterceptor:
+          this.config.responseInterceptor === undefined
+            ? undefined
+            : relative(dirname(entryPointPath), join(this.bundler.bundleDir, this.config.responseInterceptor)),
       },
     })
 
@@ -414,5 +453,10 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     })
 
     return entryPointPath
+  }
+
+  public async _preSynth() {
+    // write the OpenAPI document
+    await writeFile(this.documentOutputPath, JSON.stringify(this.config.document, null, 2))
   }
 }

@@ -68,6 +68,7 @@ export const synth = async (options: SdfAppOptions): Promise<SdfApp> => {
     authorizers: {
       authorizer,
     },
+    requestInterceptor: "interceptors",
   })
 
   new TerraformOutput(stack, "api_url", {

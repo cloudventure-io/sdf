@@ -1,4 +1,4 @@
-import { APIGatewayProxyResult } from "aws-lambda"
+import { APIGatewayProxyStructuredResultV2 } from "aws-lambda"
 
 import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpHeaders } from "../HttpHeaders"
@@ -14,7 +14,7 @@ export class ApiResponse<
     public headers?: HeadersType,
   ) {}
 
-  public render(): APIGatewayProxyResult {
+  public render(): APIGatewayProxyStructuredResultV2 {
     return {
       statusCode: this.statusCode,
       body: this.body === null || this.body === undefined ? "" : JSON.stringify(this.body),
