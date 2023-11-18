@@ -285,30 +285,32 @@ export class SdfHttpApi<OperationType extends object = object> extends Construct
     const buildRequestSchema = (body?: {
       contentType: string
       schema: OpenAPIV3.SchemaObject
-    }): OpenAPIV3.SchemaObject => ({
-      type: "object",
-      properties: {
-        path: path,
-        query: query,
-        cookie: cookie,
-        header: header,
-        ...(body
-          ? {
-              contentType: {
+    }): OpenAPIV3.SchemaObject => {
+      const properties = Object.fromEntries(
+        Object.entries({
+          path,
+          query,
+          cookie,
+          header,
+          contentType: body
+            ? ({
                 type: "string",
                 enum: [body.contentType],
                 "x-no-ts-enum": true,
-              } as OpenAPIV3.SchemaObject,
-              body: body.schema,
-            }
-          : {}),
-        ...(authorizer ? { authorizer: authorizer.context() } : {}),
-      },
-      required: ["path", "query", "cookie", "header"]
-        .concat(body ? ["contentType", "body"] : [])
-        .concat(authorizer ? ["authorizer"] : []),
-      additionalProperties: false,
-    })
+              } as OpenAPIV3.SchemaObject)
+            : undefined,
+          body: body?.schema,
+          authorizer: authorizer ? authorizer.context() : undefined,
+        }).filter((value): value is [string, OpenAPIV3.SchemaObject] => value[1] !== undefined),
+      )
+
+      return {
+        type: "object",
+        properties: properties,
+        required: Object.keys(properties),
+        additionalProperties: false,
+      }
+    }
 
     const operationTitle = pascalCase(`operation-${operationId}`)
 

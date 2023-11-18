@@ -33,7 +33,7 @@ export enum ParsedParameterType {
 }
 
 export type ParsedRequestParameters = {
-  [type in ParsedParameterType]: OpenAPIV3.SchemaObject
+  [type in ParsedParameterType]?: OpenAPIV3.SchemaObject
 }
 
 export interface ParsedRequestSchema {
@@ -186,6 +186,10 @@ export class OperationParser<OperationType extends object = object> {
           ),
         ),
       )
+
+      if (keys.length == 0) {
+        return acc1
+      }
 
       return {
         ...acc1,

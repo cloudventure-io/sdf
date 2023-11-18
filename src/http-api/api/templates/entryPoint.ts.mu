@@ -14,7 +14,7 @@ export type Event = httpApiRuntime.EventType<Operation>;
 export type Handler = httpApiRuntime.LambdaHandler<Operation>;
 
 import document from "./{{ DocumentImport }}"
-const operation = httpApiRuntime.createOperationBundle(document as unknown as DereferencedDocument<{}>, {{ PathPatternString }}, {{ MethodString }});
+const operation = httpApiRuntime.createOperationBundle(document as unknown as DereferencedDocument<object>, {{ PathPatternString }}, {{ MethodString }});
 
 {{#RequestInterceptor}}
 import { requestInterceptor } from "./{{ RequestInterceptor }}";

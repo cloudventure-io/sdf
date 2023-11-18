@@ -19,9 +19,9 @@ import { ApiResponse } from "./ApiResponse"
 
 export interface Operation {
   request: {
-    path: APIGatewayProxyEventPathParameters
-    query: APIGatewayProxyEventQueryStringParameters
-    header: APIGatewayProxyEventHeaders
+    path?: APIGatewayProxyEventPathParameters
+    query?: APIGatewayProxyEventQueryStringParameters
+    header?: APIGatewayProxyEventHeaders
 
     contentType?: "application/json" | "application/x-www-form-urlencoded"
     body?: unknown
@@ -229,7 +229,7 @@ export const wrapper =
     return result
   }
 
-export const createOperationBundle = <OperationType extends object>(
+export const createOperationBundle = <OperationType extends object = object>(
   document: DereferencedDocument<OperationType>,
   pathPattern: string,
   method: string,
