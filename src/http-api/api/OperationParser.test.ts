@@ -81,12 +81,12 @@ describe(OperationParser.name, () => {
 
     const operationSchema = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operationSchema.request.parameters.cookie?.properties).toStrictEqual({})
-    expect(operationSchema.request.parameters.header?.properties).toStrictEqual({})
-    expect(operationSchema.request.parameters.query.required).toStrictEqual(["param1"])
-    expect(operationSchema.request.parameters.query.properties?.param1).toStrictEqual({ type: "boolean" })
-    expect(operationSchema.request.parameters.query.properties?.param2).toStrictEqual({ type: "string" })
-    expect(operationSchema.request.parameters.path.properties?.param3).toStrictEqual({ type: "string" })
+    expect(operationSchema.request.parameters.cookie).toBeUndefined()
+    expect(operationSchema.request.parameters.header).toBeUndefined()
+    expect(operationSchema.request.parameters?.query?.required).toStrictEqual(["param1"])
+    expect(operationSchema.request.parameters?.query?.properties?.param1).toStrictEqual({ type: "boolean" })
+    expect(operationSchema.request.parameters?.query?.properties?.param2).toStrictEqual({ type: "string" })
+    expect(operationSchema.request.parameters?.path?.properties?.param3).toStrictEqual({ type: "string" })
   })
 
   it("header parameter case-insensitivity", async () => {
@@ -117,9 +117,9 @@ describe(OperationParser.name, () => {
 
     const operationSchema = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operationSchema.request.parameters.cookie).toBeTruthy()
-    expect(operationSchema.request.parameters.query).toBeTruthy()
-    expect(operationSchema.request.parameters.path).toBeTruthy()
+    expect(operationSchema.request.parameters.cookie).toBeUndefined()
+    expect(operationSchema.request.parameters.query).toBeUndefined()
+    expect(operationSchema.request.parameters.path).toBeUndefined()
     expect(Object.keys(operationSchema.request.parameters?.header?.properties || {})).toStrictEqual([
       "x-test-header",
       "x-test-header2",
