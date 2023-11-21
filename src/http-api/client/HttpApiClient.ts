@@ -23,19 +23,15 @@ export class HttpApiRequest extends Request {
 export interface HttpApiClientConfig {
   baseUrl: string
   authorizer?: HttpApiClientAuthorizer
-
-  client?: (request: Request) => Promise<Response>
 }
 
 export class HttpApiClient {
   public baseUrl: string
   public authorizer?: HttpApiClientAuthorizer
-  public client: (request: Request) => Promise<Response>
 
-  constructor({ baseUrl, authorizer, client }: HttpApiClientConfig) {
+  constructor({ baseUrl, authorizer }: HttpApiClientConfig) {
     this.baseUrl = baseUrl
     this.authorizer = authorizer
-    this.client = client ?? fetch
   }
 
   private filterUndefined(input: Record<string, string | undefined>): Record<string, string> {
@@ -119,7 +115,7 @@ export class HttpApiClient {
       if (this.authorizer) {
         await this.authorizer.sign(request)
       }
-      const response = await this.createResponse(await this.client(request))
+      const response = await this.createResponse(await fetch(request))
 
       if (successCodes.includes(response.statusCode)) {
         return response as OperationResponses<OpType, SuccessCodes>

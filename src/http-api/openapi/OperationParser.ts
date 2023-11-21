@@ -411,7 +411,7 @@ export class OperationParser<OperationType extends object = object> {
       })
     }
 
-    return schemas.map(sanitizeSchema)
+    return (schemas as Array<OpenAPIV3.SchemaObject>).map(sanitizeSchema)
   }
 
   public walkOperations(
