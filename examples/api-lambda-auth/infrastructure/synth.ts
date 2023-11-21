@@ -4,21 +4,17 @@ import { S3Backend, TerraformOutput } from "cdktf"
 import { Command, Option } from "commander"
 import { config as configDotenv } from "dotenv"
 
-import {
-  SdfApp,
-  SdfAppOptions,
-  SdfBundlerTypeScript,
-  SdfHttpApi,
-  SdfHttpApiLambdaAuthorizer,
-  SdfStack,
-} from "@cloudventure/sdf"
+import { App, AppOptions, Stack } from "@cloudventure/sdf"
+import { BundlerTypeScript } from "@cloudventure/sdf/bundler"
+import { HttpApi } from "@cloudventure/sdf/http-api"
+import { HttpApiLambdaAuthorizer } from "@cloudventure/sdf/http-api/authorizer"
 
 import document from "../backend/openapi.yml"
 import srcpath from "../backend?filepath"
 
 const region = "eu-central-1"
 
-export const synth = async (options: SdfAppOptions): Promise<SdfApp> => {
+export const synth = async (options: AppOptions): Promise<App> => {
   configDotenv({ path: "../../.env" })
 
   const cmd = new Command()
@@ -36,17 +32,17 @@ export const synth = async (options: SdfAppOptions): Promise<SdfApp> => {
     lockTable?: string
   } = (await cmd.parseAsync(options.argv)).opts()
 
-  const app = new SdfApp(options)
-  const stack = new SdfStack(app, "deployment")
+  const app = new App(options)
+  const stack = new Stack(app, "deployment")
 
   new AwsProvider(stack, "aws")
   new ArchiveProvider(stack, "archive")
 
-  const bundler = new SdfBundlerTypeScript(stack, "api-with-authorizer", {
+  const bundler = new BundlerTypeScript(stack, "api-with-authorizer", {
     path: srcpath,
   })
 
-  const authorizer = new SdfHttpApiLambdaAuthorizer(bundler, "authorizer", {
+  const authorizer = new HttpApiLambdaAuthorizer(bundler, "authorizer", {
     context: {
       title: "AuthContext",
       type: "object",
@@ -63,12 +59,15 @@ export const synth = async (options: SdfAppOptions): Promise<SdfApp> => {
     identitySource: "$request.header.Authorization",
   })
 
-  const httpApi = new SdfHttpApi(bundler, "api", {
+  const httpApi = new HttpApi(bundler, "api", {
     document,
     authorizers: {
       authorizer,
     },
     requestInterceptor: "interceptors",
+    generateClient: {
+      name: "api",
+    },
   })
 
   new TerraformOutput(stack, "api_url", {

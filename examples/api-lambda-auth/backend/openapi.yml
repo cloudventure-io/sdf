@@ -17,6 +17,43 @@ paths:
       security:
         - authorizer: []
 
+  /item:
+    post:
+      operationId: item/create
+      description: Create a new item
+      requestBody:
+        required: true
+        description: The item body
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemCreateRequest" }
+      responses:
+        "201":
+          description: Item created
+      security:
+        - authorizer: []
+
+  /item/{itemId}:
+    parameters:
+      - in: path
+        name: itemId
+        schema:
+          type: string
+        required: true
+        description: The item ID
+    get:
+      operationId: item/get
+      description: Create a new item
+      responses:
+        "200":
+          description: Created item
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemGetResponse" }
+
+      security:
+        - authorizer: []
+
 components:
   schemas:
     Response:
@@ -31,6 +68,56 @@ components:
       required:
         - ok
         - user
+
+    BaseItem:
+      title: BaseItem
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    Item:
+      title: Item
+      allOf:
+        - $ref: "#/components/schemas/BaseItem"
+        - type: object
+          additionalProperties: false
+          properties:
+            id:
+              type: string
+            created:
+              type: string
+              format: date-time
+          required:
+            - id
+            - created
+
+    ItemCreateRequest:
+      title: ItemCreateRequest
+      type: object
+      properties:
+        item: { $ref: "#/components/schemas/BaseItem" }
+      required:
+        - item
+
+    ItemCreateResponse:
+      title: ItemCreateResponse
+      type: object
+      properties:
+        item: { $ref: "#/components/schemas/Item" }
+      required:
+        - item
+
+    ItemGetResponse:
+      title: ItemGetResponse
+      type: object
+      properties:
+        item: { $ref: "#/components/schemas/Item" }
+      required:
+        - item
 
   securitySchemes:
     authorizer:

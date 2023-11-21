@@ -11,12 +11,17 @@
   "sideEffects": false,
   "scripts": {
     "synth": "sdf synth",
-    "build": "sdf build"
+    "build": "sdf build",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "devDependencies": {
-    "@cloudventure/jest-transformer-esbuild": "^1.0.13",
+    "@cloudventure/jest-transformer-esbuild": "^1.0.14",
     "@types/aws-lambda": "^8.10.125",
     "axios": "^1.6.0",
     "jest": "^29.7.0"
-  }
+  },
+  "workspaces": [
+    "./backend"
+  ],
+  "type": "module"
 }

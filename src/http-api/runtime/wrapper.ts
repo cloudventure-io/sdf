@@ -9,11 +9,11 @@ import {
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
-import { HttpHeaders } from "../HttpHeaders"
-import { OperationBundle } from "../api/OperationParser"
-import { HttpErrors } from "../http-errors"
-import { HttpError } from "../http-errors/HttpError"
+import { HttpHeaders } from "../enum/HttpHeaders"
+import { BadRequest, InternalServerError, UnsupportedMediaType } from "../error"
+import { HttpError } from "../error/HttpError"
 import { DocumentTrace } from "../openapi/DocumentTrace"
+import { OperationBundle } from "../openapi/OperationParser"
 import { DereferencedDocument } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"
 
@@ -84,7 +84,7 @@ export interface Validator {
 const validate = <T>(name: string, data: any, validator?: Validator): T => {
   if (validator) {
     if (!validator(data)) {
-      throw new HttpErrors.BadRequest(`VALIDATION_ERROR_${name}`, "request validation failed", validator.errors)
+      throw new BadRequest(`VALIDATION_ERROR_${name}`, "request validation failed", validator.errors)
     }
   }
   return data as T
@@ -135,10 +135,7 @@ const buildRequest = <OpType extends Operation>(
         ),
       }
     } else {
-      throw new HttpErrors.UnsupportedMediaType(
-        "UNSUPPORTED_MEDIA_TYPE",
-        `Content-Type '${contentType}' is not supported`,
-      )
+      throw new UnsupportedMediaType("UNSUPPORTED_MEDIA_TYPE", `Content-Type '${contentType}' is not supported`)
     }
   }
 
@@ -215,7 +212,7 @@ export const wrapper =
         response = new ApiResponse(e, e.statusCode) as Responses
       } else {
         console.error(e)
-        const error = new HttpErrors.InternalServerError("INTERNAL_SERVER_ERROR", "Internal Server Error")
+        const error = new InternalServerError("INTERNAL_SERVER_ERROR", "Internal Server Error")
         response = new ApiResponse(error, error.statusCode) as Responses
       }
     }

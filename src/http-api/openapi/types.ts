@@ -48,6 +48,13 @@ export type OperationObject<
     [code: string]: ResponseObject<SchemaType>
   }
   "x-sdf-resources"?: SdfResources
+
+  /**
+   * List of HTTP status codes that considered successful.
+   * If not specified all status codes smaller than 400 will
+   * be considered successful.
+   **/
+  "x-sdf-success-codes"?: Array<number>
 }
 
 export interface PathItemObjectBase<SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>

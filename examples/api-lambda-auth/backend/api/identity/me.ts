@@ -1,4 +1,5 @@
-import { ApiResponse, HttpStatusCodes } from "@cloudventure/sdf"
+import { HttpStatusCodes } from "@cloudventure/sdf/http-api/enum"
+import { ApiResponse } from "@cloudventure/sdf/http-api/runtime"
 
 import { Handler, OperationRequest, OperationResponses } from "../../.gen/entrypoints/api/identity/me"
 

@@ -1,0 +1,9 @@
+import { HttpStatusCodes } from "@cloudventure/sdf/http-api/enum"
+import { ApiResponse } from "@cloudventure/sdf/http-api/runtime"
+
+import { Handler, OperationRequest, OperationResponses } from "../../.gen/entrypoints/api/item/create"
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const handler: Handler = async (request: OperationRequest): Promise<OperationResponses> => {
+  return new ApiResponse(null, HttpStatusCodes.Created)
+}

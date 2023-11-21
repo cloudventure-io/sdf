@@ -3,10 +3,10 @@ import * as esbuild from "esbuild"
 import { readFile, rm, writeFile } from "fs/promises"
 import { join, relative, resolve } from "path"
 
-import type { SdfApp, SdfAppManifest, SdfAppOptions } from "../SdfApp"
-import { SdfBundleTypeScriptManifest } from "../bundlers/SdfBundlerTypeScript"
+import type { App, AppManifest, AppOptions } from "../App"
+import { BundleTypeScriptManifest } from "../bundler/BundlerTypeScript"
 import { esbuildPlugins } from "../esbuild-plugins"
-import { SdfConfig } from "../types"
+import { SdfConfig } from "../interfaces"
 
 const cmd = new Command("sdf")
 
@@ -27,6 +27,7 @@ const loadConfig = async (): Promise<SdfConfig> => {
     format: "cjs",
     keepNames: true,
     write: false,
+    packages: "external",
   })
 
   const result = eval(transpilationResult.outputFiles[0].text)
@@ -40,12 +41,12 @@ cmd
   .action(async (_, cmd: Command) => {
     const config = await loadConfig()
 
-    const options: SdfAppOptions = {
+    const options: AppOptions = {
       argv: [process.argv[0], resolve(configFilename), ...cmd.args],
       outdir,
     }
 
-    const app: SdfApp = await config.synth(options)
+    const app: App = await config.synth(options)
     await app.synth()
   })
 
@@ -81,7 +82,7 @@ cmd.command("build").action(async () => {
   const config = await loadConfig()
 
   const workdir = join(outdir, ".sdf")
-  const buildMetadata: SdfAppManifest = JSON.parse(await readFile(join(workdir, "sdf.manifest.json"), "utf8"))
+  const buildMetadata: AppManifest = JSON.parse(await readFile(join(workdir, "sdf.manifest.json"), "utf8"))
 
   await Promise.all(
     buildMetadata.stacks.map(async stack =>
@@ -91,7 +92,7 @@ cmd.command("build").action(async () => {
             return
           }
 
-          const bundle: SdfBundleTypeScriptManifest = bundleUntyped as SdfBundleTypeScriptManifest
+          const bundle: BundleTypeScriptManifest = bundleUntyped as BundleTypeScriptManifest
 
           const srcDir = resolve(workdir, bundle.srcDir)
           const bundleDir = resolve(workdir, bundle.bundleDir)

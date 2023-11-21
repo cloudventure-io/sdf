@@ -3,10 +3,10 @@
  * and it will be regenerated when the stack is synthesized.
  */
 
-import { httpApiRuntime } from "@cloudventure/sdf";
+import { authorizerWrapper } from "@cloudventure/sdf/http-api/runtime";
 import { {{ AuthorizerModel }} as AuthorizerContext } from "./{{ InterfacesImport }}";
 import { authorizer } from "./{{ HandlerImport }}";
 
 export { AuthorizerContext }
 
-export const {{ EntryPointFunctionName }} = httpApiRuntime.authorizerWrapper<AuthorizerContext>(authorizer);
+export const {{ EntryPointFunctionName }} = authorizerWrapper<AuthorizerContext>(authorizer);

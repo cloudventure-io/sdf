@@ -18,14 +18,24 @@ const beforeEach = async (prefix: string): Promise<{ rootDir: string; outDir: st
           rootDirs: ["./", `${rootRel}/src`],
           paths: {
             "@cloudventure/sdf": [`${rootRel}/src`],
+            "@cloudventure/sdf/*": [`${rootRel}/src/*`],
           },
           resolveJsonModule: true,
         },
-        include: ["./", `${rootRel}/src`],
+        include: ["./", `${rootRel}/src`, `./src/.gen/**/*`],
       },
       null,
       2,
     ),
+  )
+
+  await writeFile(
+    join(rootDir, "package.json"),
+    JSON.stringify({
+      name: "sdf-test-pkg",
+      type: "module",
+      license: "MIT",
+    }),
   )
 
   const outDir = join(rootDir, "cdktf.out")

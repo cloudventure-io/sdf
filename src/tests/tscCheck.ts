@@ -2,7 +2,7 @@ import { spawn } from "child_process"
 import { join } from "path"
 
 export const tscCheck = async (rootDir: string) => {
-  const child = spawn("yarn", ["-s", "run", "tsc", "--noEmit", "-p", join(rootDir, "tsconfig.json")], {
+  const child = spawn("pnpm", ["exec", "tsc", "--noEmit", "-p", join(rootDir, "tsconfig.json")], {
     cwd: rootDir,
   })
   const out: Array<string> = []

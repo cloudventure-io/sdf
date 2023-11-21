@@ -3,7 +3,7 @@
     "^.+\\.ts$": ["@cloudventure/jest-transformer-esbuild"]
   },
   "modulePathIgnorePatterns": ["<rootDir>/cdktf.out"],
-  "extensionsToTreatAsEsm": [".ts"],
   "clearMocks": true,
-  "testTimeout": 60000
+  "testTimeout": 60000,
+  "extensionsToTreatAsEsm": [".ts"]
 }

@@ -1,6 +1,6 @@
 # Serverless Development Framework
 
-An opinionated Serverless Development Framework for AWS based cloud-native applications primarly based on TypeScript.
+An opinionated cloud-native and serverless development framwork for AWS and TypeScript.
 
 ## Install
 
@@ -8,28 +8,36 @@ An opinionated Serverless Development Framework for AWS based cloud-native appli
 npm i -D @cloudventure/sdf
 ```
 
+```bash
+yarn add -D @cloudventure/sdf
+```
+
+```bash
+pnpm add -D @cloudventure/sdf
+```
+
 ## Concepts
 
 ### App
 
-`SdfApp` class extends Terraform CDK's [App](https://developer.hashicorp.com/terraform/cdktf/concepts/cdktf-architecture#app-class) class and adds capability for async synthesis. The async synth is used by [Bundler](#bundler) for generating all required resources for your application.
+`App` class extends Terraform CDK's [App](https://developer.hashicorp.com/terraform/cdktf/concepts/cdktf-architecture#app-class) class and adds capability for async synthesis. The async synth is used by [Bundler](#bundler) for generating all required resources for your application.
 
 ### Stack
 
-`SdfStack` class extends Terraform CDK's [Stack](https://developer.hashicorp.com/terraform/cdktf/concepts/cdktf-architecture#stack-class) class and adds capabilities for [Resources](#resource) managemenet.
+`Stack` class extends Terraform CDK's [Stack](https://developer.hashicorp.com/terraform/cdktf/concepts/cdktf-architecture#stack-class) class and adds capabilities for [Resources](#resource) managemenet.
 
 ### Bundler
 
-`SdfBundler` is an abstract class for defining the source code or docker image of [Lambda](#lambda) functions.
+`Bundler` is an abstract class for defining the source code or docker image of [Lambda](#lambda) functions.
 
 Currently there are two bundler available:
 
-- `SdfBundlerTypeScript` class for TypeScript lambda function.
-- `SdfBundlerDocker` class for dockerized lambda functions.
+- `BundlerTypeScript` class for TypeScript lambda function.
+- `BundlerDocker` class for dockerized lambda functions.
 
 #### TypeScript
 
-`SdfBundlerTypeScript` class is a bundler for TypeScript language. It include code generation routines which takes care
+`BundlerTypeScript` class is a bundler for TypeScript language. It include code generation routines which takes care
 of generating the boilerplate code for entry-points and automatically links them to AWS HTTP API routes.
 
 ### Resource
@@ -42,11 +50,11 @@ Resources are available to all Lambdas withing the Stack.
 
 ### Lambda
 
-`SdfLambda` class is a convinient class for defining a lambda functions within SDF applications.
+`Lambda` class is a convinient class for defining a lambda functions within SDF applications.
 
 ### API
 
-`SdfHttpApi` class consumes OpenAPI specification and provides:
+`HttpApi` class consumes OpenAPI specification and provides:
 
 - generation of entrypoints based on OpenAPI paths
 - generation of validators based on OpenAPI parameter and body specification

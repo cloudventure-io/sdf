@@ -4,9 +4,9 @@ import { APIGatewayProxyEventV2 } from "aws-lambda"
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
-import { HttpHeaders } from "../HttpHeaders"
-import { OperationParser } from "../api/OperationParser"
-import { HttpErrors } from "../http-errors"
+import { HttpHeaders } from "../enum/HttpHeaders"
+import { BadGateway } from "../error"
+import { OperationParser } from "../openapi/OperationParser"
 import { Document, OperationObject } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"
 import { LambdaHandler, wrapper } from "./wrapper"
@@ -223,7 +223,7 @@ describe("handler wrapper tests", () => {
     const handler = await createHandler({
       required: false,
       callback: async (): Promise<ApiResponse<unknown, 200>> => {
-        throw new HttpErrors.BadGateway("TEST", "hello message")
+        throw new BadGateway("TEST", "hello message")
       },
     })
 
