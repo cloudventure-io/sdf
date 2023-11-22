@@ -31,6 +31,7 @@ export class HttpApiClientGenerator<OperationType extends object> {
       Method: string
       SuccessCodesList: string
       SuccessCodesUnion: string
+      Description?: string
     }
 
     const operations: Array<TplOp> = []
@@ -48,6 +49,7 @@ export class HttpApiClientGenerator<OperationType extends object> {
         PathPatternEscaped: JSON.stringify(operation.pathPattern),
         SuccessCodesList: successCodes.join(", "),
         SuccessCodesUnion: successCodes.join(" | "),
+        Description: operation.operationSpec.description?.replace(/\*\//g, "* /"), // break closing comments
       })
     })
 

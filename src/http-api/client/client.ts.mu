@@ -8,6 +8,11 @@ import {
 
 export class {{ ClassName }} extends HttpApiClient {
 {{#Operations}}
+  {{#Description}}
+  /**
+    * {{ Description }}
+    */
+  {{/Description}}
   public async {{ OperationName }}(
     request: OperationRequest<{{ OperationModel }}>
   ): Promise<OperationResponses<{{ OperationModel }}, {{ SuccessCodesUnion }}>> {
