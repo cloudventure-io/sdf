@@ -69,6 +69,12 @@ export interface BundlerTypeScriptConfig {
      */
     prefix?: string
   }
+
+  /**
+   * Indicates if zod schemas must be generated.
+   * The file will be generated at {path}/{prefix}/.gen/zod.ts.
+   */
+  zod?: boolean
 }
 
 export class BundlerTypeScript extends Bundler {
@@ -270,6 +276,17 @@ export class BundlerTypeScript extends Bundler {
     })
 
     await writeFile(`${this._interfacesAbsPath}.ts`, interfaces)
+
+    if (this.config.zod) {
+      const { jsonSchemaToZod } = await import("json-schema-to-zod").catch(err => {
+        console.error("please install json-schema-to-zod for zod generation support")
+        return Promise.reject(err)
+      })
+
+      const module = jsonSchemaToZod(rootSchema, { module: "esm" })
+
+      await writeFile(`${join(this.genDir, "zod.ts")}`, module)
+    }
   }
 
   async _postSynth() {

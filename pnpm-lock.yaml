@@ -44,6 +44,9 @@ dependencies:
   json-schema-to-typescript:
     specifier: ^13.1.1
     version: 13.1.1
+  json-schema-to-zod:
+    specifier: ^2.0.12
+    version: 2.0.12
   lodash:
     specifier: ^4.17.21
     version: 4.17.21
@@ -2797,7 +2800,7 @@ packages:
     dependencies:
       semver: 7.5.4
       shelljs: 0.8.5
-      typescript: 5.4.0-dev.20231121
+      typescript: 5.4.0-dev.20231123
     dev: false
 
   /eastasianwidth@0.2.0:
@@ -4768,6 +4771,11 @@ packages:
       prettier: 2.8.8
     dev: false
 
+  /json-schema-to-zod@2.0.12:
+    resolution: {integrity: sha512-ov/x2usSMryMNuCSWC53vGRWIQ+Ctrzf0qm/E44WpSH+ENPuJHMR5wg9Qf9/i9PY69RqWifVpU/y2lxKrbnyQA==}
+    hasBin: true
+    dev: false
+
   /json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
     dev: true
@@ -6286,8 +6294,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  /typescript@5.4.0-dev.20231121:
-    resolution: {integrity: sha512-/JUU1WLbuTBKfivcYHR+gvBAjMdhj1r2+flrnh8z7wdy2MDQgxRzSlfktNsbaqoYsOVolVDAPAoHpxVIvJlEgA==}
+  /typescript@5.4.0-dev.20231123:
+    resolution: {integrity: sha512-1GVUhgKMReyH9AycWDCzAWFgL/0lhNajKlU37LYZjAzVsIDks8eW8kv9NEkXMk5HrN1Nb+7cO+QqZDC20u3lvQ==}
     engines: {node: '>=14.17'}
     hasBin: true
     dev: false
