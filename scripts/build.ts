@@ -61,6 +61,24 @@ const run = async () => {
     },
   }
 
+  const dependencies = packageJson.dependencies
+  const peerDependencies = packageJson["peerDependencies"] || {}
+
+  const moveToPeerDependencies = ["@types/aws-lambda", "json-schema-to-zod"]
+
+  moveToPeerDependencies.forEach(d => {
+    const ver = dependencies[d]
+    if (!ver) {
+      throw new Error(`pacakge ${d} was not found in dependencies`)
+    }
+    peerDependencies[d] = ver
+    delete dependencies[d]
+  })
+
+  if (Object.values(peerDependencies).length) {
+    packageJson["peerDependencies"] = peerDependencies
+  }
+
   await Promise.all([
     ...builds
       .map(build =>
