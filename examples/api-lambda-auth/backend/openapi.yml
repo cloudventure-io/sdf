@@ -57,6 +57,7 @@ paths:
 components:
   schemas:
     Response:
+      title: Response
       type: "object"
       properties:
         ok:
