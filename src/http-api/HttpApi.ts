@@ -281,7 +281,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     }
   }
 
-  private registerSchema(operation: ParsedOperation<OperationType>): string {
+  private registerOperationSchema(operation: ParsedOperation<OperationType>): string {
     const {
       operationId,
       request: {
@@ -361,7 +361,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
   >): Promise<BundlerTypeScriptHandler> {
     // get dereferenced version of the operation
     const operation = await this.operationParser.parseOperation(pathPattern, method)
-    const operationTitle = this.registerSchema(operation)
+    const operationTitle = this.registerOperationSchema(operation)
 
     // render lambda function entry point, handler and validator
     const entryPointPath = await this.renderLambdaFiles(operation, operationTitle)
@@ -471,6 +471,12 @@ export class HttpApi<OperationType extends object = object> extends Construct {
   public async _preSynth() {
     // write the OpenAPI document
     await writeFile(this.documentOutputPath, JSON.stringify(this.config.document, null, 2))
+
+    const doc = await this.operationParser.document
+
+    if (doc.components?.schemas) {
+      Object.values(doc.components.schemas).forEach(schema => this.bundler.registerSchema(schema))
+    }
   }
 
   public async _synth() {

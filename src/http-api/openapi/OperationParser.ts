@@ -127,7 +127,7 @@ export class OperationParser<OperationType extends object = object> {
     }
   }
 
-  private get document(): PromiseLike<DereferencedDocument<OperationType>> {
+  public get document(): PromiseLike<DereferencedDocument<OperationType>> {
     if (!this.dereferencedDocument) {
       this.dereferencedDocument = new Promise<DereferencedDocument<OperationType>>(resolve => {
         SwaggerParser.dereference(JSON.parse(JSON.stringify(this.rawDocument))).then(doc =>
