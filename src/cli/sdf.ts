@@ -17,7 +17,7 @@ const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "18"}`
 const configFilename = "./sdf.config.ts"
 
 const loadConfig = async (): Promise<SdfConfig> => {
-  const outfile = join(outdir, ".sdf/config.js")
+  const outfile = join(outdir, ".sdf/config.cjs")
 
   await esbuild.build({
     outfile,
