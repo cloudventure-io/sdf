@@ -19,10 +19,6 @@ const run = async () => {
           outdir: "dist",
           format: "cjs",
         },
-        {
-          outdir: "dist/esm",
-          format: "esm",
-        },
       ],
     },
     {
@@ -31,13 +27,6 @@ const run = async () => {
         {
           outdir: "dist",
           format: "cjs",
-          outExtension: {
-            ".js": ".mu.js",
-          },
-        },
-        {
-          outdir: "dist/esm",
-          format: "esm",
           outExtension: {
             ".js": ".mu.js",
           },
@@ -51,7 +40,7 @@ const run = async () => {
     platform: "node",
     target: "node18",
     bundle: false,
-    sourcemap: "inline",
+    sourcemap: "external",
     minify: true,
     keepNames: true,
     legalComments: "eof",
@@ -59,6 +48,7 @@ const run = async () => {
     loader: {
       ".mu": "text",
     },
+    treeShaking: true,
   }
 
   const dependencies = packageJson.dependencies
@@ -102,11 +92,10 @@ const run = async () => {
           scripts: undefined,
           packageManager: undefined,
           bin: {
-            sdf: "cli/index.js",
+            sdf: "./cli/sdf.js",
           },
-          main: "index.js",
-          module: "esm/index.js",
-          types: "index.d.ts",
+          main: "./index.js",
+          types: "./index.d.ts",
         },
         null,
         2,
@@ -122,9 +111,12 @@ const run = async () => {
       banner: {
         js: `#!/usr/bin/env node`,
       },
-      entryPoints: ["src/cli/index.ts"],
-      sourcemap: "inline",
+      entryPoints: ["src/cli/sdf.ts"],
+      sourcemap: "external",
       format: "cjs",
+      outExtension: {
+        ".js": ".js",
+      },
     }),
   ])
 }

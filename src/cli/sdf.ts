@@ -17,7 +17,10 @@ const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "18"}`
 const configFilename = "./sdf.config.ts"
 
 const loadConfig = async (): Promise<SdfConfig> => {
-  const transpilationResult = await esbuild.build({
+  const outfile = join(outdir, ".sdf/config.js")
+
+  await esbuild.build({
+    outfile,
     platform: "node",
     target,
     plugins: esbuildPlugins(),
@@ -25,12 +28,12 @@ const loadConfig = async (): Promise<SdfConfig> => {
     sourcemap: "inline",
     bundle: true,
     format: "cjs",
+    treeShaking: true,
     keepNames: true,
-    write: false,
     packages: "external",
   })
 
-  const result = eval(transpilationResult.outputFiles[0].text)
+  const result = require(outfile)
 
   return result.default
 }
