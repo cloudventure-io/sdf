@@ -19,16 +19,12 @@ export const synth = async (options: AppOptions): Promise<App> => {
 
   const cmd = new Command()
   cmd.addOption(new Option("-n, --name <string>", "the name of the deployment").makeOptionMandatory())
-  cmd.addOption(
-    new Option("-b, --state-bucket <string>", "the s3 bucket for terraform state")
-      .env("TF_STATE_BUCKET")
-      .makeOptionMandatory(),
-  )
+  cmd.addOption(new Option("-b, --state-bucket <string>", "the s3 bucket for terraform state").env("TF_STATE_BUCKET"))
   cmd.addOption(new Option("-l, --lock-table <string>", "the terraform lock table").env("TF_STATE_LOCK_TABLE"))
 
   const opts: {
     name: string
-    stateBucket: string
+    stateBucket?: string
     lockTable?: string
   } = (await cmd.parseAsync(options.argv)).opts()
 
@@ -74,14 +70,18 @@ export const synth = async (options: AppOptions): Promise<App> => {
     value: httpApi.apigw.apiEndpoint,
   })
 
-  new S3Backend(stack, {
-    encrypt: true,
-    bucket: opts.stateBucket,
-    key: `states/${opts.name}/terraform.tfstate`,
-    region: region,
-    acl: "bucket-owner-full-control",
-    dynamodbTable: opts.lockTable,
-  })
+  if (opts.stateBucket) {
+    new S3Backend(stack, {
+      encrypt: true,
+      bucket: opts.stateBucket,
+      key: `states/${opts.name}/terraform.tfstate`,
+      region: region,
+      acl: "bucket-owner-full-control",
+      dynamodbTable: opts.lockTable,
+    })
+  } else {
+    console.warn("No state bucket provided. Using local state.")
+  }
 
   return app
 }
