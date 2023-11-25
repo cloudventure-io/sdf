@@ -13,7 +13,7 @@ import { dirname, join } from "path"
 import { relative } from "path"
 
 import { App } from "../App"
-import { AsyncResolvable } from "../AsyncResolvable"
+import { AppLifeCycleStage, AsyncResolvable } from "../AsyncResolvable"
 import { BundlerTypeScript, BundlerTypeScriptHandler } from "../bundler"
 import { Lambda, LambdaConfig } from "../lambda/Lambda"
 import { writeFile } from "../utils/writeFile"
@@ -156,25 +156,30 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     this.authorizers = this.parseAuthorizers()
 
     // define lambda functions
-    const apiGwBody = new AsyncResolvable(this, `apiGw`, async () => {
-      await this.operationParser.walkOperations(operation => this.defineLambda(operation))
+    const apiGwBody = new AsyncResolvable(
+      this,
+      `synthesizeApiLambdas`,
+      async () => {
+        await this.operationParser.walkOperations(operation => this.defineLambda(operation))
 
-      let apiGwBody = this.document
+        let apiGwBody = this.document
 
-      if (config.stripSecurityScopes) {
-        apiGwBody = JSON.parse(JSON.stringify(this.document))
+        if (config.stripSecurityScopes) {
+          apiGwBody = JSON.parse(JSON.stringify(this.document))
 
-        await new OperationParser<OperationType>(apiGwBody).walkOperations(operation => {
-          if (operation.operationSpec.security) {
-            operation.operationSpec.security = operation.operationSpec.security.map(security =>
-              Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
-            )
-          }
-        })
-      }
+          await new OperationParser<OperationType>(apiGwBody).walkOperations(operation => {
+            if (operation.operationSpec.security) {
+              operation.operationSpec.security = operation.operationSpec.security.map(security =>
+                Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
+              )
+            }
+          })
+        }
 
-      return JSON.stringify(apiGwBody)
-    }).asString()
+        return JSON.stringify(apiGwBody)
+      },
+      AppLifeCycleStage.synthesis,
+    ).asString()
 
     // define the AWS HTTP API
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
@@ -207,7 +212,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
       })
     }
 
-    new AsyncResolvable(this, "synth", () => this.synth())
+    new AsyncResolvable(this, "synthesizeClient", () => this.synthClient(), AppLifeCycleStage.synthesis)
   }
 
   private parseAuthorizers(): typeof this.authorizers {
@@ -475,7 +480,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     return entryPointPath
   }
 
-  private async synth() {
+  private async synthClient() {
     // write the OpenAPI document
     await writeFile(this.documentOutputPath, JSON.stringify(this.config.document, null, 2))
 

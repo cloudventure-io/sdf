@@ -439,10 +439,10 @@ describe(OperationParser.name, () => {
     expect(operation.operationId).toBe("testGet")
   })
 
-  it("operationId duplicate", () => {
-    expect(
-      () =>
-        new OperationParser({
+  it("operationId duplicate", async () => {
+    await expect(
+      async () =>
+        await new OperationParser({
           openapi: "3.0.0",
           info: {
             title: "test",
@@ -482,7 +482,7 @@ describe(OperationParser.name, () => {
             },
           },
           "x-sdf-spec-path": "test",
-        }),
-    ).toThrowError(/duplicate operation id testGet at/)
+        }).document,
+    ).rejects.toThrow(/duplicate operation id testGet at/)
   })
 })

@@ -89,7 +89,7 @@ export class Lambda<B extends Bundler> extends Construct {
 
     const bundlerConfig = this.bundler.lambdaConfig(this)
 
-    new AsyncResolvable(this, "synth", () => this.synth())
+    new AsyncResolvable(this, "synthesizeLambdaConfig", () => this.synth())
 
     const lambdaConfig: LambdaFunctionConfig = {
       ...bundlerConfig,
@@ -98,7 +98,7 @@ export class Lambda<B extends Bundler> extends Construct {
       // merging environment variabables from all sources
       environment: {
         variables: Token.asStringMap(
-          new AsyncResolvable(this, "environment.variables", async () => {
+          new AsyncResolvable(this, "syntesizeLambdaEnvVars", async () => {
             return Fn.merge([bundlerConfig.environment?.variables, config.environment?.variables, this.environment])
           }),
         ),

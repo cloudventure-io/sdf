@@ -10,7 +10,7 @@ import { compile } from "json-schema-to-typescript"
 import { OpenAPIV3 } from "openapi-types"
 import { join, relative, resolve } from "path"
 
-import { AsyncResolvable, ResolvableStage } from "../AsyncResolvable"
+import { AppLifeCycleStage, AsyncResolvable } from "../AsyncResolvable"
 import { Lambda } from "../lambda/Lambda"
 import { schemaHandlerOptions, walkSchema } from "../utils/walkSchema"
 import { writeFile } from "../utils/writeFile"
@@ -169,8 +169,8 @@ export class BundlerTypeScript extends Bundler {
       this.baseLambdaConfig.sourceCodeHash = codeArchive.outputBase64Sha256
     }
 
-    new AsyncResolvable(this, "init", () => this.init(), ResolvableStage.init)
-    new AsyncResolvable(this, "generate", () => this.generate(), ResolvableStage.generation)
+    new AsyncResolvable(this, "initializeBundler", () => this.init(), AppLifeCycleStage.synthesis)
+    new AsyncResolvable(this, "generateBundle", () => this.generate(), AppLifeCycleStage.generation)
   }
 
   public registerDirectory(prefix: string, deleteBeforeSynth: boolean = false): string {
@@ -317,13 +317,18 @@ export class BundlerTypeScript extends Bundler {
   }
 
   public lambdaConfig(lambda: Lambda<BundlerTypeScript>): Partial<LambdaFunctionConfig> {
-    const handler = new AsyncResolvable(this, "handler", async (): Promise<string> => {
-      const { handler, entryPoint } = typeof lambda.context == "function" ? await lambda.context() : lambda.context
+    const handler = new AsyncResolvable(
+      lambda,
+      "generareLambdaHandler",
+      async (): Promise<string> => {
+        const { handler, entryPoint } = typeof lambda.context == "function" ? await lambda.context() : lambda.context
 
-      this.entryPoints.add(entryPoint)
+        this.entryPoints.add(entryPoint)
 
-      return handler
-    }).asString()
+        return handler
+      },
+      AppLifeCycleStage.generation,
+    ).asString()
 
     return {
       ...this.baseLambdaConfig,
