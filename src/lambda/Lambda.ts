@@ -7,13 +7,14 @@ import {
   LambdaFunction as AwsLambdaFunction,
   LambdaFunctionConfig as AwsLambdaFunctionConfig,
 } from "@cdktf/provider-aws/lib/lambda-function"
-import { Fn, TerraformResource, Token, dependable } from "cdktf"
+import { Fn, TerraformResource, dependable } from "cdktf"
 import { constantCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 
-import { AsyncResolvable } from "../AsyncResolvable"
+import { AppLifeCycle } from "../App"
 import { Stack } from "../Stack"
 import { Bundler } from "../bundler/Bundler"
+import { AsyncResolvable } from "../resolvable/AsyncResolvable"
 import { Resource } from "../resource/Resource"
 
 export type LambdaFunctionConfig = Omit<AwsLambdaFunctionConfig, "role">
@@ -89,7 +90,25 @@ export class Lambda<B extends Bundler> extends Construct {
 
     const bundlerConfig = this.bundler.lambdaConfig(this)
 
-    new AsyncResolvable(this, "synthesizeLambdaConfig", () => this.synth())
+    new AsyncResolvable(
+      this,
+      "resource-config",
+      async () => {
+        // Resolve polcies in the generation stage.
+        // We expect all lambda resources to be added during the syntesis stage.
+        if (this.policies.length) {
+          const policy = new DataAwsIamPolicyDocument(this, "policy-document", {
+            sourcePolicyDocuments: this.policies.map(policy => policy.json),
+          })
+          const rolePolicy = new IamRolePolicy(this, "policy", {
+            role: this.role.name,
+            policy: policy.json,
+          })
+          this.function.dependsOn?.push(dependable(rolePolicy))
+        }
+      },
+      AppLifeCycle.generation,
+    )
 
     const lambdaConfig: LambdaFunctionConfig = {
       ...bundlerConfig,
@@ -97,11 +116,26 @@ export class Lambda<B extends Bundler> extends Construct {
 
       // merging environment variabables from all sources
       environment: {
-        variables: Token.asStringMap(
-          new AsyncResolvable(this, "syntesizeLambdaEnvVars", async () => {
-            return Fn.merge([bundlerConfig.environment?.variables, config.environment?.variables, this.environment])
-          }),
-        ),
+        variables: new AsyncResolvable(
+          this,
+          "env-vars",
+          async () => {
+            const resourceEnvironment = Object.entries(this.resources).reduce(
+              (acc, [resourceName, resource]) => ({
+                ...acc,
+                [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config).replace(/"/g, `\\"`),
+              }),
+              {},
+            )
+            return Fn.merge([
+              bundlerConfig.environment?.variables,
+              config.environment?.variables,
+              this.environment,
+              resourceEnvironment,
+            ])
+          },
+          AppLifeCycle.generation,
+        ).asStringMap(),
       },
     }
 
@@ -132,29 +166,5 @@ export class Lambda<B extends Bundler> extends Construct {
       }
       this.policies.push(permission)
     })
-  }
-
-  private async synth() {
-    if (this.policies.length) {
-      const policy = new DataAwsIamPolicyDocument(this, "policy-document", {
-        sourcePolicyDocuments: this.policies.map(policy => policy.json),
-      })
-      const rolePolicy = new IamRolePolicy(this, "policy", {
-        role: this.role.name,
-        policy: policy.json,
-      })
-      this.function.dependsOn?.push(dependable(rolePolicy))
-    }
-
-    this.environment = {
-      ...this.environment,
-      ...Object.entries(this.resources).reduce(
-        (acc, [resourceName, resource]) => ({
-          ...acc,
-          [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config).replace(/"/g, `\\"`),
-        }),
-        {},
-      ),
-    }
   }
 }

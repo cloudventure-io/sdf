@@ -13,9 +13,9 @@ import { dirname, join } from "path"
 import { relative } from "path"
 
 import { App } from "../App"
-import { AsyncResolvable } from "../AsyncResolvable"
 import { BundlerTypeScript, BundlerTypeScriptHandler } from "../bundler"
 import { Lambda, LambdaConfig } from "../lambda/Lambda"
+import { AsyncResolvable } from "../resolvable/AsyncResolvable"
 import { writeFile } from "../utils/writeFile"
 import { writeMustacheTemplate } from "../utils/writeMustacheTemplate"
 import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "./authorizer"
@@ -156,7 +156,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     this.authorizers = this.parseAuthorizers()
 
     // define lambda functions
-    const apiGwBody = new AsyncResolvable(this, `synthesizeApiLambdas`, async () => {
+    const apiGwBody = new AsyncResolvable(this, `lambdas`, async () => {
       await this.operationParser.walkOperations(operation => this.defineLambda(operation))
 
       let apiGwBody = this.document
@@ -207,7 +207,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
       })
     }
 
-    new AsyncResolvable(this, "synthesizeClient", () => this.synthClient())
+    new AsyncResolvable(this, "client", () => this.synthClient())
   }
 
   private parseAuthorizers(): typeof this.authorizers {
