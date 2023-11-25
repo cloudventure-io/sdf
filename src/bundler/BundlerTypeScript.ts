@@ -10,7 +10,8 @@ import { compile } from "json-schema-to-typescript"
 import { OpenAPIV3 } from "openapi-types"
 import { join, relative, resolve } from "path"
 
-import { AppLifeCycleStage, AsyncResolvable } from "../AsyncResolvable"
+import { AppLifecycleStage } from "../App"
+import { AsyncResolvable } from "../AsyncResolvable"
 import { Lambda } from "../lambda/Lambda"
 import { schemaHandlerOptions, walkSchema } from "../utils/walkSchema"
 import { writeFile } from "../utils/writeFile"
@@ -169,8 +170,8 @@ export class BundlerTypeScript extends Bundler {
       this.baseLambdaConfig.sourceCodeHash = codeArchive.outputBase64Sha256
     }
 
-    new AsyncResolvable(this, "initializeBundler", () => this.init(), AppLifeCycleStage.synthesis)
-    new AsyncResolvable(this, "generateBundle", () => this.generate(), AppLifeCycleStage.generation)
+    new AsyncResolvable(this, "initializeBundler", () => this.init())
+    new AsyncResolvable(this, "generateBundle", () => this.generate(), AppLifecycleStage.generation)
   }
 
   public registerDirectory(prefix: string, deleteBeforeSynth: boolean = false): string {
@@ -327,7 +328,7 @@ export class BundlerTypeScript extends Bundler {
 
         return handler
       },
-      AppLifeCycleStage.generation,
+      AppLifecycleStage.generation,
     ).asString()
 
     return {
