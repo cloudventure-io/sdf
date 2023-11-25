@@ -71,6 +71,10 @@ export abstract class Bundler extends Construct {
 
   public abstract getBundleManifest(): BundleManifest
 
+  /**
+   * lambdaConfig function is invoked by the Lambda construct
+   * for getting the lambda configuration specific to the Bundler.
+   **/
   public abstract lambdaConfig(lambda: Lambda<Bundler>): Partial<LambdaFunctionConfig>
 
   public _context_type?: unknown

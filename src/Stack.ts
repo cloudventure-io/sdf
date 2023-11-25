@@ -31,19 +31,6 @@ export class Stack extends TerraformStack {
     }
   }
 
-  async _synth() {
-    const runSynth = async (prop: string) => {
-      for (const c of this.node.findAll()) {
-        if (c !== this && typeof c[prop] === "function") {
-          await (c[prop] as () => Promise<void>)()
-        }
-      }
-    }
-    await runSynth("_preSynth")
-    await runSynth("_synth")
-    await runSynth("_postSynth")
-  }
-
   public resources: { [id in string]: Resource } = {}
   public registerResource(resource: Resource, id: string) {
     if (this.resources[id] && this.resources[id] !== resource) {

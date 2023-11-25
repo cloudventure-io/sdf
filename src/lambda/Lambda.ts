@@ -7,11 +7,11 @@ import {
   LambdaFunction as AwsLambdaFunction,
   LambdaFunctionConfig as AwsLambdaFunctionConfig,
 } from "@cdktf/provider-aws/lib/lambda-function"
-import { Fn, IResolvable, TerraformResource, Token, dependable } from "cdktf"
+import { Fn, TerraformResource, Token, dependable } from "cdktf"
 import { constantCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 
-import { App } from "../App"
+import { AsyncResolvable } from "../AsyncResolvable"
 import { Stack } from "../Stack"
 import { Bundler } from "../bundler/Bundler"
 import { Resource } from "../resource/Resource"
@@ -23,50 +23,18 @@ export interface LambdaConfig<B extends Bundler> extends LambdaFunctionConfig {
   bundler: Required<B>["_context_type"]
 }
 
-/**
- * Resolvable is a helper structure for constructing
- * IResolvable objects with async implementation and
- * a reference to a value which will be resolved
- * during async synth process.
- */
-interface Resolvable {
-  key: string
-  resolve: () => Promise<unknown>
-  ref: unknown
-}
-
 export class Lambda<B extends Bundler> extends Construct {
   private bundler: B
-  private app: App
   private stack: Stack
 
   public function: AwsLambdaFunction
   public role: IamRole
-
-  private resolvables: Array<Resolvable> = []
-  public createResolvable(key: string, resolve: () => Promise<unknown>, ref?: unknown): IResolvable {
-    const resolvable: Resolvable = {
-      key,
-      ref,
-      resolve,
-    }
-
-    this.resolvables.push(resolvable)
-
-    return {
-      creationStack: [],
-      resolve() {
-        return resolvable.ref
-      },
-    }
-  }
 
   public context: Required<B>["_context_type"]
 
   public constructor(bundler: B, id: string, { bundler: context, resources, ...config }: LambdaConfig<B>) {
     super(bundler, id)
 
-    this.app = App.getAppFromContext(this)
     this.stack = Stack.getStackFromCtx(this)
     this.bundler = bundler
     this.context = context
@@ -121,6 +89,8 @@ export class Lambda<B extends Bundler> extends Construct {
 
     const bundlerConfig = this.bundler.lambdaConfig(this)
 
+    new AsyncResolvable(this, "synth", () => this.synth())
+
     const lambdaConfig: LambdaFunctionConfig = {
       ...bundlerConfig,
       ...config,
@@ -128,7 +98,7 @@ export class Lambda<B extends Bundler> extends Construct {
       // merging environment variabables from all sources
       environment: {
         variables: Token.asStringMap(
-          this.createResolvable("environment.variables", async () => {
+          new AsyncResolvable(this, "environment.variables", async () => {
             return Fn.merge([bundlerConfig.environment?.variables, config.environment?.variables, this.environment])
           }),
         ),
@@ -164,7 +134,7 @@ export class Lambda<B extends Bundler> extends Construct {
     })
   }
 
-  async _synth() {
+  private async synth() {
     if (this.policies.length) {
       const policy = new DataAwsIamPolicyDocument(this, "policy-document", {
         sourcePolicyDocuments: this.policies.map(policy => policy.json),
@@ -185,11 +155,6 @@ export class Lambda<B extends Bundler> extends Construct {
         }),
         {},
       ),
-    }
-
-    // resolve all  resolvabales
-    for (const result of this.resolvables) {
-      result.ref = await result.resolve()
     }
   }
 }

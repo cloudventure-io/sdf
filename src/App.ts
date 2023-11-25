@@ -3,6 +3,7 @@ import { Construct } from "constructs"
 import { mkdir, writeFile } from "fs/promises"
 import { join, resolve } from "path"
 
+import { AsyncResolvable } from "./AsyncResolvable"
 import { Stack, StackManifest } from "./Stack"
 
 export interface AppOptions extends CdkTfAppConfig {
@@ -52,9 +53,9 @@ export class App extends CdkTfApp {
   async synth(): Promise<void> {
     await mkdir(this.workdir, { recursive: true })
 
-    const stacks = this.node.findAll().filter<Stack>((construct): construct is Stack => construct instanceof Stack)
+    await AsyncResolvable.resolveApp(this)
 
-    await Promise.all(stacks.map(stack => stack._synth()))
+    const stacks = this.node.findAll().filter<Stack>((construct): construct is Stack => construct instanceof Stack)
 
     const metadata: AppManifest = {
       stacks: stacks.map(stack => stack._getStackManifest()),

@@ -2,7 +2,6 @@ import { DataArchiveFile } from "@cdktf/provider-archive/lib/data-archive-file"
 import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
 import { S3Object } from "@cdktf/provider-aws/lib/s3-object"
 import { Resource } from "@cdktf/provider-null/lib/resource"
-import { Token } from "cdktf"
 import { Fn } from "cdktf"
 import { constantCase, pascalCase } from "change-case"
 import { Construct } from "constructs"
@@ -11,6 +10,7 @@ import { compile } from "json-schema-to-typescript"
 import { OpenAPIV3 } from "openapi-types"
 import { join, relative, resolve } from "path"
 
+import { AsyncResolvable, ResolvableStage } from "../AsyncResolvable"
 import { Lambda } from "../lambda/Lambda"
 import { schemaHandlerOptions, walkSchema } from "../utils/walkSchema"
 import { writeFile } from "../utils/writeFile"
@@ -168,6 +168,9 @@ export class BundlerTypeScript extends Bundler {
       this.baseLambdaConfig.filename = codeArchive.outputPath
       this.baseLambdaConfig.sourceCodeHash = codeArchive.outputBase64Sha256
     }
+
+    new AsyncResolvable(this, "init", () => this.init(), ResolvableStage.init)
+    new AsyncResolvable(this, "generate", () => this.generate(), ResolvableStage.generation)
   }
 
   public registerDirectory(prefix: string, deleteBeforeSynth: boolean = false): string {
@@ -192,7 +195,7 @@ export class BundlerTypeScript extends Bundler {
     return path
   }
 
-  async _preSynth() {
+  private async init() {
     for (const [path] of Object.entries(this.directories).filter(([, clean]) => clean)) {
       await rm(path, { recursive: true, force: true })
     }
@@ -289,7 +292,7 @@ export class BundlerTypeScript extends Bundler {
     }
   }
 
-  async _postSynth() {
+  async generate() {
     await this.renderInterfaces()
     await this.renderResources()
   }
@@ -314,17 +317,17 @@ export class BundlerTypeScript extends Bundler {
   }
 
   public lambdaConfig(lambda: Lambda<BundlerTypeScript>): Partial<LambdaFunctionConfig> {
-    const handlerResolvable = lambda.createResolvable("handler", async (): Promise<string> => {
+    const handler = new AsyncResolvable(this, "handler", async (): Promise<string> => {
       const { handler, entryPoint } = typeof lambda.context == "function" ? await lambda.context() : lambda.context
 
       this.entryPoints.add(entryPoint)
 
       return handler
-    })
+    }).asString()
 
     return {
       ...this.baseLambdaConfig,
-      handler: Token.asString(handlerResolvable),
+      handler,
     }
   }
 }

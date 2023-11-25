@@ -65,10 +65,7 @@ export class OperationParser<OperationType extends object = object> {
 
   private authorizer?: ParsedOperationAuthorizer
 
-  constructor(private rawDocument: Document<OperationType>) {
-    // validate and assign operationIds to all operations
-    this.walkOperations(operation => (operation.operationSpec.operationId = this.getOperationId(operation)))
-  }
+  constructor(private rawDocument: Document<OperationType>) {}
 
   private async initialize(
     document: DereferencedDocument<OperationType>,
@@ -77,6 +74,13 @@ export class OperationParser<OperationType extends object = object> {
       document.security,
       new DocumentTrace(document["x-sdf-spec-path"], ["security"]),
     )
+
+    // validate and assign operationIds to all operations
+    await this.walkOperations(
+      operation => (operation.operationSpec.operationId = this.getOperationId(operation)),
+      document,
+    )
+
     return document
   }
 
@@ -414,11 +418,13 @@ export class OperationParser<OperationType extends object = object> {
     return (schemas as Array<OpenAPIV3.SchemaObject>).map(sanitizeSchema)
   }
 
-  public walkOperations(
+  public async walkOperations(
     handler: (operation: OperationBundle<OperationType, OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject>) => void,
+    doc?: DereferencedDocument<OperationType>,
   ) {
-    const documentTrace = new DocumentTrace(this.rawDocument["x-sdf-spec-path"])
-    Object.entries(this.rawDocument.paths).forEach(([pathPattern, pathSpec]) => {
+    const document = doc ?? (await this.document)
+    const documentTrace = new DocumentTrace(document["x-sdf-spec-path"])
+    Object.entries(document.paths).forEach(([pathPattern, pathSpec]) => {
       const pathTrace = documentTrace.append(["paths", pathPattern])
 
       Object.values(OpenAPIV3.HttpMethods).forEach(method => {
@@ -433,7 +439,7 @@ export class OperationParser<OperationType extends object = object> {
           pathSpec,
           method,
           operationSpec,
-          document: this.rawDocument,
+          document,
           documentTrace,
           pathTrace,
           operationTrace: pathTrace.append(method),

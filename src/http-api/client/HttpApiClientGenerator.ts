@@ -35,7 +35,8 @@ export class HttpApiClientGenerator<OperationType extends object> {
     }
 
     const operations: Array<TplOp> = []
-    this.operationParser.walkOperations(operation => {
+
+    await this.operationParser.walkOperations(operation => {
       const successCodes =
         operation.operationSpec["x-sdf-success-codes"] ??
         Object.keys(operation.operationSpec.responses)
