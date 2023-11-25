@@ -1,7 +1,7 @@
 {
   "name": "@cloudventure/sdf",
   "description": "Serverless Development Framework",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "author": "Vahe Sahakyan <vahe@spir.me>",
   "license": "MIT",
   "packageManager": "pnpm@8.9.2",
