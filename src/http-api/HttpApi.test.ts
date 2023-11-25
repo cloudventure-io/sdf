@@ -1,11 +1,11 @@
 import { ArchiveProvider } from "@cdktf/provider-archive/lib/provider"
 import { AwsProvider } from "@cdktf/provider-aws/lib/provider"
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda"
+import { TerraformStack } from "cdktf"
 import { OpenAPIV3 } from "openapi-types"
 import { join } from "path"
 
 import { App } from "../App"
-import { Stack } from "../Stack"
 import { BundlerTypeScript } from "../bundler/BundlerTypeScript"
 import { requireFile } from "../tests/requireFile"
 import * as setup from "../tests/setup"
@@ -33,7 +33,7 @@ describe(HttpApi.name, () => {
 
   it("test validators", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
@@ -201,7 +201,7 @@ describe(HttpApi.name, () => {
 
   it("broken typescript", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
@@ -277,7 +277,7 @@ describe(HttpApi.name, () => {
 
   it("authorizer", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
@@ -321,7 +321,7 @@ describe(HttpApi.name, () => {
 
   it("authorizer - $ref in security scheme", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
@@ -343,7 +343,7 @@ describe(HttpApi.name, () => {
 
   it("authorizer - apiKey", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
@@ -366,7 +366,7 @@ describe(HttpApi.name, () => {
 
   it("authorizer - header", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
@@ -389,7 +389,7 @@ describe(HttpApi.name, () => {
 
   it("authorizer - no authorizer", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 

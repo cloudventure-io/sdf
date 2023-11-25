@@ -1,15 +1,22 @@
-import { App as CdkTfApp, AppConfig as CdkTfAppConfig } from "cdktf"
+import { App as CdkTfApp, AppConfig as CdkTfAppConfig, TerraformStack } from "cdktf"
 import { Construct } from "constructs"
 import { mkdir, writeFile } from "fs/promises"
 import { join, resolve } from "path"
 
-import { Stack, StackManifest } from "./Stack"
+import { StackController } from "./StackController"
+import { BundleManifest, Bundler } from "./bundler"
 import { AsyncResolvable } from "./resolvable/AsyncResolvable"
 import { TreeResolver } from "./resolvable/TreeResolver"
+import { Resource } from "./resource"
 
 export interface AppOptions extends CdkTfAppConfig {
   argv?: Array<string>
   outdir: string
+}
+
+export interface StackManifest {
+  id: string
+  bundles: Array<BundleManifest>
 }
 
 export interface AppManifest {
@@ -32,6 +39,8 @@ export enum AppLifeCycle {
 
 export class App extends CdkTfApp {
   private treeResolver: TreeResolver
+  private stackController: StackController
+
   private _workdir: string
 
   /** The working directory of SDF */
@@ -48,6 +57,7 @@ export class App extends CdkTfApp {
     this.node.setContext(App.name, this)
     this._workdir = join(this.outdir, ".sdf")
     this.treeResolver = new TreeResolver(this)
+    this.stackController = new StackController()
   }
 
   public static getFromContext<T extends (new (...args: any[]) => any) | (abstract new (...args: any[]) => any)>(
@@ -71,15 +81,39 @@ export class App extends CdkTfApp {
     this.treeResolver.add(resolvable)
   }
 
+  public registerResource(resource: Resource, id: string) {
+    this.stackController.registerResource(resource, id)
+  }
+
+  public getResource(scope: Construct, id: string): Resource {
+    return this.stackController.getResource(scope, id)
+  }
+
+  public getResources(scope: Construct): Record<string, Resource> {
+    return this.stackController.getResources(scope)
+  }
+
+  public getStack(scope: Construct): TerraformStack {
+    return this.stackController.getStack(scope)
+  }
+
   async synth(): Promise<void> {
     await mkdir(this.workdir, { recursive: true })
 
     await this.treeResolver.resolve()
 
-    const stacks = this.node.findAll().filter<Stack>((construct): construct is Stack => construct instanceof Stack)
+    const stacks = this.node
+      .findAll()
+      .filter<TerraformStack>((construct): construct is TerraformStack => TerraformStack.isStack(construct))
 
     const metadata: AppManifest = {
-      stacks: stacks.map(stack => stack._getStackManifest()),
+      stacks: stacks.map(stack => ({
+        id: stack.node.id,
+        bundles: stack.node
+          .findAll()
+          .filter<Bundler>((construct): construct is Bundler => construct instanceof Bundler)
+          .map(bundler => bundler.getBundleManifest()),
+      })),
     }
 
     await writeFile(join(this.workdir, "sdf.manifest.json"), JSON.stringify(metadata, null, 2))

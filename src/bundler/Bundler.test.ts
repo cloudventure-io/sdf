@@ -1,7 +1,7 @@
 import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
+import { TerraformStack } from "cdktf"
 
 import { App } from "../App"
-import { Stack } from "../Stack"
 import { HttpApi } from "../http-api/HttpApi"
 import * as setup from "../tests/setup"
 import { BundleManifest, Bundler } from "./Bundler"
@@ -36,7 +36,7 @@ describe(HttpApi.name, () => {
 
   it("schema registration - dereferencing", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
 
     const bundler = new DummyBundler(stack, bundlerName)
 
@@ -61,7 +61,7 @@ describe(HttpApi.name, () => {
 
   it("schema registration - errors", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
 
     const bundler = new DummyBundler(stack, bundlerName)
 

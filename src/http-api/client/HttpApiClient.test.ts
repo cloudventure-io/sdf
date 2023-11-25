@@ -2,9 +2,9 @@ import { ArchiveProvider } from "@cdktf/provider-archive/lib/provider"
 import { AwsProvider } from "@cdktf/provider-aws/lib/provider"
 import { jest } from "@jest/globals"
 import { APIGatewayEventRequestContextV2 } from "aws-lambda"
+import { TerraformStack } from "cdktf"
 
 import { App } from "../../App"
-import { Stack } from "../../Stack"
 import { BundlerTypeScript } from "../../bundler/BundlerTypeScript"
 import { HttpServer, createHttpServer } from "../../tests/createHttpServer"
 import { requireFile } from "../../tests/requireFile"
@@ -84,7 +84,7 @@ describe(HttpApiClient.name, () => {
 
   it("test client", async () => {
     const app = new App({ outdir: outDir })
-    const stack = new Stack(app, "stack")
+    const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 

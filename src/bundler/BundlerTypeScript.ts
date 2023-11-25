@@ -210,9 +210,11 @@ export class BundlerTypeScript extends Bundler {
     const resourcesPath = `${this._resourcesAbsPath}.ts`
     await rm(resourcesPath, { force: true })
 
-    if (Object.keys(this.stack.resources).length) {
+    const resources = this.app.getResources(this)
+
+    if (Object.keys(resources).length) {
       const resourceSchemasMap: { [name in string]: OpenAPIV3.SchemaObject } = {}
-      Object.entries(this.stack.resources).map(([id, resource]) => {
+      Object.entries(resources.resources).map(([id, resource]) => {
         const title = `${pascalCase(id)}Config`
 
         resourceSchemasMap[title] = {
@@ -243,7 +245,7 @@ export class BundlerTypeScript extends Bundler {
         overwrite: true,
         context: {
           interfaces: resourceInterfaces,
-          resources: Object.keys(this.stack.resources).map(id => ({
+          resources: Object.keys(resources).map(id => ({
             type: `${pascalCase(id)}Config`,
             envName: constantCase(`RESOURCE_${id}`),
             id,

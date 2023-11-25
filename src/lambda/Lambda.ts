@@ -11,8 +11,7 @@ import { Fn, TerraformResource, dependable } from "cdktf"
 import { constantCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 
-import { AppLifeCycle } from "../App"
-import { Stack } from "../Stack"
+import { App, AppLifeCycle } from "../App"
 import { Bundler } from "../bundler/Bundler"
 import { AsyncResolvable } from "../resolvable/AsyncResolvable"
 import { Resource } from "../resource/Resource"
@@ -26,7 +25,7 @@ export interface LambdaConfig<B extends Bundler> extends LambdaFunctionConfig {
 
 export class Lambda<B extends Bundler> extends Construct {
   private bundler: B
-  private stack: Stack
+  private app: App
 
   public function: AwsLambdaFunction
   public role: IamRole
@@ -36,7 +35,8 @@ export class Lambda<B extends Bundler> extends Construct {
   public constructor(bundler: B, id: string, { bundler: context, resources, ...config }: LambdaConfig<B>) {
     super(bundler, id)
 
-    this.stack = Stack.getStackFromCtx(this)
+    this.app = App.getAppFromContext(this)
+    // this.stack = Stack.getStackFromCtx(this)
     this.bundler = bundler
     this.context = context
 
@@ -154,7 +154,7 @@ export class Lambda<B extends Bundler> extends Construct {
     if (this.resources[name]) {
       throw new Error(`the resource ${name} is already defined for function ${this.node.id}`)
     }
-    const resource = this.stack.getResource(name)
+    const resource = this.app.getResource(this, name)
     this.resources[name] = resource
 
     permissions.forEach(permissionName => {

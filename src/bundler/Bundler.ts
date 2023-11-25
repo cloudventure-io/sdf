@@ -1,10 +1,10 @@
 import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
+import { TerraformStack } from "cdktf"
 import { Construct } from "constructs"
 import _ from "lodash"
 import { OpenAPIV3 } from "openapi-types"
 
 import { App } from "../App"
-import { Stack } from "../Stack"
 import { Lambda } from "../lambda/Lambda"
 import { sanitizeSchema } from "../utils/sanitizeSchema"
 import { walkSchema } from "../utils/walkSchema"
@@ -18,7 +18,7 @@ export interface BundleManifest {
 }
 
 export abstract class Bundler extends Construct {
-  public stack: Stack
+  public stack: TerraformStack
   public app: App
 
   constructor(scope: Construct, id: string) {
@@ -26,8 +26,9 @@ export abstract class Bundler extends Construct {
 
     this.node.setContext(Bundler.name, this)
     this.node.setContext(this.constructor.name, this)
-    this.stack = Stack.getStackFromCtx(this)
+
     this.app = App.getAppFromContext(this)
+    this.stack = this.app.getStack(this)
   }
 
   public schemas: { [key in string]: OpenAPIV3.SchemaObject } = {}
