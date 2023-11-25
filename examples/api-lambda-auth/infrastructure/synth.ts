@@ -1,10 +1,10 @@
 import { ArchiveProvider } from "@cdktf/provider-archive/lib/provider"
 import { AwsProvider } from "@cdktf/provider-aws/lib/provider"
-import { S3Backend, TerraformOutput } from "cdktf"
+import { S3Backend, TerraformOutput, TerraformStack } from "cdktf"
 import { Command, Option } from "commander"
 import { config as configDotenv } from "dotenv"
 
-import { App, AppOptions, Stack } from "@cloudventure/sdf"
+import { App, AppOptions } from "@cloudventure/sdf"
 import { BundlerTypeScript } from "@cloudventure/sdf/bundler"
 import { HttpApi } from "@cloudventure/sdf/http-api"
 import { HttpApiLambdaAuthorizer } from "@cloudventure/sdf/http-api/authorizer"
@@ -29,7 +29,7 @@ export const synth = async (options: AppOptions): Promise<App> => {
   } = (await cmd.parseAsync(options.argv)).opts()
 
   const app = new App(options)
-  const stack = new Stack(app, "deployment")
+  const stack = new TerraformStack(app, "deployment")
 
   new AwsProvider(stack, "aws")
   new ArchiveProvider(stack, "archive")
