@@ -22,10 +22,6 @@ pnpm add -D @cloudventure/sdf
 
 `App` class extends Terraform CDK's [App](https://developer.hashicorp.com/terraform/cdktf/concepts/cdktf-architecture#app-class) class and adds capability for async synthesis. The async synth is used by [Bundler](#bundler) for generating all required resources for your application.
 
-### Stack
-
-`Stack` class extends Terraform CDK's [Stack](https://developer.hashicorp.com/terraform/cdktf/concepts/cdktf-architecture#stack-class) class and adds capabilities for [Resources](#resource) managemenet.
-
 ### Bundler
 
 `Bundler` is an abstract class for defining the source code or docker image of [Lambda](#lambda) functions.
@@ -46,7 +42,7 @@ Resources encapsulate cloud resources (S3 Buckets, DynamoDB tables, etc.) and th
 
 Resources pass parameters to Lambda functions through environment variables and attach IAM policies to the function to allows access to the resource.
 
-Resources are available to all Lambdas withing the Stack.
+Resources are available to all Lambdas withing the same TerraformStack.
 
 ### Lambda
 
