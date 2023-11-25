@@ -1,3 +1,4 @@
+import SwaggerParser from "@apidevtools/swagger-parser"
 import { Apigatewayv2Api } from "@cdktf/provider-aws/lib/apigatewayv2-api"
 import { Apigatewayv2Stage } from "@cdktf/provider-aws/lib/apigatewayv2-stage"
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
@@ -23,7 +24,7 @@ import { HttpApiAuthorizer } from "./authorizer/HttpApiAuthorizer"
 import { HttpApiClientGenerator } from "./client/HttpApiClientGenerator"
 import { DocumentTrace } from "./openapi/DocumentTrace"
 import { OperationBundle, OperationParser, ParsedOperation, ParsedOperationAuthorizer } from "./openapi/OperationParser"
-import { Document } from "./openapi/types"
+import { DereferencedDocument, Document } from "./openapi/types"
 import entryPointTemplate from "./templates/entryPoint.ts.mu"
 import handlerTemplate from "./templates/handler.ts.mu"
 import validatorTemplate from "./templates/validator.d.ts.mu"
@@ -159,18 +160,23 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     const apiGwBody = new AsyncResolvable(this, `lambdas`, async () => {
       await this.operationParser.walkOperations(operation => this.defineLambda(operation))
 
-      let apiGwBody = this.document
+      let apiGwBody = (await SwaggerParser.bundle(
+        await this.operationParser.document,
+      )) as DereferencedDocument<OperationType>
 
       if (config.stripSecurityScopes) {
-        apiGwBody = JSON.parse(JSON.stringify(this.document))
+        apiGwBody = JSON.parse(JSON.stringify(apiGwBody))
 
-        await new OperationParser<OperationType>(apiGwBody).walkOperations(operation => {
+        const operationParser = new OperationParser<OperationType>(apiGwBody)
+        await operationParser.walkOperations(operation => {
           if (operation.operationSpec.security) {
             operation.operationSpec.security = operation.operationSpec.security.map(security =>
               Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
             )
           }
         })
+
+        apiGwBody = (await SwaggerParser.bundle(await operationParser.document)) as DereferencedDocument<OperationType>
       }
 
       return JSON.stringify(apiGwBody)
