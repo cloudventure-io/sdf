@@ -39,6 +39,7 @@ export const synth = async (options: AppOptions): Promise<App> => {
   })
 
   const authorizer = new HttpApiLambdaAuthorizer(bundler, "authorizer", {
+    name: `${opts.name}-authorizer`,
     context: {
       title: "AuthContext",
       type: "object",
@@ -56,6 +57,7 @@ export const synth = async (options: AppOptions): Promise<App> => {
   })
 
   const httpApi = new HttpApi(bundler, "api", {
+    name: `${opts.name}-api`,
     document,
     authorizers: {
       authorizer,

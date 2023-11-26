@@ -6,6 +6,11 @@ import { HttpApiAuthorizer } from "./HttpApiAuthorizer"
 
 export interface HttpApiJwtAuthorizerConfig {
   /**
+   * The name of the authorizer.
+   */
+  name: string
+
+  /**
    * A comma-separated list of mapping expressions of the request parameters as the identity source.
    * Defaults to '$request.header.Authorization'.
    * */
@@ -49,7 +54,7 @@ export class HttpApiJwtAuthorizer extends HttpApiAuthorizer {
     }
 
     this.contextSchema = {
-      title: pascalCase(`AuthorizerContext-${id}`),
+      title: pascalCase(`AuthorizerContext-${this.config.name}`),
       type: "object",
       properties: {
         jwt: {

@@ -1,4 +1,4 @@
-import { camelCase, paramCase, pascalCase } from "change-case"
+import { camelCase, pascalCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 import { join, relative } from "path"
@@ -23,6 +23,7 @@ export interface HttpApiLambdaAuthorizerConfig {
   authorizerBody?: string
 
   prefix?: string
+  name: string
 }
 
 const entryPointFunctionName = "entrypoint"
@@ -58,14 +59,14 @@ export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
       memorySize: 512,
       ...config.lambdaConfig,
 
-      functionName: paramCase(`${this.bundler.node.id}-${id}`),
+      functionName: this.config.name,
       publish: true,
 
       bundler: () => this.renderLambda(),
     })
 
     this.contextSchema = {
-      title: pascalCase(`AuthorizerContext-${id}`),
+      title: pascalCase(`AuthorizerContext-${this.config.name}`),
       type: "object",
       properties: {
         lambda: config.context,

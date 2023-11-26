@@ -45,8 +45,11 @@ export interface HttpApiConfig<T extends object> {
   /** the response body of the generated handler fuction, defaults to `{}` */
   handlerBody?: string
 
-  /** the path prefix for the API */
+  /** the API path prefix on the local filesystem, defaults to {id} */
   prefix?: string
+
+  /** the name of the HTTP API. this value is used as name prefix for all sub-resources. */
+  name: string
 
   /** the request interceptor path relative to the bundler path */
   requestInterceptor?: string
@@ -127,7 +130,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
 
     // define API GW integration role
     this.integrationRole = new IamRole(this, "integration-role", {
-      name: paramCase(`${this.bundler.node.id}-${this.id}-integration`),
+      name: `${this.config.name}-integration`,
       assumeRolePolicy: new DataAwsIamPolicyDocument(this, "integration-role-assume-role-policy-doc", {
         statement: [
           {
@@ -271,7 +274,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
       memorySize: 512,
       ...this.config.lambdaConfig,
 
-      functionName: paramCase(`${this.bundler.node.id}-${this.id}-${operationId}`),
+      functionName: `${this.config.name}-${paramCase(operationId)}`,
       publish: true,
       bundler: () => this.renderLambdaHandler(operation),
       resources: {
