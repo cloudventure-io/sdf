@@ -28,9 +28,11 @@ export class StackController {
       this.stacks.set(stack, resources)
     }
 
-    if (resources[id] && resources[id] !== resource) {
+    if (id in resources && resources[id] !== resource) {
       throw new Error(`resource with id '${id}' already exists in the stack '${stack.node.path}'`)
     }
+
+    resources[id] = resource
 
     this.stacks.set(stack, resources)
   }

@@ -214,7 +214,7 @@ export class BundlerTypeScript extends Bundler {
 
     if (Object.keys(resources).length) {
       const resourceSchemasMap: { [name in string]: OpenAPIV3.SchemaObject } = {}
-      Object.entries(resources.resources).map(([id, resource]) => {
+      Object.entries(resources).map(([id, resource]) => {
         const title = `${pascalCase(id)}Config`
 
         resourceSchemasMap[title] = {

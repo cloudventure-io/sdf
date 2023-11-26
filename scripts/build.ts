@@ -40,8 +40,6 @@ const run = async () => {
     platform: "node",
     target: "node18",
     bundle: false,
-    sourcemap: "external",
-    minify: true,
     keepNames: true,
     legalComments: "eof",
     outbase: "src",
