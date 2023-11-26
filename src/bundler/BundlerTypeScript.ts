@@ -262,13 +262,11 @@ export class BundlerTypeScript extends Bundler {
       additionalProperties: false,
     }
 
-    // add tsEnumNames to all enums. this is required by
-    // json-schema-to-typescript library to generate enum values
+    // Add tsEnumNames to all enums if x-ts-enum is set. This will make
+    // json-schema-to-typescript library to generate the type as enum.
     walkSchema(rootSchema, ({ schema }: schemaHandlerOptions) => {
-      if ("enum" in schema && schema.enum && !schema["x-no-ts-enum"]) {
-        ;(schema as any).tsEnumNames = (schema.enum as Array<string>).map(e =>
-          e.replace(/-(.)/g, m => m[1].toUpperCase()),
-        )
+      if ("enum" in schema && schema.enum && schema["x-ts-enum"]) {
+        ;(schema as any).tsEnumNames = (schema.enum as Array<string>).map(e => constantCase(e))
       }
     })
 

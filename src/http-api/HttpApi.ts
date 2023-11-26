@@ -320,11 +320,10 @@ export class HttpApi<OperationType extends object = object> extends Construct {
           cookie,
           header,
           contentType: body
-            ? ({
+            ? {
                 type: "string",
                 enum: [body.contentType],
-                "x-no-ts-enum": true,
-              } as OpenAPIV3.SchemaObject)
+              }
             : undefined,
           body: body?.schema,
           authorizer: authorizer ? authorizer.context() : undefined,

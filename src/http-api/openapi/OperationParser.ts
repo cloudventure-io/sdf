@@ -307,8 +307,7 @@ export class OperationParser<OperationType extends object = object> {
           statusCode: {
             type: "number",
             enum: [parseInt(statusCode)],
-            "x-no-ts-enum": true,
-          } as OpenAPIV3.SchemaObject,
+          },
           headers: {
             type: "object",
             properties: Object.entries(responseSpec.headers || {}).reduce<{
