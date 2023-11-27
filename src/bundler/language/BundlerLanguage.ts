@@ -1,9 +1,9 @@
 import { OpenAPIV3 } from "openapi-types"
 
+import { Resource } from "../../core/Resource"
 import { HttpApi, HttpApiOperation } from "../../http-api"
 import { HttpApiLambdaAuthorizer } from "../../http-api/authorizer"
 import { LambdaConfigCore, LambdaEntryPoint } from "../../lambda"
-import { Resource } from "../../resource"
 
 export interface BundlerLanguageGenerateOptions {
   schemas: Record<string, OpenAPIV3.SchemaObject>

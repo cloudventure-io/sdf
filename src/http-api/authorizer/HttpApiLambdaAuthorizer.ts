@@ -2,10 +2,10 @@ import { pascalCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { App } from "../../App"
 import { Bundler } from "../../bundler"
+import { App } from "../../core/App"
 import { Lambda, LambdaConfig } from "../../lambda/Lambda"
-import { HttpApi } from "../HttpApi"
+import { HttpApi } from "../core/HttpApi"
 import { HttpApiAuthorizer } from "./HttpApiAuthorizer"
 
 export interface HttpApiLambdaAuthorizerConfig {

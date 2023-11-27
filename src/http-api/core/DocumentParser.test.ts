@@ -1,7 +1,7 @@
 import { OpenAPIV3 } from "openapi-types"
 
-import { DocumentParser, ParsedOperation } from "./DocumentParser"
-import { Document, ParameterObject, RequestBodyObject, ResponseObject } from "./types"
+import { Document, ParameterObject, RequestBodyObject, ResponseObject } from "../openapi/types"
+import { DocumentParser, OperationBundle } from "./DocumentParser"
 
 const createDocument = ({
   pathParameters,
@@ -115,7 +115,7 @@ describe(DocumentParser.name, () => {
       }),
     )
 
-    let operation: ParsedOperation | undefined
+    let operation: OperationBundle | undefined
     await parser.walkOperations(async op => {
       operation = op
     })

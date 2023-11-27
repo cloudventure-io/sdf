@@ -3,7 +3,7 @@ import { DynamodbTable, DynamodbTableConfig } from "@cdktf/provider-aws/lib/dyna
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { Resource } from "./Resource"
+import { Resource } from "../core/Resource"
 
 export class ResourceDynamodbTable extends Resource {
   public table: DynamodbTable

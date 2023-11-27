@@ -1,7 +1,7 @@
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { HttpApi } from "../HttpApi"
+import { HttpApi } from "../core/HttpApi"
 
 export abstract class HttpApiAuthorizer extends Construct {
   /** The spec method should return the OpenAPI spec for the authorizer */

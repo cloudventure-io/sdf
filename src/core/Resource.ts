@@ -2,7 +2,7 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { App } from "../App"
+import { App } from "./App"
 
 export interface ResourcePermissions {
   [key: string]: DataAwsIamPolicyDocument

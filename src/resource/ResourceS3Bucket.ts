@@ -2,7 +2,7 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { Resource } from "./Resource"
+import { Resource } from "../core/Resource"
 
 export interface ResourceS3BucketConfig {
   arn: string

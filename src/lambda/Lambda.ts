@@ -11,10 +11,10 @@ import { Fn, TerraformResource, dependable } from "cdktf"
 import { constantCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 
-import { App, AppLifeCycle } from "../App"
 import { Bundler } from "../bundler/Bundler"
-import { AsyncResolvable } from "../resolvable/AsyncResolvable"
-import { Resource } from "../resource/Resource"
+import { App, AppLifeCycle } from "../core/App"
+import { Resource } from "../core/Resource"
+import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
 
 export type LambdaFunctionConfig = Omit<AwsLambdaFunctionConfig, "role">
 

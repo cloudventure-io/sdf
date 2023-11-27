@@ -3,11 +3,11 @@ import { Construct } from "constructs"
 import { mkdir, writeFile } from "fs/promises"
 import { join, resolve } from "path"
 
+import { BundleManifest, Bundler } from "../bundler"
+import { Resource } from "./Resource"
 import { StackController } from "./StackController"
-import { BundleManifest, Bundler } from "./bundler"
 import { AsyncResolvable } from "./resolvable/AsyncResolvable"
 import { TreeResolver } from "./resolvable/TreeResolver"
-import { Resource } from "./resource"
 
 export interface AppOptions extends CdkTfAppConfig {
   argv?: Array<string>

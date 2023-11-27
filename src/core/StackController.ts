@@ -1,7 +1,7 @@
 import { TerraformStack } from "cdktf"
 import { Construct } from "constructs"
 
-import { Resource } from "./resource"
+import { Resource } from "./Resource"
 
 export class StackController {
   private stacks = new WeakMap<TerraformStack, Record<string, Resource>>()

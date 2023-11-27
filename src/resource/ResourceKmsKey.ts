@@ -3,7 +3,7 @@ import { KmsKey, KmsKeyConfig } from "@cdktf/provider-aws/lib/kms-key"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { Resource } from "./Resource"
+import { Resource } from "../core/Resource"
 
 export class ResourceKmsKey extends Resource {
   public key: KmsKey

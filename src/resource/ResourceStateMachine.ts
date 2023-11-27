@@ -3,7 +3,7 @@ import { SfnStateMachine } from "@cdktf/provider-aws/lib/sfn-state-machine"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { Resource } from "./Resource"
+import { Resource } from "../core/Resource"
 
 export class ResourceStateMachine extends Resource {
   get configSpec(): OpenAPIV3.SchemaObject {

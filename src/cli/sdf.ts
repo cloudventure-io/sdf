@@ -3,8 +3,8 @@ import * as esbuild from "esbuild"
 import { readFile, rm, writeFile } from "fs/promises"
 import { join, relative, resolve } from "path"
 
-import type { App, AppManifest, AppOptions } from "../App"
 import { BundlerLanguageTypeScriptManifest } from "../bundler/language/BundlerLanguageTypeScript"
+import type { App, AppManifest, AppOptions } from "../core/App"
 import { esbuildPlugins } from "../esbuild-plugins"
 import { SdfConfig } from "../interfaces"
 

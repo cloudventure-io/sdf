@@ -9,10 +9,10 @@ import {
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
+import { OperationBundleBase } from "../core/DocumentParser"
 import { HttpHeaders } from "../enum/HttpHeaders"
 import { BadRequest, InternalServerError, UnsupportedMediaType } from "../error"
 import { HttpError } from "../error/HttpError"
-import { OperationBundleBase } from "../openapi/DocumentParser"
 import { DocumentTrace } from "../openapi/DocumentTrace"
 import { DereferencedDocument } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"

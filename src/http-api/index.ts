@@ -1,1 +1,1 @@
-export * from "./HttpApi"
+export * from "./core/HttpApi"

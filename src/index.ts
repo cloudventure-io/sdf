@@ -1,2 +1,2 @@
-export * from "./App"
+export * from "./core/"
 export * from "./interfaces"

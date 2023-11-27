@@ -9,20 +9,17 @@ import { camelCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
-import { App, AppLifeCycle } from "../App"
-import { Bundler } from "../bundler"
-import { Lambda, LambdaConfig } from "../lambda/Lambda"
-import { AsyncResolvable } from "../resolvable/AsyncResolvable"
-import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "./authorizer"
-import { HttpApiAuthorizer } from "./authorizer/HttpApiAuthorizer"
-import { DocumentParser, OperationBundle, ParsedOperationSecurity } from "./openapi/DocumentParser"
-import { Document } from "./openapi/types"
+import { Bundler } from "../../bundler"
+import { App, AppLifeCycle } from "../../core/App"
+import { AsyncResolvable } from "../../core/resolvable/AsyncResolvable"
+import { Lambda, LambdaConfig } from "../../lambda/Lambda"
+import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "../authorizer"
+import { HttpApiAuthorizer } from "../authorizer/HttpApiAuthorizer"
+import { Document } from "../openapi/types"
+import { DocumentParser, OperationBundle, ParsedOperationSecurity } from "./DocumentParser"
 
 export interface HttpApiOperation extends OperationBundle {
-  // authorizer?: HttpApiAuthorizer
-
   operationSchema: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">>
-
   validatorSchemas: Array<SchemaObject>
 }
 
@@ -285,7 +282,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
 
     this.lambdas[operationId] = lambda
 
-    // add api gateway integration into the operation
+    // NOTICE: mutating the document
     operationSpec["x-amazon-apigateway-integration"] = {
       payloadFormatVersion: "2.0",
       type: "aws_proxy",

@@ -1,7 +1,7 @@
 import { TerraformStack } from "cdktf"
 
-import { App } from "../App"
-import { HttpApi } from "../http-api/HttpApi"
+import { App } from "../core/App"
+import { HttpApi } from "../http-api/core/HttpApi"
 import * as setup from "../tests/setup"
 import { Bundler } from "./Bundler"
 

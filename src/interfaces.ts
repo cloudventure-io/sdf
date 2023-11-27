@@ -1,7 +1,7 @@
 import type { BuildOptions } from "esbuild"
 
-import type { App, AppOptions } from "./App"
 import type { BundleManifest } from "./bundler/Bundler"
+import type { App, AppOptions } from "./core/App"
 
 export interface SdfConfig {
   synth: (options: AppOptions) => Promise<App>

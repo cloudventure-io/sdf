@@ -5,9 +5,9 @@ import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
 import { sanitizeSchema } from "../../utils/sanitizeSchema"
-import { HttpApiOperation } from "../HttpApi"
-import { DocumentTrace } from "./DocumentTrace"
-import { DereferencedDocument, Document, OperationObject, ParameterObject, PathItemObject } from "./types"
+import { DocumentTrace } from "../openapi/DocumentTrace"
+import { DereferencedDocument, Document, OperationObject, ParameterObject, PathItemObject } from "../openapi/types"
+import { HttpApiOperation } from "./HttpApi"
 
 export interface OperationBundleBase {
   document: Document
@@ -337,7 +337,7 @@ export class DocumentParser {
    * Create list of request validation schemas.
    * The resulting schemas are copies of the original schemas with sanitization applied.
    */
-  private createValidtorSchemas(operation: OperationBundle): Array<SchemaObject> {
+  public createValidtorSchemas(operation: OperationBundle): Array<SchemaObject> {
     const {
       request: { parameters, body },
     } = operation
