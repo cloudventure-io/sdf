@@ -29,4 +29,6 @@ pnpm add -D @cloudventure/sdf
 Currently supported languages are: `typescript` and `custom`.
 Currently supported bundiling methods are: `none`, `direct`, `s3` and `docker`.
 
-TBD
+## Examples
+
+- [AWS HTTP API with Lambda Authorizer](./examples/api-lambda-auth/)
