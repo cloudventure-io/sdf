@@ -49,6 +49,10 @@ export interface BundlerConfigNone {
 export interface BundlerConfigDirect {
   bundle: "direct"
 
+  /**
+   * If language if typescript, this is the path of the source code.
+   * If language is custom, this is the path of the directory that will be deployed to the lambda.
+   * */
   path: string
 }
 
@@ -58,6 +62,22 @@ export interface BundlerConfigS3 {
   bucket: string
 
   prefix?: string
+
+  /**
+   * If language if typescript, this is the path of the source code.
+   * If language is custom, this is the path of the directory that will be deployed to the lambda.
+   * */
+  path: string
+}
+
+export interface BundlerConfigContainer {
+  bundle: "container"
+
+  /** The image URI */
+  imageUri: string
+
+  /** The default image config for the Lambda Function */
+  imageConfig?: BundlerContainerImageConfig
 }
 
 export interface BundlerContainerImageConfig {
@@ -69,16 +89,6 @@ export interface BundlerContainerImageConfig {
 
   /** The working directory for the container */
   workingWirectory?: string
-}
-
-export interface BundlerConfigContainer {
-  bundle: "container"
-
-  /** The image URI */
-  imageUri: string
-
-  /** The default image config for the Lambda Function */
-  imageConfig?: BundlerContainerImageConfig
 }
 
 export type BundlerConfig = ((BundlerConfigTypeScript | BundlerConfigCustom) &
@@ -115,8 +125,6 @@ export class Bundler extends Construct {
     this.app = App.getAppFromContext(this)
     this.stack = this.app.getStack(this)
 
-    const buildDir = join(this.app.workdir, "build", this.stack.node.id, this.node.id)
-
     if (config.language === "typescript") {
       this.language = new BundlerLanguageTypeScript(this, "typescript", {
         path: config.path,
@@ -124,8 +132,12 @@ export class Bundler extends Construct {
         zod: config.typescript?.zod,
       })
     } else {
-      this.language = new BundlerLanguageCustom(this, "custom", {})
+      this.language = new BundlerLanguageCustom(this, "custom", {
+        path: config.bundle === "direct" || config.bundle === "s3" ? config.path : undefined,
+      })
     }
+
+    const buildDir = this.language.buildDir
 
     new AsyncResolvable(
       this,
@@ -139,7 +151,7 @@ export class Bundler extends Construct {
       AppLifeCycle.generation,
     )
 
-    if (config.bundle === "direct" || config.bundle === "s3") {
+    if (buildDir && (config.bundle === "direct" || config.bundle === "s3")) {
       const codeArchive = new DataArchiveFile(this, "code-archive", {
         outputPath: `\${path.module}/${this.stack.node.id}-${this.node.id}.zip`,
         type: "zip",

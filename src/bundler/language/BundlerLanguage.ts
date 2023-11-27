@@ -17,6 +17,9 @@ export interface BundlerLanguage {
   /** the name of the language */
   readonly language: string
 
+  /** the path where the build output will be stored */
+  readonly buildDir?: string
+
   /** genereate the language specific files */
   generate: (options: BundlerLanguageGenerateOptions) => Promise<void>
 

@@ -6,6 +6,8 @@ import { LambdaEntryPoint } from "../../lambda"
 import { BundlerLanguage, BundlerLanguageGenerateOptions } from "./BundlerLanguage"
 
 export interface BundlerLanguageCustomConfig {
+  path?: string
+
   generate?: BundlerLanguage["generate"]
   generateHttpApiHandler?: BundlerLanguage["generateHttpApiHandler"]
   generateHttpApiClient?: BundlerLanguage["generateHttpApiClient"]
@@ -23,6 +25,10 @@ export class BundlerLanguageCustom extends Construct implements BundlerLanguage 
     private config: BundlerLanguageCustomConfig,
   ) {
     super(scope, id)
+  }
+
+  get buildDir(): string | undefined {
+    return this.config.path
   }
 
   async generate(options: BundlerLanguageGenerateOptions): Promise<void> {

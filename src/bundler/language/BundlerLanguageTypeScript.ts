@@ -18,6 +18,7 @@ import { Resource } from "../../resource"
 import { walkSchema } from "../../utils/walkSchema"
 import { writeFile } from "../../utils/writeFile"
 import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
+import { Bundler } from "../Bundler"
 import { BundlerLanguage } from "./BundlerLanguage"
 import * as templates from "./typescript/Templates"
 
@@ -64,13 +65,13 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
   /** The path of the source code root directory */
   private srcDir: string
 
-  private bundleDir: string
+  public bundleDir: string
 
   /** The path of the generated files directory */
   private genDir: string
 
   /** The path of the build output directory */
-  private buildDir: string
+  public readonly buildDir: string
 
   /** The path of the entry points directory */
   private entryPointsDir: string
@@ -97,11 +98,11 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
   }
 
   constructor(
-    scope: Construct,
+    bundler: Bundler,
     id: string,
     private config: BundlerLanguageTypeScriptConfig,
   ) {
-    super(scope, id)
+    super(bundler, id)
 
     this.app = App.getAppFromContext(this)
     this.stack = this.app.getStack(this)
@@ -109,7 +110,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
     this.srcDir = config.path
     this.bundleDir = config.prefix === undefined ? this.srcDir : join(this.srcDir, config.prefix)
     this.genDir = join(this.bundleDir, ".gen")
-    this.buildDir = join(this.app.workdir, "build", this.stack.node.id, this.node.id)
+    this.buildDir = join(this.app.workdir, "build", this.stack.node.id, bundler.node.id)
     this.entryPointsDir = join(this.genDir, "entrypoints")
 
     this.interfacesPath = join(this.genDir, "interfaces")
