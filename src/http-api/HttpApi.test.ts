@@ -6,7 +6,7 @@ import { OpenAPIV3 } from "openapi-types"
 import { join } from "path"
 
 import { App } from "../App"
-import { BundlerTypeScript } from "../bundler/BundlerTypeScript"
+import { Bundler } from "../bundler/Bundler"
 import { requireFile } from "../tests/requireFile"
 import * as setup from "../tests/setup"
 import { tscCheck } from "../tests/tscCheck"
@@ -37,12 +37,15 @@ describe(HttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "direct",
       path: rootDir,
       prefix: "src",
     })
 
     new HttpApi(bundler, "api", {
+      name: "test",
       document: {
         openapi: "3.0.0",
         info: {
@@ -205,12 +208,15 @@ describe(HttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
     })
 
     new HttpApi(bundler, "api", {
+      name: "test",
       document: {
         openapi: "3.0.0",
         info: {
@@ -281,15 +287,18 @@ describe(HttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
     })
 
     const authorizer = new HttpApiLambdaAuthorizer(bundler, "my-auth", {
+      name: "authorizer",
       authorizerResultTtlInSeconds: 5,
       identitySource: "$request.header.Authorization",
-      context: {
+      contextSchema: {
         title: "AuthorizerMyAuth",
         type: "object",
         properties: {
@@ -302,6 +311,7 @@ describe(HttpApi.name, () => {
     })
 
     new HttpApi(bundler, "api", {
+      name: "test",
       document: createDocumentWithAuthorizer({
         myAuth: {
           in: "header",
@@ -319,49 +329,32 @@ describe(HttpApi.name, () => {
     await tscCheck(rootDir)
   })
 
-  it("authorizer - $ref in security scheme", async () => {
-    const app = new App({ outdir: outDir })
-    const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
-
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
-      path: rootDir,
-      prefix: join("src", bundlerName),
-    })
-
-    expect(() => {
-      new HttpApi(bundler, "api", {
-        document: createDocumentWithAuthorizer({
-          myAuth: {
-            $ref: "#/",
-          },
-        }),
-      })
-    }).toThrowError(/\$ref in securityScheme definition is not supported/)
-  })
-
   it("authorizer - apiKey", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
     })
 
-    expect(() => {
-      new HttpApi(bundler, "api", {
-        document: createDocumentWithAuthorizer({
-          myAuth: {
-            type: "bad-type",
-            in: "header",
-          } as unknown as OpenAPIV3.SecuritySchemeObject,
-        }),
-      })
-    }).toThrowError(/authorizer 'myAuth' is defined in the document, but not provided at/)
+    new HttpApi(bundler, "api", {
+      name: "test",
+      document: createDocumentWithAuthorizer({
+        myAuth: {
+          type: "bad-type",
+          in: "header",
+        } as unknown as OpenAPIV3.SecuritySchemeObject,
+      }),
+    })
+
+    await expect(async () => {
+      await app.synth()
+    }).rejects.toThrow(/authorizer 'myAuth' is defined in the document, but not provided at/)
   })
 
   it("authorizer - header", async () => {
@@ -370,21 +363,26 @@ describe(HttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
     })
 
-    expect(() => {
-      new HttpApi(bundler, "api", {
-        document: createDocumentWithAuthorizer({
-          myAuth: {
-            type: "apiKey",
-            in: "footer",
-          } as unknown as OpenAPIV3.SecuritySchemeObject,
-        }),
-      })
-    }).toThrowError(/authorizer 'myAuth' is defined in the document, but not provided at/)
+    new HttpApi(bundler, "api", {
+      name: "test",
+      document: createDocumentWithAuthorizer({
+        myAuth: {
+          type: "apiKey",
+          in: "footer",
+        } as unknown as OpenAPIV3.SecuritySchemeObject,
+      }),
+    })
+
+    await expect(async () => {
+      await app.synth()
+    }).rejects.toThrow(/authorizer 'myAuth' is defined in the document, but not provided at/)
   })
 
   it("authorizer - no authorizer", async () => {
@@ -393,21 +391,25 @@ describe(HttpApi.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
     })
 
-    expect(() => {
-      new HttpApi(bundler, "api", {
-        document: createDocumentWithAuthorizer({
-          myAuth: {
-            type: "apiKey",
-            in: "header",
-            name: "myAuth",
-          },
-        }),
-      })
-    }).toThrowError(/authorizer '.*' is defined in the document, but not provided/)
+    new HttpApi(bundler, "api", {
+      name: "test",
+      document: createDocumentWithAuthorizer({
+        myAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "myAuth",
+        },
+      }),
+    })
+    await expect(async () => {
+      await app.synth()
+    }).rejects.toThrow(/authorizer '.*' is defined in the document, but not provided/)
   })
 })

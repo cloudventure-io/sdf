@@ -5,7 +5,7 @@ import { Command, Option } from "commander"
 import { config as configDotenv } from "dotenv"
 
 import { App, AppOptions } from "@cloudventure/sdf"
-import { BundlerTypeScript } from "@cloudventure/sdf/bundler"
+import { Bundler } from "@cloudventure/sdf/bundler"
 import { HttpApi } from "@cloudventure/sdf/http-api"
 import { HttpApiLambdaAuthorizer } from "@cloudventure/sdf/http-api/authorizer"
 
@@ -34,13 +34,15 @@ export const synth = async (options: AppOptions): Promise<App> => {
   new AwsProvider(stack, "aws")
   new ArchiveProvider(stack, "archive")
 
-  const bundler = new BundlerTypeScript(stack, "api-with-authorizer", {
+  const bundler = new Bundler(stack, "api-with-authorizer", {
+    language: "typescript",
+    bundle: "direct",
     path: srcpath,
   })
 
   const authorizer = new HttpApiLambdaAuthorizer(bundler, "authorizer", {
     name: `${opts.name}-authorizer`,
-    context: {
+    contextSchema: {
       title: "AuthContext",
       type: "object",
       properties: {

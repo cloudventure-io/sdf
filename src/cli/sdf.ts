@@ -4,7 +4,7 @@ import { readFile, rm, writeFile } from "fs/promises"
 import { join, relative, resolve } from "path"
 
 import type { App, AppManifest, AppOptions } from "../App"
-import { BundleTypeScriptManifest } from "../bundler/BundlerTypeScript"
+import { BundlerLanguageTypeScriptManifest } from "../bundler/language/BundlerLanguageTypeScript"
 import { esbuildPlugins } from "../esbuild-plugins"
 import { SdfConfig } from "../interfaces"
 
@@ -91,11 +91,12 @@ cmd.command("build").action(async () => {
     buildMetadata.stacks.map(async stack =>
       Promise.all(
         stack.bundles.map(async bundleUntyped => {
-          if (bundleUntyped.type !== "typescript") {
+          if (bundleUntyped.language !== "typescript") {
             return
           }
 
-          const bundle: BundleTypeScriptManifest = bundleUntyped as BundleTypeScriptManifest
+          const bundle: BundlerLanguageTypeScriptManifest =
+            bundleUntyped as unknown as BundlerLanguageTypeScriptManifest
 
           const srcDir = resolve(workdir, bundle.srcDir)
           const bundleDir = resolve(workdir, bundle.bundleDir)
@@ -122,7 +123,7 @@ cmd.command("build").action(async () => {
               js: ESM_REQUIRE_SHIM,
             },
             mainFields: ["module", "main"],
-            external: ["@aws-sdk"],
+            external: ["@aws-sdk", "@aws-sdk/*"],
           }
 
           await esbuild.build(config.buildConfig ? config.buildConfig(esbuildOptions) : esbuildOptions)
@@ -140,7 +141,7 @@ cmd.command("build").action(async () => {
           )
 
           if (config.postBuild) {
-            await config.postBuild(bundle, buildDir)
+            await config.postBuild(bundleUntyped, buildDir)
           }
         }),
       ),

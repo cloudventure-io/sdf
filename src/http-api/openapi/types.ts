@@ -39,8 +39,10 @@ export interface SdfResources {
 }
 
 export type OperationObject<
-  OperationType extends object,
-  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
+  OperationType extends object = object,
+  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject =
+    | OpenAPIV3.SchemaObject
+    | OpenAPIV3.ReferenceObject,
 > = OpenAPIV3.OperationObject<OperationType> & {
   parameters?: Array<ParameterObject<SchemaType>>
   requestBody?: RequestBodyObject<SchemaType>
@@ -63,15 +65,19 @@ export interface PathItemObjectBase<SchemaType extends OpenAPIV3.SchemaObject | 
 }
 
 export type PathItemObject<
-  OperationType extends object,
-  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
+  OperationType extends object = object,
+  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject =
+    | OpenAPIV3.SchemaObject
+    | OpenAPIV3.ReferenceObject,
 > = PathItemObjectBase<SchemaType> & {
   [method in OpenAPIV3.HttpMethods]?: OperationObject<OperationType, SchemaType>
 }
 
 export type PathsObject<
-  OperationType extends object,
-  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
+  OperationType extends object = object,
+  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject =
+    | OpenAPIV3.SchemaObject
+    | OpenAPIV3.ReferenceObject,
 > = {
   [pattern: string]: PathItemObject<OperationType, SchemaType>
 }
@@ -81,10 +87,16 @@ export interface ComponentsObject<SchemaType extends OpenAPIV3.SchemaObject | Op
   schemas?: {
     [key: string]: SchemaType
   }
+
+  securitySchemes?: {
+    [key: string]: SchemaType extends OpenAPIV3.ReferenceObject
+      ? OpenAPIV3.ReferenceObject | OpenAPIV3.SecuritySchemeObject
+      : OpenAPIV3.SecuritySchemeObject
+  }
 }
 
 export interface Document<
-  OperationType extends object,
+  OperationType extends object = object,
   SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject =
     | OpenAPIV3.SchemaObject
     | OpenAPIV3.ReferenceObject,
@@ -96,4 +108,7 @@ export interface Document<
   "x-sdf-resources"?: SdfResources
 }
 
-export type DereferencedDocument<OperationType extends object> = Document<OperationType, OpenAPIV3.SchemaObject>
+export type DereferencedDocument<OperationType extends object = object> = Document<
+  OperationType,
+  OpenAPIV3.SchemaObject
+>

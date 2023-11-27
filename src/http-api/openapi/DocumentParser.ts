@@ -1,28 +1,33 @@
 import SwaggerParser from "@apidevtools/swagger-parser"
 import { Schema, SchemaObject } from "ajv"
-import { camelCase } from "change-case"
+import { camelCase, pascalCase } from "change-case"
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
 import { sanitizeSchema } from "../../utils/sanitizeSchema"
+import { HttpApiOperation } from "../HttpApi"
 import { DocumentTrace } from "./DocumentTrace"
 import { DereferencedDocument, Document, OperationObject, ParameterObject, PathItemObject } from "./types"
 
-export interface OperationBundle<
-  OperationType extends object,
-  SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject = OpenAPIV3.SchemaObject,
-> {
-  document: Document<OperationType>
+export interface OperationBundleBase {
+  document: Document
   documentTrace: DocumentTrace
 
   pathPattern: string
-  pathSpec: PathItemObject<OperationType, SchemaType>
+  pathSpec: PathItemObject<object, OpenAPIV3.SchemaObject>
   pathTrace: DocumentTrace
 
   method: OpenAPIV3.HttpMethods
-  operationSpec: OperationObject<OperationType, SchemaType>
+  operationSpec: OperationObject<object, OpenAPIV3.SchemaObject>
   operationTrace: DocumentTrace
   operationId: string
+}
+
+export interface OperationBundle extends OperationBundleBase {
+  request: ParsedRequestSchema
+  responses: Array<OpenAPIV3.SchemaObject>
+
+  security?: ParsedOperationSecurity
 }
 
 export enum ParsedParameterType {
@@ -41,18 +46,9 @@ export interface ParsedRequestSchema {
   body?: ParsedRequestBody
 }
 
-export interface ParsedOperationAuthorizer {
+export interface ParsedOperationSecurity {
   name: string
   value: Array<string>
-}
-
-export interface ParsedOperation<OperationType extends object> {
-  operationId: string
-
-  bundle: OperationBundle<OperationType>
-  request: ParsedRequestSchema
-  responses: Array<OpenAPIV3.SchemaObject>
-  authorizer?: ParsedOperationAuthorizer
 }
 
 export interface ParsedRequestBody {
@@ -60,26 +56,23 @@ export interface ParsedRequestBody {
   schemas?: Record<string, OpenAPIV3.SchemaObject>
 }
 
-export class OperationParser<OperationType extends object = object> {
-  private dereferencedDocument?: PromiseLike<DereferencedDocument<OperationType>>
+export class DocumentParser {
+  private dereferencedDocument?: PromiseLike<DereferencedDocument>
 
-  private authorizer?: ParsedOperationAuthorizer
+  private defaultAuthorizer?: ParsedOperationSecurity
 
-  constructor(private rawDocument: Document<OperationType>) {}
+  constructor(private rawDocument: Document) {}
 
-  private async initialize(
-    document: DereferencedDocument<OperationType>,
-  ): Promise<DereferencedDocument<OperationType>> {
-    this.authorizer = this.parseAuthorizer(
+  private async initialize(document: DereferencedDocument): Promise<DereferencedDocument> {
+    this.defaultAuthorizer = this.parseAuthorizer(
       document.security,
       new DocumentTrace(document["x-sdf-spec-path"], ["security"]),
     )
 
     // validate and assign operationIds to all operations
-    await this.walkOperations(
-      operation => (operation.operationSpec.operationId = this.getOperationId(operation)),
-      document,
-    )
+    await this.walkOperations(async operation => {
+      operation.operationSpec.operationId = this.getOperationId(operation)
+    }, document)
 
     return document
   }
@@ -92,7 +85,7 @@ export class OperationParser<OperationType extends object = object> {
     method,
     operationSpec,
     operationTrace,
-  }: OperationBundle<OperationType, OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>): string {
+  }: Pick<OperationBundleBase, "pathPattern" | "method" | "operationSpec" | "operationTrace">): string {
     const operationId = operationSpec.operationId ? operationSpec.operationId : camelCase(`${pathPattern}-${method}`)
 
     const existingOperationId = this.operationIds[operationId]
@@ -107,10 +100,10 @@ export class OperationParser<OperationType extends object = object> {
     return operationId
   }
 
-  public parseAuthorizer(
+  private parseAuthorizer(
     security: Array<OpenAPIV3.SecurityRequirementObject> | undefined,
     trace: DocumentTrace,
-  ): undefined | ParsedOperationAuthorizer {
+  ): undefined | ParsedOperationSecurity {
     if (!security || !security.length) {
       return
     } else if (security.length !== 1) {
@@ -131,13 +124,20 @@ export class OperationParser<OperationType extends object = object> {
     }
   }
 
-  public get document(): PromiseLike<DereferencedDocument<OperationType>> {
+  public get document(): PromiseLike<DereferencedDocument> {
     if (!this.dereferencedDocument) {
-      this.dereferencedDocument = new Promise<DereferencedDocument<OperationType>>(resolve => {
-        SwaggerParser.dereference(JSON.parse(JSON.stringify(this.rawDocument))).then(doc =>
-          resolve(doc as DereferencedDocument<OperationType>),
-        )
-      }).then(doc => this.initialize(doc))
+      this.dereferencedDocument = new Promise<DereferencedDocument>((resolve, reject) =>
+        // bundle the document so we can clone it
+        SwaggerParser.bundle(this.rawDocument)
+          // clone the document
+          .then(doc => JSON.parse(JSON.stringify(doc)))
+          // dereference the document
+          .then(doc => SwaggerParser.dereference(doc))
+          // initialize the parser
+          .then(doc => this.initialize(doc as DereferencedDocument))
+          .then(doc => resolve(doc))
+          .catch(reject),
+      )
     }
     return this.dereferencedDocument
   }
@@ -176,7 +176,7 @@ export class OperationParser<OperationType extends object = object> {
     pathTrace,
     operationSpec,
     operationTrace,
-  }: OperationBundle<OperationType>): ParsedRequestParameters {
+  }: OperationBundleBase): ParsedRequestParameters {
     // Extract path and operation parameters
     const pathParameters = this.extractParameters(pathSpec.parameters || [], pathTrace)
     const operationParameters = this.extractParameters(operationSpec.parameters || [], operationTrace)
@@ -229,10 +229,7 @@ export class OperationParser<OperationType extends object = object> {
     ) as ParsedRequestParameters
   }
 
-  private extractRequestBody({
-    operationSpec,
-    operationTrace,
-  }: OperationBundle<OperationType>): ParsedRequestBody | undefined {
+  private extractRequestBody({ operationSpec, operationTrace }: OperationBundleBase): ParsedRequestBody | undefined {
     let schemas: Record<string, OpenAPIV3.SchemaObject> | undefined
     const requestBody = operationSpec.requestBody
 
@@ -272,7 +269,7 @@ export class OperationParser<OperationType extends object = object> {
     }
   }
 
-  private extractRequestSchema(operation: OperationBundle<OperationType>): ParsedRequestSchema {
+  private extractRequestSchema(operation: OperationBundleBase): ParsedRequestSchema {
     const parameters = this.extractRequestParameters(operation)
     const body = this.extractRequestBody(operation)
 
@@ -282,7 +279,7 @@ export class OperationParser<OperationType extends object = object> {
   private extractResponsesSchema({
     operationSpec,
     operationTrace,
-  }: OperationBundle<OperationType>): Array<OpenAPIV3.SchemaObject> {
+  }: OperationBundleBase): Array<OpenAPIV3.SchemaObject> {
     return Object.entries(operationSpec.responses).map(([statusCode, responseSpec]) => {
       const trace = operationTrace.append("responses", statusCode)
       let body: OpenAPIV3.SchemaObject | undefined
@@ -332,56 +329,15 @@ export class OperationParser<OperationType extends object = object> {
     })
   }
 
-  private extractAuthorizer({
-    operationSpec,
-    operationTrace,
-  }: OperationBundle<OperationType>): ParsedOperationAuthorizer | undefined {
-    return this.parseAuthorizer(operationSpec.security, operationTrace.append("security")) || this.authorizer
+  private extractSecurity({ operationSpec, operationTrace }: OperationBundleBase): ParsedOperationSecurity | undefined {
+    return this.parseAuthorizer(operationSpec.security, operationTrace.append("security")) || this.defaultAuthorizer
   }
 
-  public async parseOperation(
-    pathPattern: string,
-    method: OpenAPIV3.HttpMethods,
-  ): Promise<ParsedOperation<OperationType>> {
-    const document = await this.document
-    const documentTrace = new DocumentTrace(document["x-sdf-spec-path"])
-    const pathSpec = document.paths[pathPattern]
-    const pathTrace = documentTrace.append(["paths", pathPattern])
-
-    if (!pathSpec) {
-      throw new Error(`path is undefined at ${pathTrace}`)
-    }
-
-    const operationSpec = pathSpec[method]
-    const operationTrace = pathTrace.append(method)
-
-    if (!operationSpec) {
-      throw new Error(`operation is undefined at ${operationTrace}`)
-    }
-
-    const operation: OperationBundle<OperationType> = {
-      document,
-      documentTrace,
-      pathPattern,
-      pathSpec,
-      method,
-      operationSpec,
-      pathTrace,
-      operationTrace,
-      operationId: "",
-    }
-    operation.operationId = this.getOperationId(operation)
-
-    return {
-      bundle: operation,
-      operationId: operation.operationId,
-      request: this.extractRequestSchema(operation),
-      responses: this.extractResponsesSchema(operation),
-      authorizer: this.extractAuthorizer(operation),
-    }
-  }
-
-  public createValidtorSchemas(operation: ParsedOperation<OperationType>): Array<SchemaObject> {
+  /**
+   * Create list of request validation schemas.
+   * The resulting schemas are copies of the original schemas with sanitization applied.
+   */
+  private createValidtorSchemas(operation: OperationBundle): Array<SchemaObject> {
     const {
       request: { parameters, body },
     } = operation
@@ -417,35 +373,159 @@ export class OperationParser<OperationType extends object = object> {
     return (schemas as Array<OpenAPIV3.SchemaObject>).map(sanitizeSchema)
   }
 
-  public async walkOperations(
-    handler: (operation: OperationBundle<OperationType, OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject>) => void,
-    doc?: DereferencedDocument<OperationType>,
-  ) {
+  public async parseOperation(
+    pathPattern: string,
+    method: OpenAPIV3.HttpMethods,
+    doc?: DereferencedDocument,
+  ): Promise<OperationBundle> {
     const document = doc ?? (await this.document)
     const documentTrace = new DocumentTrace(document["x-sdf-spec-path"])
-    Object.entries(document.paths).forEach(([pathPattern, pathSpec]) => {
-      const pathTrace = documentTrace.append(["paths", pathPattern])
+    const pathSpec = document.paths[pathPattern]
+    const pathTrace = documentTrace.append(["paths", pathPattern])
 
-      Object.values(OpenAPIV3.HttpMethods).forEach(method => {
-        const operationSpec = pathSpec[method]
+    if (!pathSpec) {
+      throw new Error(`path is undefined at ${pathTrace}`)
+    }
 
-        if (!operationSpec) {
-          return
+    const operationSpec = pathSpec[method]
+    const operationTrace = pathTrace.append(method)
+
+    if (!operationSpec) {
+      throw new Error(`operation is undefined at ${operationTrace}`)
+    }
+
+    const operation: OperationBundleBase = {
+      document,
+      documentTrace,
+      pathPattern,
+      pathSpec,
+      method,
+      operationSpec,
+      pathTrace,
+      operationTrace,
+      operationId: this.getOperationId({ method, operationSpec, operationTrace, pathPattern }),
+    }
+
+    return {
+      ...operation,
+
+      request: this.extractRequestSchema(operation),
+      responses: this.extractResponsesSchema(operation),
+      security: this.extractSecurity(operation),
+    }
+  }
+
+  public async walkOperations(handler: (operation: OperationBundle) => Promise<void>, doc?: DereferencedDocument) {
+    const document = doc ?? (await this.document)
+
+    for (const [pathPattern, pathSpec] of Object.entries(document.paths)) {
+      for (const method of Object.values(OpenAPIV3.HttpMethods)) {
+        if (!pathSpec[method]) {
+          continue
         }
 
-        handler({
-          pathPattern,
-          pathSpec,
-          method,
-          operationSpec,
-          document,
-          documentTrace,
-          pathTrace,
-          operationTrace: pathTrace.append(method),
-          // @ts-expect-error operationId is set in constructor
-          operationId: operationSpec.operationId,
-        })
+        const operation = await this.parseOperation(pathPattern, method, document)
+
+        await handler(operation)
+      }
+    }
+  }
+
+  public createHttpApiOperation(
+    operation: OperationBundle,
+    authorizerContext?: OpenAPIV3.SchemaObject,
+  ): HttpApiOperation {
+    const {
+      operationId,
+      request: {
+        parameters: { path, query, cookie, header },
+        body,
+      },
+      responses,
+    } = operation
+
+    // helper function to build the HTTP API request schema
+    const buildRequestSchema = (body?: {
+      contentType: string
+      schema: OpenAPIV3.SchemaObject
+    }): OpenAPIV3.SchemaObject => {
+      const properties = Object.fromEntries(
+        Object.entries({
+          path,
+          query,
+          cookie,
+          header,
+          contentType: body
+            ? {
+                type: "string",
+                enum: [body.contentType],
+              }
+            : undefined,
+          body: body?.schema,
+          authorizer: authorizerContext,
+        }).filter((value): value is [string, OpenAPIV3.SchemaObject] => value[1] !== undefined),
+      )
+
+      return {
+        type: "object",
+        properties: properties,
+        required: Object.keys(properties),
+        additionalProperties: false,
+      }
+    }
+
+    // combine request and response schemas into the operation schema
+    const operationSchema: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">> = {
+      title: pascalCase(`operation-${operationId}`),
+      type: "object",
+      properties: {
+        request: {
+          title: pascalCase(`operation-${operationId}-request`),
+          oneOf: [
+            ...(body?.schemas
+              ? Object.entries(body.schemas).map(([contentType, schema]) => buildRequestSchema({ contentType, schema }))
+              : []),
+            ...(body?.required ? [] : [buildRequestSchema()]),
+          ],
+        },
+        responses: {
+          title: pascalCase(`operation-${operationId}-responses`),
+          oneOf: responses,
+        },
+      },
+      required: ["request", "responses"],
+      additionalProperties: false,
+    }
+
+    // create the validator schemas
+    const validatorSchemas = this.createValidtorSchemas(operation)
+
+    if (authorizerContext) {
+      validatorSchemas.push({
+        ...authorizerContext,
+        $id: "authorizer",
       })
-    })
+    }
+
+    return {
+      ...operation,
+      operationSchema,
+      validatorSchemas,
+    }
+  }
+
+  public trace(trace: Array<string | number>): DocumentTrace {
+    const document = this.rawDocument
+    return new DocumentTrace(document["x-sdf-spec-path"], trace)
+  }
+
+  public async copy(): Promise<DocumentParser> {
+    const doc = new DocumentParser(await this.document)
+    await doc.document
+    return doc
+  }
+
+  public async bundle(): Promise<Document> {
+    return SwaggerParser.bundle(await this.document) as unknown as Document
   }
 }

@@ -34,7 +34,7 @@ export interface HttpApiJwtAuthorizerConfig {
 
 export class HttpApiJwtAuthorizer extends HttpApiAuthorizer {
   private claimsSchema: OpenAPIV3.SchemaObject
-  private contextSchema: OpenAPIV3.SchemaObject
+  public contextSchema: OpenAPIV3.SchemaObject
 
   constructor(
     scope: Construct,
@@ -80,9 +80,5 @@ export class HttpApiJwtAuthorizer extends HttpApiAuthorizer {
         issuer: this.config.issuer,
       },
     }
-  }
-
-  public context(): OpenAPIV3.SchemaObject {
-    return this.contextSchema
   }
 }

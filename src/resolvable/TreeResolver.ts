@@ -33,14 +33,7 @@ export class TreeResolver {
       this.resolvables.set(resolvable.scope, resolvables)
     }
 
-    if (this.stage) {
-      // When stage is set, the resolvable resolution is in progress.
-      // We need to add the resolvable to the front of the queue,
-      // so that it is resolved as soon as possible after the current resolvable.
-      resolvables[stage].unshift(resolvable)
-    } else {
-      resolvables[stage].push(resolvable)
-    }
+    resolvables[stage].push(resolvable)
   }
 
   private async resolveStage(state: StageResolvables, stage: AppLifeCycle): Promise<number> {

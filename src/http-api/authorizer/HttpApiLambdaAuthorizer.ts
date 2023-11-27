@@ -1,24 +1,20 @@
-import { camelCase, pascalCase } from "change-case"
+import { pascalCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
-import { join, relative } from "path"
 
 import { App } from "../../App"
-import { BundlerTypeScript, BundlerTypeScriptHandler } from "../../bundler"
+import { Bundler } from "../../bundler"
 import { Lambda, LambdaConfig } from "../../lambda/Lambda"
-import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
 import { HttpApi } from "../HttpApi"
 import { HttpApiAuthorizer } from "./HttpApiAuthorizer"
-import entryPointTemplate from "./templates/entryPoint.ts.mu"
-import handlerTemplate from "./templates/handler.ts.mu"
 
 export interface HttpApiLambdaAuthorizerConfig {
-  context: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">>
+  contextSchema: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">>
 
   identitySource: string
   authorizerResultTtlInSeconds: number
 
-  lambdaConfig?: Omit<LambdaConfig<BundlerTypeScript>, "handler" | "runtime" | "functionName">
+  lambdaConfig?: Omit<LambdaConfig, "handler" | "runtime" | "functionName">
 
   authorizerBody?: string
 
@@ -26,18 +22,13 @@ export interface HttpApiLambdaAuthorizerConfig {
   name: string
 }
 
-const entryPointFunctionName = "entrypoint"
-
 export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
-  public lambda: Lambda<BundlerTypeScript>
-  private bundler: BundlerTypeScript
+  public lambda: Lambda
+  private bundler: Bundler
 
-  private entryPointsDirectory: string
-  private authorizerDirectory: string
+  public contextSchema: OpenAPIV3.SchemaObject
 
-  private contextSchema: OpenAPIV3.SchemaObject
-
-  private prefix: string
+  public readonly prefix: string
 
   constructor(
     scope: Construct,
@@ -45,16 +36,22 @@ export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
     public config: HttpApiLambdaAuthorizerConfig,
   ) {
     super(scope, id)
-    this.bundler = App.getFromContext(this, BundlerTypeScript)
+    this.bundler = App.getFromContext(this, Bundler)
 
     this.prefix = config.prefix ?? id
 
-    this.bundler.registerSchema(config.context)
+    this.bundler.registerSchema(config.contextSchema)
 
-    this.entryPointsDirectory = join(this.bundler.entryPointsDir, this.prefix)
-    this.authorizerDirectory = this.bundler.registerDirectory(this.prefix)
+    this.contextSchema = {
+      title: pascalCase(`AuthorizerContext-${this.config.name}`),
+      type: "object",
+      properties: {
+        lambda: config.contextSchema,
+      },
+      required: ["lambda"],
+    }
 
-    this.lambda = new Lambda(this.bundler, `lambda`, {
+    this.lambda = new Lambda(this, `lambda`, {
       timeout: 29,
       memorySize: 512,
       ...config.lambdaConfig,
@@ -62,17 +59,8 @@ export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
       functionName: this.config.name,
       publish: true,
 
-      bundler: () => this.renderLambda(),
+      entryPoint: () => this.bundler.generateHttpApiAuthorizer(this),
     })
-
-    this.contextSchema = {
-      title: pascalCase(`AuthorizerContext-${this.config.name}`),
-      type: "object",
-      properties: {
-        lambda: config.context,
-      },
-      required: ["lambda"],
-    }
   }
 
   public spec(api: HttpApi) {
@@ -85,43 +73,5 @@ export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
       authorizerUri: this.lambda.function.qualifiedInvokeArn,
       authorizerCredentials: api.integrationRole.arn,
     }
-  }
-
-  private async renderLambda(): Promise<BundlerTypeScriptHandler> {
-    const handlerPath = join(this.authorizerDirectory, camelCase(this.id))
-    const entryPointPath = join(this.entryPointsDirectory, camelCase(this.id))
-
-    await writeMustacheTemplate({
-      template: entryPointTemplate,
-      path: `${entryPointPath}.ts`,
-      overwrite: true,
-      context: {
-        AuthorizerModel: this.config.context.title,
-        InterfacesImport: relative(this.entryPointsDirectory, this.bundler._interfacesAbsPath),
-        HandlerImport: relative(this.entryPointsDirectory, handlerPath),
-        EntryPointFunctionName: entryPointFunctionName,
-      },
-    })
-
-    await writeMustacheTemplate({
-      template: handlerTemplate,
-      path: `${handlerPath}.ts`,
-      overwrite: false,
-      context: {
-        WrapperImport: relative(this.authorizerDirectory, entryPointPath),
-        AuthorizerBody: this.config.authorizerBody || "{}",
-      },
-    })
-
-    const entryPointRelPath = relative(this.bundler.bundleDir, entryPointPath)
-
-    return {
-      handler: `${entryPointRelPath}.${entryPointFunctionName}`,
-      entryPoint: `${entryPointRelPath}.ts`,
-    }
-  }
-
-  public context(): OpenAPIV3.SchemaObject {
-    return this.contextSchema
   }
 }

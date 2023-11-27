@@ -12,8 +12,8 @@ import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpHeaders } from "../enum/HttpHeaders"
 import { BadRequest, InternalServerError, UnsupportedMediaType } from "../error"
 import { HttpError } from "../error/HttpError"
+import { OperationBundleBase } from "../openapi/DocumentParser"
 import { DocumentTrace } from "../openapi/DocumentTrace"
-import { OperationBundle } from "../openapi/OperationParser"
 import { DereferencedDocument } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"
 
@@ -169,18 +169,18 @@ export interface Validators {
 
 export type RequestInterceptor = <OpType extends Operation>(
   event: EventType<OpType>,
-  operation: OperationBundle<object>,
+  operation: OperationBundleBase,
 ) => Promise<EventType<OpType>>
 
 export type ResponseInterceptor = (
   response: APIGatewayProxyStructuredResultV2,
-  operation: OperationBundle<object>,
+  operation: OperationBundleBase,
 ) => Promise<APIGatewayProxyStructuredResultV2>
 
 export interface wrapperOptions<OpType extends Operation> {
   handler: LambdaHandler<OpType>
   validators: Validators
-  operation: OperationBundle<object>
+  operation: OperationBundleBase
 
   requestInterceptor?: RequestInterceptor
   responseInterceptor?: ResponseInterceptor
@@ -230,12 +230,12 @@ export const createOperationBundle = <OperationType extends object = object>(
   document: DereferencedDocument<OperationType>,
   pathPattern: string,
   method: string,
-): OperationBundle<OperationType> => {
+): OperationBundleBase => {
   const documentTrace = new DocumentTrace(document["x-sdf-spec-path"])
   const pathSpec = document.paths[pathPattern]
   const pathTrace = documentTrace.append(["paths", pathPattern])
 
-  const operationSpec = pathSpec[method] as OperationBundle<OperationType>["operationSpec"]
+  const operationSpec = pathSpec[method] as OperationBundleBase["operationSpec"]
   const operationTrace = pathTrace.append([method])
 
   return {

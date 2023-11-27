@@ -5,7 +5,7 @@ import { APIGatewayEventRequestContextV2 } from "aws-lambda"
 import { TerraformStack } from "cdktf"
 
 import { App } from "../../App"
-import { BundlerTypeScript } from "../../bundler/BundlerTypeScript"
+import { Bundler } from "../../bundler/Bundler"
 import { HttpServer, createHttpServer } from "../../tests/createHttpServer"
 import { requireFile } from "../../tests/requireFile"
 import * as setup from "../../tests/setup"
@@ -88,12 +88,15 @@ describe(HttpApiClient.name, () => {
     new AwsProvider(stack, "aws")
     new ArchiveProvider(stack, "archive")
 
-    const bundler = new BundlerTypeScript(stack, bundlerName, {
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "typescript",
+      bundle: "none",
       path: rootDir,
       prefix: "src",
     })
 
     new HttpApi(bundler, "api", {
+      name: "test",
       document: {
         openapi: "3.0.0",
         info: {

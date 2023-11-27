@@ -18,27 +18,29 @@ import { Resource } from "../resource/Resource"
 
 export type LambdaFunctionConfig = Omit<AwsLambdaFunctionConfig, "role">
 
-export interface LambdaConfig<B extends Bundler> extends LambdaFunctionConfig {
-  resources?: { [name in string]: Array<string> }
-  bundler: Required<B>["_context_type"]
+export type LambdaEntryPoint = [path: string, handler: string]
+
+export type LambdaConfigCore = {
+  -readonly [P in keyof LambdaFunctionConfig]: LambdaFunctionConfig[P]
 }
 
-export class Lambda<B extends Bundler> extends Construct {
-  private bundler: B
+export type LambdaConfig = LambdaConfigCore & {
+  entryPoint?: LambdaEntryPoint | void | (() => Promise<LambdaEntryPoint | void>)
+  resources?: { [name in string]: Array<string> }
+}
+
+export class Lambda extends Construct {
+  private bundler: Bundler
   private app: App
 
   public function: AwsLambdaFunction
   public role: IamRole
 
-  public context: Required<B>["_context_type"]
-
-  public constructor(bundler: B, id: string, { bundler: context, resources, ...config }: LambdaConfig<B>) {
-    super(bundler, id)
+  public constructor(scope: Construct, id: string, { resources, ...config }: LambdaConfig) {
+    super(scope, id)
 
     this.app = App.getAppFromContext(this)
-    // this.stack = Stack.getStackFromCtx(this)
-    this.bundler = bundler
-    this.context = context
+    this.bundler = App.getFromContext(this, Bundler)
 
     const assumeRolePolicy = new DataAwsIamPolicyDocument(this, "assume-role-policy", {
       statement: [
@@ -88,8 +90,6 @@ export class Lambda<B extends Bundler> extends Construct {
       retentionInDays: 30,
     })
 
-    const bundlerConfig = this.bundler.lambdaConfig(this)
-
     new AsyncResolvable(
       this,
       "resource-config",
@@ -110,43 +110,41 @@ export class Lambda<B extends Bundler> extends Construct {
       AppLifeCycle.generation,
     )
 
-    const lambdaConfig: LambdaFunctionConfig = {
-      ...bundlerConfig,
-      ...config,
+    const bundledLambdaConfig = this.bundler.bundleLambdaConfig(this, config)
+    const bundledEnvVars = bundledLambdaConfig.environment?.variables
 
-      // merging environment variabables from all sources
-      environment: {
-        variables: new AsyncResolvable(
-          this,
-          "env-vars",
-          async () => {
-            const resourceEnvironment = Object.entries(this.resources).reduce(
-              (acc, [resourceName, resource]) => ({
-                ...acc,
-                [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config).replace(/"/g, `\\"`),
-              }),
-              {},
-            )
-            return Fn.merge([
-              bundlerConfig.environment?.variables,
-              config.environment?.variables,
-              this.environment,
-              resourceEnvironment,
-            ])
-          },
-          AppLifeCycle.generation,
-        ).asStringMap(),
-      },
+    // add environment variables for resources
+    bundledLambdaConfig.environment = {
+      variables: new AsyncResolvable(
+        this,
+        "env-vars",
+        async () => {
+          const resourceEnvironment = Object.entries(this.resources).reduce(
+            (acc, [resourceName, resource]) => ({
+              ...acc,
+              [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config).replace(/"/g, `\\"`),
+            }),
+            {},
+          )
+          if (bundledEnvVars) {
+            return Fn.merge([bundledEnvVars, resourceEnvironment])
+          } else {
+            return resourceEnvironment
+          }
+        },
+        AppLifeCycle.generation,
+      ).asStringMap(),
     }
 
     this.function = new AwsLambdaFunction(this, "lambda", {
       dependsOn,
       role: this.role.arn,
-      ...lambdaConfig,
+      ...bundledLambdaConfig,
     })
   }
 
-  private resources: Record<string, Resource> = {}
+  public readonly resources: Record<string, Resource> = {}
+
   private policies: Array<DataAwsIamPolicyDocument> = []
   public environment: Record<string, string> = { NODE_OPTIONS: "--enable-source-maps" }
 

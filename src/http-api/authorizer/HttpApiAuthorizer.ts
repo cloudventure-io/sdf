@@ -8,5 +8,5 @@ export abstract class HttpApiAuthorizer extends Construct {
   public abstract spec(api: HttpApi): Record<string, any>
 
   /** Authorization context schema */
-  public abstract context(): OpenAPIV3.SchemaObject
+  public abstract get contextSchema(): OpenAPIV3.SchemaObject
 }

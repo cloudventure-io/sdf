@@ -112,7 +112,7 @@ export class App extends CdkTfApp {
         bundles: stack.node
           .findAll()
           .filter<Bundler>((construct): construct is Bundler => construct instanceof Bundler)
-          .map(bundler => bundler.getBundleManifest()),
+          .map(bundler => bundler.manifest()),
       })),
     }
 

@@ -1,3 +1,4 @@
+import lodash from "lodash"
 import { OpenAPIV3 } from "openapi-types"
 
 import { walkSchema } from "./walkSchema"
@@ -9,7 +10,7 @@ import { walkSchema } from "./walkSchema"
  * @returns
  */
 export const sanitizeSchema = <T extends OpenAPIV3.SchemaObject>(input: T): T => {
-  const copy: T = JSON.parse(JSON.stringify(input)) as T
+  const copy: T = lodash.cloneDeep(input) as T
 
   walkSchema(
     copy,
@@ -22,9 +23,9 @@ export const sanitizeSchema = <T extends OpenAPIV3.SchemaObject>(input: T): T =>
         const allOfGroups = allOf
           .reduce(
             ([head, ...rest], s) =>
-              !head.length || (s.type === "object" && head[0].type === "object")
-                ? [[...head, s], ...rest]
-                : [[s], head, ...rest],
+              !head.length || (head[0].type === "object" && s.type === "object")
+                ? [[...head, s], ...rest] // append to the head
+                : [[s], head, ...rest], // create new group
             [[]] as Array<Array<OpenAPIV3.SchemaObject>>,
           )
           .reverse()
@@ -65,6 +66,9 @@ export const sanitizeSchema = <T extends OpenAPIV3.SchemaObject>(input: T): T =>
             schema.additionalProperties = newAllOffs[0].additionalProperties
           }
           delete schema.allOf
+          if (schema.required?.length === 0) {
+            delete schema.required
+          }
         } else {
           schema.allOf = newAllOffs
         }

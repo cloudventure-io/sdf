@@ -1,6 +1,6 @@
 import { OpenAPIV3 } from "openapi-types"
 
-import { OperationParser } from "./OperationParser"
+import { DocumentParser, ParsedOperation } from "./DocumentParser"
 import { Document, ParameterObject, RequestBodyObject, ResponseObject } from "./types"
 
 const createDocument = ({
@@ -47,9 +47,9 @@ const createDocument = ({
   },
 })
 
-describe(OperationParser.name, () => {
+describe(DocumentParser.name, () => {
   it("check parameter merging", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         pathParameters: [
           {
@@ -79,18 +79,18 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    const operationSchema = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
+    const operation = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operationSchema.request.parameters.cookie).toBeUndefined()
-    expect(operationSchema.request.parameters.header).toBeUndefined()
-    expect(operationSchema.request.parameters?.query?.required).toStrictEqual(["param1"])
-    expect(operationSchema.request.parameters?.query?.properties?.param1).toStrictEqual({ type: "boolean" })
-    expect(operationSchema.request.parameters?.query?.properties?.param2).toStrictEqual({ type: "string" })
-    expect(operationSchema.request.parameters?.path?.properties?.param3).toStrictEqual({ type: "string" })
+    expect(operation.request.parameters.cookie).toBeUndefined()
+    expect(operation.request.parameters.header).toBeUndefined()
+    expect(operation.request.parameters?.query?.required).toStrictEqual(["param1"])
+    expect(operation.request.parameters?.query?.properties?.param1).toStrictEqual({ type: "boolean" })
+    expect(operation.request.parameters?.query?.properties?.param2).toStrictEqual({ type: "string" })
+    expect(operation.request.parameters?.path?.properties?.param3).toStrictEqual({ type: "string" })
   })
 
   it("header parameter case-insensitivity", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         pathParameters: [
           {
@@ -115,22 +115,32 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    const operationSchema = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
+    let operation: ParsedOperation | undefined
+    await parser.walkOperations(async op => {
+      operation = op
+    })
 
-    expect(operationSchema.request.parameters.cookie).toBeUndefined()
-    expect(operationSchema.request.parameters.query).toBeUndefined()
-    expect(operationSchema.request.parameters.path).toBeUndefined()
-    expect(Object.keys(operationSchema.request.parameters?.header?.properties || {})).toStrictEqual([
+    if (!operation) {
+      expect(operation).toBeTruthy()
+      return
+    }
+    expect(operation.method).toBe(OpenAPIV3.HttpMethods.GET)
+    expect(operation.pathPattern).toBe("/test")
+
+    expect(operation.request.parameters.cookie).toBeUndefined()
+    expect(operation.request.parameters.query).toBeUndefined()
+    expect(operation.request.parameters.path).toBeUndefined()
+    expect(Object.keys(operation.request.parameters?.header?.properties || {})).toStrictEqual([
       "x-test-header",
       "x-test-header2",
     ])
-    expect(operationSchema.request.parameters.header?.required).toStrictEqual(["x-test-header"])
-    expect(operationSchema.request.parameters.header?.properties?.["x-test-header"]).toStrictEqual({ type: "boolean" })
-    expect(operationSchema.request.parameters.header?.properties?.["x-test-header2"]).toStrictEqual({ type: "string" })
+    expect(operation.request.parameters.header?.required).toStrictEqual(["x-test-header"])
+    expect(operation.request.parameters.header?.properties?.["x-test-header"]).toStrictEqual({ type: "boolean" })
+    expect(operation.request.parameters.header?.properties?.["x-test-header2"]).toStrictEqual({ type: "string" })
   })
 
   it("unknown parameter type", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         pathParameters: [
           {
@@ -142,11 +152,11 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrow(/unknown value of 'in' attribute/)
+    await expect(parser.walkOperations(async () => {})).rejects.toThrow(/unknown value of 'in' attribute/)
   })
 
   it("request body required error", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         requestBody: {
           required: true,
@@ -155,13 +165,13 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrow(
+    await expect(parser.walkOperations(async () => {})).rejects.toThrow(
       /requestBody is required, but no body schema is specified/,
     )
   })
 
   it("request body required error - no schema", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         requestBody: {
           required: true,
@@ -172,13 +182,11 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrow(
-      /requestBody schema is required at/,
-    )
+    await expect(parser.walkOperations(async () => {})).rejects.toThrow(/requestBody schema is required at/)
   })
 
   it("request body", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         requestBody: {
           required: true,
@@ -205,19 +213,21 @@ describe(OperationParser.name, () => {
   })
 
   it("missing path", async () => {
-    const parser = new OperationParser(createDocument({}))
+    const parser = new DocumentParser(createDocument({}))
 
-    expect(parser.parseOperation("/not-found", OpenAPIV3.HttpMethods.GET)).rejects.toThrowError(/path is undefined at/)
+    await expect(parser.parseOperation("/not-found", OpenAPIV3.HttpMethods.GET)).rejects.toThrow(/path is undefined at/)
   })
 
   it("missing operation", async () => {
-    const parser = new OperationParser(createDocument({}))
+    const parser = new DocumentParser(createDocument({}))
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.POST)).rejects.toThrowError(/operation is undefined at/)
+    await expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.POST)).rejects.toThrow(
+      /operation is undefined at/,
+    )
   })
 
   it("operation responses", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         responses: {
           "200": {
@@ -289,7 +299,7 @@ describe(OperationParser.name, () => {
   })
 
   it("operation responses - multiple content types", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         responses: {
           "200": {
@@ -313,13 +323,13 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrowError(
+    await expect(parser.walkOperations(async () => {})).rejects.toThrowError(
       /only single resposne content type is supported/,
     )
   })
 
   it("operation responses - non application/json content type", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         responses: {
           "200": {
@@ -338,37 +348,33 @@ describe(OperationParser.name, () => {
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrowError(
+    await expect(parser.walkOperations(async () => {})).rejects.toThrowError(
       /only application\/json content type is supported/,
     )
   })
 
-  it("security - multiple authorizers 1", () => {
-    const parser = new OperationParser(
+  it("security - multiple authorizers 1", async () => {
+    const parser = new DocumentParser(
       createDocument({
         security: [{ authorizer1: [], authorizer2: [] }],
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrowError(
-      /single security element is expected/,
-    )
+    await expect(parser.walkOperations(async () => {})).rejects.toThrowError(/single security element is expected/)
   })
 
-  it("security - multiple authorizers 2", () => {
-    const parser = new OperationParser(
+  it("security - multiple authorizers 2", async () => {
+    const parser = new DocumentParser(
       createDocument({
         security: [{ authorizer1: [] }, { authorizer2: [] }],
       }),
     )
 
-    expect(parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)).rejects.toThrowError(
-      /single security requirement is expected/,
-    )
+    await expect(parser.walkOperations(async () => {})).rejects.toThrowError(/single security requirement is expected/)
   })
 
   it("security - operation level", async () => {
-    const parser = new OperationParser(
+    const parser = new DocumentParser(
       createDocument({
         security: [{ authorizer: ["a", "b"] }],
       }),
@@ -376,39 +382,39 @@ describe(OperationParser.name, () => {
 
     const operation = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operation.authorizer).toBeTruthy()
-    expect(operation.authorizer?.name).toBe("authorizer")
-    expect(operation.authorizer?.value).toStrictEqual(["a", "b"])
+    expect(operation.security).toBeTruthy()
+    expect(operation.security?.name).toBe("authorizer")
+    expect(operation.security?.value).toStrictEqual(["a", "b"])
   })
 
   it("security - document level", async () => {
     const doc = createDocument({})
     doc.security = [{ authorizer: ["a", "b"] }]
 
-    const parser = new OperationParser(doc)
+    const parser = new DocumentParser(doc)
 
     const operation = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operation.authorizer).toBeTruthy()
-    expect(operation.authorizer?.name).toBe("authorizer")
-    expect(operation.authorizer?.value).toStrictEqual(["a", "b"])
+    expect(operation.security).toBeTruthy()
+    expect(operation.security?.name).toBe("authorizer")
+    expect(operation.security?.value).toStrictEqual(["a", "b"])
   })
 
   it("security - merge", async () => {
     const doc = createDocument({ security: [{ authorizer: ["op", "level"] }] })
     doc.security = [{ authorizer: ["doc", "level"] }]
 
-    const parser = new OperationParser(doc)
+    const parser = new DocumentParser(doc)
 
     const operation = await parser.parseOperation("/test", OpenAPIV3.HttpMethods.GET)
 
-    expect(operation.authorizer).toBeTruthy()
-    expect(operation.authorizer?.name).toBe("authorizer")
-    expect(operation.authorizer?.value).toStrictEqual(["op", "level"])
+    expect(operation.security).toBeTruthy()
+    expect(operation.security?.name).toBe("authorizer")
+    expect(operation.security?.value).toStrictEqual(["op", "level"])
   })
 
   it("operationId generation", async () => {
-    const parser = new OperationParser({
+    const parser = new DocumentParser({
       openapi: "3.0.0",
       info: {
         title: "test",
@@ -442,7 +448,7 @@ describe(OperationParser.name, () => {
   it("operationId duplicate", async () => {
     await expect(
       async () =>
-        await new OperationParser({
+        new DocumentParser({
           openapi: "3.0.0",
           info: {
             title: "test",

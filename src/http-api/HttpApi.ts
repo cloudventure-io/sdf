@@ -1,34 +1,34 @@
-import SwaggerParser from "@apidevtools/swagger-parser"
 import { Apigatewayv2Api } from "@cdktf/provider-aws/lib/apigatewayv2-api"
 import { Apigatewayv2Stage } from "@cdktf/provider-aws/lib/apigatewayv2-stage"
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
-import Ajv, { Schema } from "ajv"
-import standaloneCode from "ajv/dist/standalone"
-import { camelCase, paramCase, pascalCase } from "change-case"
+import { SchemaObject } from "ajv"
+import { camelCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
-import { dirname, join } from "path"
-import { relative } from "path"
 
-import { App } from "../App"
-import { BundlerTypeScript, BundlerTypeScriptHandler } from "../bundler"
+import { App, AppLifeCycle } from "../App"
+import { Bundler } from "../bundler"
 import { Lambda, LambdaConfig } from "../lambda/Lambda"
 import { AsyncResolvable } from "../resolvable/AsyncResolvable"
-import { writeFile } from "../utils/writeFile"
-import { writeMustacheTemplate } from "../utils/writeMustacheTemplate"
 import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "./authorizer"
 import { HttpApiAuthorizer } from "./authorizer/HttpApiAuthorizer"
-import { HttpApiClientGenerator } from "./client/HttpApiClientGenerator"
-import { DocumentTrace } from "./openapi/DocumentTrace"
-import { OperationBundle, OperationParser, ParsedOperation, ParsedOperationAuthorizer } from "./openapi/OperationParser"
-import { DereferencedDocument, Document } from "./openapi/types"
-import entryPointTemplate from "./templates/entryPoint.ts.mu"
-import handlerTemplate from "./templates/handler.ts.mu"
-import validatorTemplate from "./templates/validator.d.ts.mu"
+import { DocumentParser, OperationBundle, ParsedOperationSecurity } from "./openapi/DocumentParser"
+import { Document } from "./openapi/types"
 
+export interface HttpApiOperation extends OperationBundle {
+  // authorizer?: HttpApiAuthorizer
+
+  operationSchema: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">>
+
+  validatorSchemas: Array<SchemaObject>
+}
+
+/**
+ * Configuration for the HttpApi construct
+ */
 export interface HttpApiConfig<T extends object> {
   /** the OpenAPI Document */
   document: Document<T>
@@ -37,7 +37,7 @@ export interface HttpApiConfig<T extends object> {
   stageName?: string
 
   /** lambda function configuration */
-  lambdaConfig?: Omit<LambdaConfig<BundlerTypeScript>, "handler" | "runtime" | "functionName">
+  lambdaConfig?: LambdaConfig
 
   /** map of authorizers */
   authorizers?: Record<string, HttpApiAuthorizer>
@@ -45,7 +45,7 @@ export interface HttpApiConfig<T extends object> {
   /** the response body of the generated handler fuction, defaults to `{}` */
   handlerBody?: string
 
-  /** the API path prefix on the local filesystem, defaults to {id} */
+  /** the API path prefix for the generated files, defaults to {id} */
   prefix?: string
 
   /** the name of the HTTP API. this value is used as name prefix for all sub-resources. */
@@ -63,70 +63,57 @@ export interface HttpApiConfig<T extends object> {
    * */
   stripSecurityScopes?: boolean
 
+  /** generate client code for the API */
   generateClient?: {
     name: string
   }
 }
 
-const entryPointFunctionName = "entrypoint"
-
+/**
+ * HttpApi is a construct that generates a HTTP API Gateway based on the provided OpenAPI Document.
+ * It also generates lambda functions for the API Gateway operations.
+ */
 export class HttpApi<OperationType extends object = object> extends Construct {
   /** lambda functions defined based on the provided OpenAPI Document */
-  public lambdas: { [operationId in string]: Lambda<BundlerTypeScript> } = {}
+  public lambdas: { [operationId in string]: Lambda } = {}
 
-  private bundler: BundlerTypeScript
+  /** the bundler instance */
+  private bundler: Bundler
+
+  /** the stage name of the API Gateway */
   private stageName: string
 
-  private document: Document<OperationType>
+  /** the API Gateway instance */
+  public readonly apigw: Apigatewayv2Api
 
-  /**
-   * the entry points directory of the api
-   */
-  private entryPointsDirectory: string
+  /** the API Gateway stage instance */
+  public readonly stage: Apigatewayv2Stage
 
-  /**
-   * the validators directory of the api
-   */
-  private validatorsDirectory: string
+  /** the document parser instance */
+  public readonly documentParser: DocumentParser
 
-  /**
-   * the handlers directory of the api
-   */
-  private handlersDirectory: string
-
-  public apigw: Apigatewayv2Api
-  public stage: Apigatewayv2Stage
-
-  private operationParser: OperationParser<OperationType>
-
+  /** the authorizers defined in the document */
   private authorizers: Record<string, HttpApiAuthorizer> = {}
 
-  public integrationRole: IamRole
+  /** the integration role for the API Gateway */
+  public readonly integrationRole: IamRole
 
-  private prefix: string
-  private documentOutputPath: string
-  private clientGenerator?: HttpApiClientGenerator<OperationType>
+  /** the API path prefix for the generated files */
+  public readonly prefix: string
 
   constructor(
     scope: Construct,
     private id: string,
-    private config: HttpApiConfig<OperationType>,
+    public readonly config: HttpApiConfig<OperationType>,
   ) {
     super(scope, id)
-    this.bundler = App.getFromContext(this, BundlerTypeScript) as BundlerTypeScript
+    this.bundler = App.getFromContext(this, Bundler)
     this.prefix = config.prefix ?? id
 
     this.stageName = config.stageName || "$default"
 
-    // define directories
-    this.entryPointsDirectory = join(this.bundler.entryPointsDir, this.prefix)
-    this.validatorsDirectory = join(this.entryPointsDirectory, "validators")
-    this.handlersDirectory = this.bundler.registerDirectory(this.prefix)
-    this.documentOutputPath = join(this.entryPointsDirectory, "openapi.json")
-
     // clone the document, since document will be mutated in further operations
-    this.document = JSON.parse(JSON.stringify(this.config.document)) as Document<OperationType>
-    this.operationParser = new OperationParser<OperationType>(this.document)
+    this.documentParser = new DocumentParser(JSON.parse(JSON.stringify(this.config.document)))
 
     // define API GW integration role
     this.integrationRole = new IamRole(this, "integration-role", {
@@ -156,39 +143,42 @@ export class HttpApi<OperationType extends object = object> extends Construct {
       }).json,
     })
 
-    // map provided authorizers with security schemes from Document
-    this.authorizers = this.parseAuthorizers()
-
     // define lambda functions
     const apiGwBody = new AsyncResolvable(this, `lambdas`, async () => {
-      await this.operationParser.walkOperations(operation => this.defineLambda(operation))
+      // extract the authorizers from the document and map to the input authorizers.
+      await this.parseAuthorizers()
 
-      let apiGwBody = (await SwaggerParser.bundle(
-        await this.operationParser.document,
-      )) as DereferencedDocument<OperationType>
+      // walk through the operations and define the lambda functions
+      await this.documentParser.walkOperations(async operation => this.defineLambda(operation))
+
+      const doc = await this.documentParser.document
+      if (doc.components?.schemas) {
+        doc.components.schemas = Object.fromEntries(
+          Object.entries(doc.components.schemas).map(([name, schema]) => [name, this.bundler.registerSchema(schema)]),
+        )
+      }
+
+      // generate the OpenAPI specification file of this API
+      await this.bundler.generateHttpApiSpecification(this)
 
       if (config.stripSecurityScopes) {
-        apiGwBody = JSON.parse(JSON.stringify(apiGwBody))
-
-        const operationParser = new OperationParser<OperationType>(apiGwBody)
-        await operationParser.walkOperations(operation => {
+        // strip security scopes for AWS HTTP API
+        this.documentParser.walkOperations(async operation => {
           if (operation.operationSpec.security) {
             operation.operationSpec.security = operation.operationSpec.security.map(security =>
               Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
             )
           }
         })
-
-        apiGwBody = (await SwaggerParser.bundle(await operationParser.document)) as DereferencedDocument<OperationType>
       }
 
-      return JSON.stringify(apiGwBody)
+      return JSON.stringify(await this.documentParser.bundle())
     }).asString()
 
     // define the AWS HTTP API
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
-      name: this.document.info.title,
-      version: this.document.info.version,
+      name: config.document.info.title,
+      version: config.document.info.version,
       protocolType: "HTTP",
       body: apiGwBody,
       corsConfiguration: {
@@ -208,25 +198,20 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     })
 
     if (config.generateClient) {
-      this.clientGenerator = new HttpApiClientGenerator({
-        bundler: this.bundler,
-        document: this.document,
-        httpApi: this,
-        name: config.generateClient.name,
-      })
+      new AsyncResolvable(
+        this,
+        "client-generator",
+        async () => this.bundler.generateHttpApiClient(this),
+        AppLifeCycle.generation,
+      )
     }
-
-    new AsyncResolvable(this, "client", () => this.synthClient())
   }
 
-  private parseAuthorizers(): typeof this.authorizers {
-    return Object.entries(this.document.components?.securitySchemes || {}).reduce<typeof this.authorizers>(
+  /** parse the authorizers from the document and map to the input authorizers */
+  private async parseAuthorizers() {
+    this.authorizers = Object.entries((await this.documentParser.document).components?.securitySchemes || {}).reduce(
       (acc, [name, securityScheme]) => {
-        const trace = new DocumentTrace(this.document["x-sdf-spec-path"], ["components", "securitySchemes", name])
-
-        if ("$ref" in securityScheme) {
-          throw new Error(`$ref in securityScheme definition is not supported at ${trace}`)
-        }
+        const trace = this.documentParser.trace(["components", "securitySchemes", name])
 
         const authorizer = this.config.authorizers?.[name]
         if (!authorizer) {
@@ -243,6 +228,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
           throw new Error(`jwt authorizer is required for 'apiKey' authorization at ${trace}`)
         }
 
+        // NOTICE: mutating the document
         securityScheme["x-amazon-apigateway-authorizer"] = authorizer.spec(this)
 
         return {
@@ -254,8 +240,9 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     )
   }
 
+  /** get the authorizer for the given operation */
   private getOperationAuthorizer(
-    operationAuthorizer: ParsedOperationAuthorizer | undefined,
+    operationAuthorizer: ParsedOperationSecurity | undefined,
   ): HttpApiAuthorizer | undefined {
     if (operationAuthorizer) {
       const authorizer = this.authorizers[operationAuthorizer.name]
@@ -266,235 +253,46 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     }
   }
 
-  private defineLambda(operation: OperationBundle<OperationType, OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject>) {
-    const operationId = operation.operationId
+  private async defineLambda(operation: OperationBundle) {
+    // create the http api operation object from the parsed operation
+    const authorizer = this.getOperationAuthorizer(operation.security)
 
-    const lambda = new Lambda(this.bundler, `api-handler-${camelCase(operationId)}`, {
+    const httpOperation = this.documentParser.createHttpApiOperation(operation, authorizer?.contextSchema)
+
+    const { operationId, document, operationSpec, operationSchema } = httpOperation
+
+    // register the operation schema
+    this.bundler.registerSchema(operationSchema)
+
+    // generate the function handler
+    const entryPoint = await this.bundler.generateHttpApiHandler(this, httpOperation)
+
+    const lambda = new Lambda(this, `api-handler-${camelCase(operationId)}`, {
       timeout: 29,
       memorySize: 512,
       ...this.config.lambdaConfig,
 
       functionName: `${this.config.name}-${paramCase(operationId)}`,
       publish: true,
-      bundler: () => this.renderLambdaHandler(operation),
       resources: {
         ...this.config.lambdaConfig?.resources,
-        ...this.document["x-sdf-resources"],
-        ...operation.operationSpec["x-sdf-resources"],
+        ...document["x-sdf-resources"],
+        ...operationSpec["x-sdf-resources"],
       },
+
+      entryPoint,
     })
 
     this.lambdas[operationId] = lambda
 
     // add api gateway integration into the operation
-    operation.operationSpec["x-amazon-apigateway-integration"] = {
+    operationSpec["x-amazon-apigateway-integration"] = {
       payloadFormatVersion: "2.0",
       type: "aws_proxy",
       httpMethod: "POST",
       uri: lambda.function.qualifiedInvokeArn,
       connectionType: "INTERNET",
       credentials: this.integrationRole.arn,
-    }
-  }
-
-  private registerOperationSchema(operation: ParsedOperation<OperationType>): string {
-    const {
-      operationId,
-      request: {
-        parameters: { path, query, cookie, header },
-        body,
-      },
-      responses,
-    } = operation
-
-    const authorizer = this.getOperationAuthorizer(operation.authorizer)
-
-    const buildRequestSchema = (body?: {
-      contentType: string
-      schema: OpenAPIV3.SchemaObject
-    }): OpenAPIV3.SchemaObject => {
-      const properties = Object.fromEntries(
-        Object.entries({
-          path,
-          query,
-          cookie,
-          header,
-          contentType: body
-            ? {
-                type: "string",
-                enum: [body.contentType],
-              }
-            : undefined,
-          body: body?.schema,
-          authorizer: authorizer ? authorizer.context() : undefined,
-        }).filter((value): value is [string, OpenAPIV3.SchemaObject] => value[1] !== undefined),
-      )
-
-      return {
-        type: "object",
-        properties: properties,
-        required: Object.keys(properties),
-        additionalProperties: false,
-      }
-    }
-
-    const operationTitle = pascalCase(`operation-${operationId}`)
-
-    const operationSchema: OpenAPIV3.SchemaObject = {
-      title: operationTitle,
-      type: "object",
-      properties: {
-        request: {
-          title: pascalCase(`operation-${operationId}-request`),
-          oneOf: [
-            ...(body?.schemas
-              ? Object.entries(body.schemas).map(([contentType, schema]) => buildRequestSchema({ contentType, schema }))
-              : []),
-            ...(body?.required ? [] : [buildRequestSchema()]),
-          ],
-        },
-        responses: {
-          title: pascalCase(`operation-${operationId}-responses`),
-          oneOf: responses,
-        },
-      },
-      required: ["request", "responses"],
-      additionalProperties: false,
-    }
-
-    this.bundler.registerSchema(operationSchema)
-
-    return operationTitle
-  }
-
-  private async renderLambdaHandler({
-    pathPattern,
-    method,
-  }: OperationBundle<
-    OperationType,
-    OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject
-  >): Promise<BundlerTypeScriptHandler> {
-    // get dereferenced version of the operation
-    const operation = await this.operationParser.parseOperation(pathPattern, method)
-    const operationTitle = this.registerOperationSchema(operation)
-
-    // render lambda function entry point, handler and validator
-    const entryPointPath = await this.renderLambdaFiles(operation, operationTitle)
-    const entryPointRelPath = relative(this.bundler.bundleDir, entryPointPath)
-
-    return {
-      handler: `${entryPointRelPath}.${entryPointFunctionName}`,
-      entryPoint: `${entryPointRelPath}.ts`,
-    }
-  }
-
-  private createValidtors(operation: ParsedOperation<OperationType>): { ajv: Ajv; schemas: Array<Schema> } {
-    const schemas = this.operationParser.createValidtorSchemas(operation)
-
-    if (operation.authorizer) {
-      const authorizer = this.authorizers[operation.authorizer.name]
-      if (!authorizer) {
-        throw new Error(
-          `cannot find authorier '${operation.authorizer.name}' defined at ${operation.bundle.operationTrace.append(
-            "security",
-          )}`,
-        )
-      }
-      schemas.push({
-        $id: "authorizer",
-        ...authorizer.context(),
-      })
-    }
-
-    const ajv = new Ajv({
-      code: { source: true, esm: true },
-      strict: false,
-      allErrors: true,
-      schemas: schemas,
-    })
-
-    return { ajv, schemas }
-  }
-
-  private async renderValidator(operation: ParsedOperation<OperationType>): Promise<string> {
-    const { operationId } = operation
-    const { ajv, schemas } = this.createValidtors(operation)
-
-    const moduleCode = standaloneCode(ajv)
-
-    const validatorPath = join(this.validatorsDirectory, `${operationId}.validator`)
-
-    await writeFile(`${validatorPath}.js`, moduleCode)
-
-    await writeMustacheTemplate({
-      template: validatorTemplate,
-      path: `${validatorPath}.d.ts`,
-      context: {
-        Validators: schemas,
-      },
-      overwrite: true,
-    })
-
-    return validatorPath
-  }
-
-  private async renderLambdaFiles(operation: ParsedOperation<OperationType>, operationTitle: string): Promise<string> {
-    const { operationId } = operation
-
-    const validatorPath = await this.renderValidator(operation)
-
-    const handlerPath = join(this.handlersDirectory, operationId)
-    const entryPointPath = join(this.entryPointsDirectory, operationId)
-
-    await writeMustacheTemplate({
-      template: entryPointTemplate,
-      path: `${entryPointPath}.ts`,
-      overwrite: true,
-      context: {
-        PathPatternString: JSON.stringify(operation.bundle.pathPattern),
-        MethodString: JSON.stringify(operation.bundle.method),
-        DocumentImport: relative(dirname(entryPointPath), this.documentOutputPath),
-        OperationModel: operationTitle,
-        InterfacesImport: relative(dirname(entryPointPath), this.bundler._interfacesAbsPath),
-        HandlerImport: relative(dirname(entryPointPath), handlerPath),
-        ValidatorsImport: relative(dirname(entryPointPath), validatorPath),
-        EntryPointFunctionName: entryPointFunctionName,
-        RequestInterceptor:
-          this.config.requestInterceptor === undefined
-            ? undefined
-            : relative(dirname(entryPointPath), join(this.bundler.bundleDir, this.config.requestInterceptor)),
-        ResponseInterceptor:
-          this.config.responseInterceptor === undefined
-            ? undefined
-            : relative(dirname(entryPointPath), join(this.bundler.bundleDir, this.config.responseInterceptor)),
-      },
-    })
-
-    await writeMustacheTemplate({
-      template: handlerTemplate,
-      path: `${handlerPath}.ts`,
-      overwrite: false,
-      context: {
-        WrapperImport: relative(dirname(handlerPath), entryPointPath),
-        HandlerBody: this.config.handlerBody || "{}",
-      },
-    })
-
-    return entryPointPath
-  }
-
-  private async synthClient() {
-    // write the OpenAPI document
-    await writeFile(this.documentOutputPath, JSON.stringify(this.config.document, null, 2))
-
-    const doc = await this.operationParser.document
-
-    if (doc.components?.schemas) {
-      Object.values(doc.components.schemas).forEach(schema => this.bundler.registerSchema(schema))
-    }
-
-    if (this.clientGenerator) {
-      await this.clientGenerator.render()
     }
   }
 }

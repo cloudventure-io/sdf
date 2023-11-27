@@ -1,23 +1,9 @@
-import { LambdaFunctionConfig } from "@cdktf/provider-aws/lib/lambda-function"
 import { TerraformStack } from "cdktf"
 
 import { App } from "../App"
 import { HttpApi } from "../http-api/HttpApi"
 import * as setup from "../tests/setup"
-import { BundleManifest, Bundler } from "./Bundler"
-
-class DummyBundler extends Bundler {
-  public getBundleManifest(): BundleManifest {
-    return {
-      id: "test",
-      type: "docker",
-    }
-  }
-
-  public lambdaConfig(): Partial<LambdaFunctionConfig> {
-    return {}
-  }
-}
+import { Bundler } from "./Bundler"
 
 describe(HttpApi.name, () => {
   const bundlerName = "test-service"
@@ -38,7 +24,10 @@ describe(HttpApi.name, () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
 
-    const bundler = new DummyBundler(stack, bundlerName)
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "custom",
+      bundle: "none",
+    })
 
     const schema1 = bundler.registerSchema({
       title: "TEST_TITLE",
@@ -63,7 +52,10 @@ describe(HttpApi.name, () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
 
-    const bundler = new DummyBundler(stack, bundlerName)
+    const bundler = new Bundler(stack, bundlerName, {
+      language: "custom",
+      bundle: "none",
+    })
 
     bundler.registerSchema({
       title: "TEST_TITLE",

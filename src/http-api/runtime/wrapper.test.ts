@@ -6,7 +6,7 @@ import { OpenAPIV3 } from "openapi-types"
 import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpHeaders } from "../enum/HttpHeaders"
 import { BadGateway } from "../error"
-import { OperationParser } from "../openapi/OperationParser"
+import { DocumentParser } from "../openapi/DocumentParser"
 import { Document, OperationObject } from "../openapi/types"
 import { ApiResponse } from "./ApiResponse"
 import { LambdaHandler, wrapper } from "./wrapper"
@@ -75,7 +75,7 @@ describe("handler wrapper tests", () => {
 
   const createHandler = async ({ required, callback }: { required: boolean; callback?: LambdaHandler<any> }) => {
     const document = createDocument({ required })
-    const operationParser = new OperationParser(document)
+    const operationParser = new DocumentParser(document)
 
     const operation = await operationParser.parseOperation("/test", OpenAPIV3.HttpMethods.POST)
 
@@ -101,7 +101,7 @@ describe("handler wrapper tests", () => {
           return new ApiResponse(body, 200)
         }),
       validators,
-      operation: operation.bundle,
+      operation: operation,
     })
   }
 
