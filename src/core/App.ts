@@ -25,14 +25,14 @@ export interface AppManifest {
 
 export enum AppLifeCycle {
   /**
-   * The synthesis stage is dedicated for new construct creation.
-   * This stage is applied from top to bottom walk over the construct tree.
+   * The construction stage is dedicated for new Construct creation.
+   * This stage is applied by top to bottom walk over the construct tree.
    */
-  synthesis = "synthesis",
+  construction = "construction",
 
   /**
    * The generation stage is dedicated for resource generation.
-   * This stage is applied from bottom to top walk over the construct tree.
+   * This stage is applied by bottom to top walk over the construct tree.
    */
   generation = "generation",
 }

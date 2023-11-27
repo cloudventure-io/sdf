@@ -18,7 +18,7 @@ export class TreeResolver {
   public add(resolvable: AsyncResolvable): void {
     const stage: AppLifeCycle = resolvable.stage
 
-    if (this.stage && this.stage == AppLifeCycle.generation && stage == AppLifeCycle.synthesis) {
+    if (this.stage && this.stage == AppLifeCycle.generation && stage == AppLifeCycle.construction) {
       throw new Error(
         `AsyncResolvable at '${resolvable.addr}' with stage '${stage}' was submitted while being in future stage ${this.stage}`,
       )
@@ -27,7 +27,7 @@ export class TreeResolver {
     let resolvables = this.resolvables.get(resolvable.scope)
     if (!resolvables) {
       resolvables = {
-        synthesis: [],
+        construction: [],
         generation: [],
       }
       this.resolvables.set(resolvable.scope, resolvables)
@@ -63,8 +63,8 @@ export class TreeResolver {
     let activity = 0
     const state = this.resolvables.get(c)
 
-    // synthesis is applied during top to bottom run
-    if (state && stage === AppLifeCycle.synthesis) {
+    // construction is applied during top to bottom run
+    if (state && stage === AppLifeCycle.construction) {
       activity += await this.resolveStage(state, stage)
     }
 
@@ -82,8 +82,8 @@ export class TreeResolver {
 
   /** resolve all resolvables in the construct tree */
   public async resolve() {
-    // resolve the synth stage
-    while ((await this.visit(this.root, AppLifeCycle.synthesis)) > 0) {
+    // resolve the construction stage
+    while ((await this.visit(this.root, AppLifeCycle.construction)) > 0) {
       /* continue */
     }
 

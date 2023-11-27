@@ -20,7 +20,7 @@ export class AsyncResolvable<T = unknown> implements IResolvable {
     public readonly scope: Construct,
     public readonly name: string,
     public readonly resolver: () => Promise<T>,
-    public readonly stage: AppLifeCycle = AppLifeCycle.synthesis,
+    public readonly stage: AppLifeCycle = AppLifeCycle.construction,
   ) {
     this.addr = `${scope.node.path},stage=${stage},name=${name}`
     App.getAppFromContext(scope).addResolvable(this)
