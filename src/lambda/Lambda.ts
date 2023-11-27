@@ -146,7 +146,6 @@ export class Lambda extends Construct {
   public readonly resources: Record<string, Resource> = {}
 
   private policies: Array<DataAwsIamPolicyDocument> = []
-  public environment: Record<string, string> = { NODE_OPTIONS: "--enable-source-maps" }
 
   public addResource(name: string, permissions: Array<string>) {
     if (this.resources[name]) {

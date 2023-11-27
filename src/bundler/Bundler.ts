@@ -31,22 +31,27 @@ export interface BundlerConfigTypeScript {
    */
   prefix?: string
 
+  /**
+   * Typescript specific configurations.
+   */
   typescript?: {
+    /** if true the zod schemas file will be generated */
     zod?: boolean
   }
 }
 
 export interface BundlerConfigCustom {
+  /** the language of the bundler */
   language: "custom"
-
-  handler?: string
 }
 
 export interface BundlerConfigNone {
+  /** the language of the bundler */
   bundle: "none"
 }
 
 export interface BundlerConfigDirect {
+  /** the direct bundle method */
   bundle: "direct"
 
   /**
@@ -57,11 +62,14 @@ export interface BundlerConfigDirect {
 }
 
 export interface BundlerConfigS3 {
+  /** the s3 bundle method */
   bundle: "s3"
 
-  bucket: string
+  /** the s3 bucket */
+  s3Bucket: string
 
-  prefix?: string
+  /** the s3 prefix */
+  s3Prefix?: string
 
   /**
    * If language if typescript, this is the path of the source code.
@@ -71,6 +79,7 @@ export interface BundlerConfigS3 {
 }
 
 export interface BundlerConfigContainer {
+  /** the container bundle method */
   bundle: "container"
 
   /** The image URI */
@@ -96,6 +105,7 @@ export type BundlerConfig = ((BundlerConfigTypeScript | BundlerConfigCustom) &
   /** the language of the bundler */
   language: "typescript" | "custom"
 
+  /** the bundle method */
   bundle: "direct" | "s3" | "container" | "none"
 }
 
@@ -159,10 +169,10 @@ export class Bundler extends Construct {
       })
 
       if (config.bundle === "s3") {
-        const key = `${config.prefix ? `${config.prefix}/` : ""}${this.stack.node.id}-${this.node.id}.zip`
+        const key = `${config.s3Prefix ? `${config.s3Prefix}/` : ""}${this.stack.node.id}-${this.node.id}.zip`
 
         const s3Object = new S3Object(this, "code-s3", {
-          bucket: config.bucket,
+          bucket: config.s3Bucket,
           key: key,
           source: codeArchive.outputPath,
           sourceHash: codeArchive.outputMd5,
@@ -176,7 +186,7 @@ export class Bundler extends Construct {
           },
         })
 
-        this.lambdaConfigCustomization.s3Bucket = config.bucket
+        this.lambdaConfigCustomization.s3Bucket = config.s3Bucket
         this.lambdaConfigCustomization.s3Key = s3Object.key
         this.lambdaConfigCustomization.s3ObjectVersion = Fn.lookupNested(updateTrigger.triggers, ["version"])
       } else {
