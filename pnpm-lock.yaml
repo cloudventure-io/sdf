@@ -555,7 +555,7 @@ packages:
       detect-port: 1.5.1
       execa: 5.1.1
       extract-zip: 2.0.1
-      follow-redirects: 1.15.3
+      follow-redirects: 1.15.4
       fs-extra: 8.1.0
       https-proxy-agent: 5.0.1
       indent-string: 4.0.0
@@ -604,7 +604,7 @@ packages:
       codemaker: 1.92.0
       constructs: 10.3.0
       cross-spawn: 7.0.3
-      follow-redirects: 1.15.3
+      follow-redirects: 1.15.4
       fs-extra: 11.1.1
       is-valid-domain: 0.1.6
       log4js: 6.9.1
@@ -2802,7 +2802,7 @@ packages:
     dependencies:
       semver: 7.5.4
       shelljs: 0.8.5
-      typescript: 5.4.0-dev.20231125
+      typescript: 5.4.0-dev.20240110
     dev: false
 
   /eastasianwidth@0.2.0:
@@ -3422,8 +3422,8 @@ packages:
   /flatted@3.2.9:
     resolution: {integrity: sha512-36yxDn5H7OFZQla0/jFJmbIKTdZAQHngCedGxiMmpNfEZM0sdEeT+WczLQrjK6D7o2aiyLYDnkw0R3JK0Qv1RQ==}
 
-  /follow-redirects@1.15.3:
-    resolution: {integrity: sha512-1VzOtuEM8pC9SFU1E+8KfTjZyMztRsgEfwQl44z8A25uy13jSzTj6dyK2Df52iV0vgHCfBwLhDWevLn95w5v6Q==}
+  /follow-redirects@1.15.4:
+    resolution: {integrity: sha512-Cr4D/5wlrb0z9dgERpUL3LrmPKVDsETIJhaCMeDfuFYcqa5bldGV6wBsAN6X/vxlXQtFBMrXdXxdL8CbDTGniw==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -6296,8 +6296,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  /typescript@5.4.0-dev.20231125:
-    resolution: {integrity: sha512-2ZIQF3cO+9zrPkCvxnE01/aGEjc+mhr1p5YMc8uwsZob01BVeOs7rTvQSj4Hfh5z+Z2iUUT/ZA4538IInrSzmw==}
+  /typescript@5.4.0-dev.20240110:
+    resolution: {integrity: sha512-OEtXRprxdta9A5qLObqsgCrFjAWxGuTj8T4W+GBWqDhxIT//BevP5MROHX8Zi18RlvTZSu5G76xJaQT1CK1YpQ==}
     engines: {node: '>=14.17'}
     hasBin: true
     dev: false
