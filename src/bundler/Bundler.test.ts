@@ -29,7 +29,7 @@ describe(HttpApi.name, () => {
       bundle: "none",
     })
 
-    const schema1 = bundler.registerSchema({
+    const schema1 = bundler.schemaRegistry.register({
       title: "TEST_TITLE",
       properties: {
         name: { type: "string" },
@@ -37,7 +37,7 @@ describe(HttpApi.name, () => {
       },
     })
 
-    const schema2 = bundler.registerSchema({
+    const schema2 = bundler.schemaRegistry.register({
       title: "TEST_TITLE2",
       properties: {
         name: { type: "string" },
@@ -57,7 +57,7 @@ describe(HttpApi.name, () => {
       bundle: "none",
     })
 
-    bundler.registerSchema({
+    bundler.schemaRegistry.register({
       title: "TEST_TITLE",
       properties: {
         name: { type: "string" },
@@ -66,15 +66,9 @@ describe(HttpApi.name, () => {
     })
 
     expect(() =>
-      bundler.registerSchema({
+      bundler.schemaRegistry.register({
         title: "TEST_TITLE",
       }),
-    ).toThrowError(/schema with title .* was already registered with different structure/)
-
-    expect(() =>
-      bundler.registerSchema({
-        type: "object",
-      }),
-    ).toThrowError(/the top level schema must have a title/)
+    ).toThrow(/schema with title .* is already registered, but with different structure/)
   })
 })

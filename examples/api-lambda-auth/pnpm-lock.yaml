@@ -30,6 +30,9 @@ importers:
       jest:
         specifier: ^29.7.0
         version: 29.7.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.3.3
 
   backend: {}
 
@@ -2605,7 +2608,7 @@ packages:
     dependencies:
       semver: 7.5.4
       shelljs: 0.8.5
-      typescript: 5.4.0-dev.20231127
+      typescript: 5.4.0-dev.20240205
     dev: false
 
   /eastasianwidth@0.2.0:
@@ -5585,8 +5588,14 @@ packages:
     hasBin: true
     dev: false
 
-  /typescript@5.4.0-dev.20231127:
-    resolution: {integrity: sha512-uMH221WFT99TGfR5vMcI1AaoMc9CnpzMFps1zxzLkdweS+IKrF6SlMK0y5fYztaf0BdNOHcdpyyET9cEoJy8+w==}
+  /typescript@5.3.3:
+    resolution: {integrity: sha512-pXWcraxM0uxAS+tN0AG/BF2TyqmHO014Z070UsJ+pFvYuRSq8KH8DmWpnbXe0pEPDHXZV3FcAbJkijJ5oNEnWw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+    dev: true
+
+  /typescript@5.4.0-dev.20240205:
+    resolution: {integrity: sha512-waxaX9QSNlTxyhaeS398h73fWzOr0DOq2rV6ZQSDywcabZjxeiCv18hYDIZXRk4dT0Q0DxhbNAL/THzjKjtDlQ==}
     engines: {node: '>=14.17'}
     hasBin: true
     dev: false
@@ -5924,6 +5933,7 @@ packages:
       lodash: 4.17.21
       mustache: 4.2.0
       openapi-types: 12.1.3
+      zod: 3.22.4
     transitivePeerDependencies:
       - '@types/react'
       - bufferutil

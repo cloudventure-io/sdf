@@ -1,8 +1,9 @@
 import { OpenAPIV3 } from "openapi-types"
 
 import { Resource } from "../../core/Resource"
-import { HttpApi, HttpApiOperation } from "../../http-api"
+import { HttpApi } from "../../http-api"
 import { HttpApiLambdaAuthorizer } from "../../http-api/authorizer"
+import { OperationSchema } from "../../http-api/core/DocumentSchemaAdapter"
 import { LambdaConfigCore, LambdaEntryPoint } from "../../lambda"
 
 export interface BundlerLanguageGenerateOptions {
@@ -24,13 +25,16 @@ export interface BundlerLanguage {
   generate: (options: BundlerLanguageGenerateOptions) => Promise<void>
 
   /** generate http api handler */
-  generateHttpApiHandler: (httpApi: HttpApi, operation: HttpApiOperation) => Promise<LambdaEntryPoint | void>
+  generateHttpApiHandler: <SchemaType>(
+    httpApi: HttpApi,
+    operation: OperationSchema<SchemaType>,
+  ) => LambdaEntryPoint | void
 
   /** generate http api client */
   generateHttpApiClient: (httpApi: HttpApi) => Promise<void>
 
   /** generate http api specification */
-  generateHttpApiSpecification: (httpApi: HttpApi) => Promise<void>
+  generateHttpApiSpecification: (httpApi: HttpApi) => void
 
   /** generate http api authorizer */
   generateHttpApiAuthorizer: (authorizer: HttpApiLambdaAuthorizer) => Promise<LambdaEntryPoint | void>

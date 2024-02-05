@@ -1,6 +1,6 @@
-import { httpApiRuntime } from "@cloudventure/sdf"
+import { RequestInterceptor } from "@cloudventure/sdf/http-api/runtime"
 
-export const requestInterceptor: httpApiRuntime.RequestInterceptor = async (event, operation) => {
-  console.log(operation.operationSpec.security)
+export const requestInterceptor: RequestInterceptor = async (event, operation) => {
+  console.log(operation.resolveSecurity())
   return event
 }

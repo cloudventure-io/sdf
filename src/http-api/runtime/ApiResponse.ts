@@ -6,7 +6,7 @@ import { HttpHeaders } from "../enum/HttpHeaders"
 export class ApiResponse<
   BodyType,
   StatusCode extends number,
-  HeadersType extends Record<string, string> = Record<string, never>,
+  HeadersType extends Record<string, string> | undefined = Record<string, never>,
 > {
   constructor(
     public body: BodyType,

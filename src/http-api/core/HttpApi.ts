@@ -4,7 +4,6 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
-import { SchemaObject } from "ajv"
 import { camelCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
@@ -13,22 +12,20 @@ import { Bundler } from "../../bundler"
 import { App, AppLifeCycle } from "../../core/App"
 import { AsyncResolvable } from "../../core/resolvable/AsyncResolvable"
 import { Lambda, LambdaConfig } from "../../lambda/Lambda"
-import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "../authorizer"
 import { HttpApiAuthorizer } from "../authorizer/HttpApiAuthorizer"
-import { Document } from "../openapi/types"
-import { DocumentParser, OperationBundle, ParsedOperationSecurity } from "./DocumentParser"
+import { Document } from "../openapi/Document"
+import { BundledDocument } from "../openapi/types"
+import { dereference } from "../openapi/utils"
+import { DocumentSchemaAdapter, OperationSchema } from "./DocumentSchemaAdapter"
 
-export interface HttpApiOperation extends OperationBundle {
-  operationSchema: OpenAPIV3.SchemaObject & Required<Pick<OpenAPIV3.SchemaObject, "title">>
-  validatorSchemas: Array<SchemaObject>
-}
+type SchemaType = OpenAPIV3.SchemaObject
 
 /**
  * Configuration for the HttpApi construct
  */
-export interface HttpApiConfig<T extends object> {
+export interface HttpApiConfig {
   /** the OpenAPI Document */
-  document: Document<T>
+  document: BundledDocument
 
   /** name of the API Gateway stage. defaults to `id` of the HttpApi */
   stageName?: string
@@ -56,8 +53,8 @@ export interface HttpApiConfig<T extends object> {
 
   /**
    * When true the list of security scopes will not be sent to API Gateway
-   * allowing using those parameters for role based authorization.
-   * */
+   * allowing using those parameters for custom role based authorization.
+   **/
   stripSecurityScopes?: boolean
 
   /** generate client code for the API */
@@ -70,15 +67,15 @@ export interface HttpApiConfig<T extends object> {
  * HttpApi is a construct that generates a HTTP API Gateway based on the provided OpenAPI Document.
  * It also generates lambda functions for the API Gateway operations.
  */
-export class HttpApi<OperationType extends object = object> extends Construct {
+export class HttpApi extends Construct {
   /** lambda functions defined based on the provided OpenAPI Document */
-  public lambdas: { [operationId in string]: Lambda } = {}
+  public readonly lambdas: { [operationId in string]: Lambda } = {}
 
   /** the bundler instance */
-  private bundler: Bundler
+  private readonly bundler: Bundler
 
   /** the stage name of the API Gateway */
-  private stageName: string
+  private readonly stageName: string
 
   /** the API Gateway instance */
   public readonly apigw: Apigatewayv2Api
@@ -86,11 +83,10 @@ export class HttpApi<OperationType extends object = object> extends Construct {
   /** the API Gateway stage instance */
   public readonly stage: Apigatewayv2Stage
 
-  /** the document parser instance */
-  public readonly documentParser: DocumentParser
+  public readonly schemaAdapter: DocumentSchemaAdapter
 
-  /** the authorizers defined in the document */
-  private authorizers: Record<string, HttpApiAuthorizer> = {}
+  /** the document parser instance */
+  public readonly document: Document<SchemaType>
 
   /** the integration role for the API Gateway */
   public readonly integrationRole: IamRole
@@ -101,7 +97,7 @@ export class HttpApi<OperationType extends object = object> extends Construct {
   constructor(
     scope: Construct,
     private id: string,
-    public readonly config: HttpApiConfig<OperationType>,
+    public readonly config: HttpApiConfig,
   ) {
     super(scope, id)
     this.bundler = App.getFromContext(this, Bundler)
@@ -109,8 +105,16 @@ export class HttpApi<OperationType extends object = object> extends Construct {
 
     this.stageName = config.stageName || "$default"
 
-    // clone the document, since document will be mutated in further operations
-    this.documentParser = new DocumentParser(JSON.parse(JSON.stringify(this.config.document)))
+    this.document = new Document(dereference(this.config.document))
+
+    this.schemaAdapter = new DocumentSchemaAdapter({
+      document: this.document,
+      authorizers: config.authorizers || {},
+      schemaRegistry: this.bundler.schemaRegistry,
+    })
+
+    // generate the API Gateway specification
+    this.bundler.generateHttpApiSpecification(this)
 
     // define API GW integration role
     this.integrationRole = new IamRole(this, "integration-role", {
@@ -140,37 +144,42 @@ export class HttpApi<OperationType extends object = object> extends Construct {
       }).json,
     })
 
+    // define authorizers
+    Object.values(this.schemaAdapter.authorizers).forEach(({ securityScheme, authorizer }) => {
+      securityScheme["x-amazon-apigateway-authorizer"] = authorizer.spec(this)
+    })
+
     // define lambda functions
-    const apiGwBody = new AsyncResolvable(this, `lambdas`, async () => {
-      // extract the authorizers from the document and map to the input authorizers.
-      await this.parseAuthorizers()
+    for (const operation of this.schemaAdapter.operations) {
+      this.defineLambda(operation)
+    }
 
-      // walk through the operations and define the lambda functions
-      await this.documentParser.walkOperations(async operation => this.defineLambda(operation))
+    if (this.document.schemas) {
+      Object.values(this.document.schemas).map(schema => {
+        this.bundler.schemaRegistry.register(schema.value)
+      })
+    }
 
-      const doc = await this.documentParser.document
-      if (doc.components?.schemas) {
-        doc.components.schemas = Object.fromEntries(
-          Object.entries(doc.components.schemas).map(([name, schema]) => [name, this.bundler.registerSchema(schema)]),
+    if (config.stripSecurityScopes) {
+      if (this.document.security) {
+        this.document.security = this.document.security.map(security =>
+          Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
         )
       }
 
-      // generate the OpenAPI specification file of this API
-      await this.bundler.generateHttpApiSpecification(this)
+      // strip security scopes for AWS HTTP API
+      this.schemaAdapter.operations.forEach(op => {
+        if (op.operation.security) {
+          op.operation.security = op.operation.security.map(security =>
+            Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
+          )
+        }
+      })
+    }
 
-      if (config.stripSecurityScopes) {
-        // strip security scopes for AWS HTTP API
-        this.documentParser.walkOperations(async operation => {
-          if (operation.operationSpec.security) {
-            operation.operationSpec.security = operation.operationSpec.security.map(security =>
-              Object.keys(security).reduce((acc, key) => ({ ...acc, [key]: [] }), {}),
-            )
-          }
-        })
-      }
-
-      return JSON.stringify(await this.documentParser.bundle())
-    }).asString()
+    const apiGwBody = new AsyncResolvable(this, `api-body`, async () =>
+      JSON.stringify(await this.schemaAdapter.bundle()),
+    ).asString()
 
     // define the AWS HTTP API
     const api = (this.apigw = new Apigatewayv2Api(this, "api", {
@@ -204,86 +213,31 @@ export class HttpApi<OperationType extends object = object> extends Construct {
     }
   }
 
-  /** parse the authorizers from the document and map to the input authorizers */
-  private async parseAuthorizers() {
-    this.authorizers = Object.entries((await this.documentParser.document).components?.securitySchemes || {}).reduce(
-      (acc, [name, securityScheme]) => {
-        const trace = this.documentParser.trace(["components", "securitySchemes", name])
-
-        const authorizer = this.config.authorizers?.[name]
-        if (!authorizer) {
-          throw new Error(`authorizer '${name}' is defined in the document, but not provided at ${trace}`)
-        }
-
-        if (
-          securityScheme.type === "apiKey" &&
-          securityScheme.in === "header" &&
-          !(authorizer instanceof HttpApiLambdaAuthorizer)
-        ) {
-          throw new Error(`lambda authorizer is required for 'apiKey' authorization at ${trace}`)
-        } else if (securityScheme.type === "oauth2" && !(authorizer instanceof HttpApiJwtAuthorizer)) {
-          throw new Error(`jwt authorizer is required for 'apiKey' authorization at ${trace}`)
-        }
-
-        // NOTICE: mutating the document
-        securityScheme["x-amazon-apigateway-authorizer"] = authorizer.spec(this)
-
-        return {
-          ...acc,
-          [name]: authorizer,
-        }
-      },
-      {},
-    )
-  }
-
-  /** get the authorizer for the given operation */
-  private getOperationAuthorizer(
-    operationAuthorizer: ParsedOperationSecurity | undefined,
-  ): HttpApiAuthorizer | undefined {
-    if (operationAuthorizer) {
-      const authorizer = this.authorizers[operationAuthorizer.name]
-      if (!authorizer) {
-        throw new Error(`authorizer '${operationAuthorizer.name}' not found`)
-      }
-      return authorizer
-    }
-  }
-
-  private async defineLambda(operation: OperationBundle) {
-    // create the http api operation object from the parsed operation
-    const authorizer = this.getOperationAuthorizer(operation.security)
-
-    const httpOperation = this.documentParser.createHttpApiOperation(operation, authorizer?.contextSchema)
-
-    const { operationId, document, operationSpec, operationSchema } = httpOperation
+  private defineLambda<SchemaType>(op: OperationSchema<SchemaType>) {
+    const { schemas, operation } = op
 
     // register the operation schema
-    this.bundler.registerSchema(operationSchema)
+    this.bundler.schemaRegistry.register(schemas.operation.value)
 
     // generate the function handler
-    const entryPoint = await this.bundler.generateHttpApiHandler(this, httpOperation)
+    const entryPoint = this.bundler.generateHttpApiHandler(this, op)
 
-    const lambda = new Lambda(this, `api-handler-${camelCase(operationId)}`, {
+    const lambda = new Lambda(this, `api-handler-${camelCase(operation.operationId)}`, {
       timeout: 29,
       memorySize: 512,
       ...this.config.lambdaConfig,
 
-      functionName: `${this.config.name}-${paramCase(operationId)}`,
+      functionName: `${this.config.name}-${paramCase(operation.operationId)}`,
       publish: true,
-      resources: {
-        ...this.config.lambdaConfig?.resources,
-        ...document["x-sdf-resources"],
-        ...operationSpec["x-sdf-resources"],
-      },
+      resources: operation.resolveLinks(),
 
       entryPoint,
     })
 
-    this.lambdas[operationId] = lambda
+    this.lambdas[operation.operationId] = lambda
 
-    // NOTICE: mutating the document
-    operationSpec["x-amazon-apigateway-integration"] = {
+    // Add AWS integration
+    operation.data["x-amazon-apigateway-integration"] = {
       payloadFormatVersion: "2.0",
       type: "aws_proxy",
       httpMethod: "POST",

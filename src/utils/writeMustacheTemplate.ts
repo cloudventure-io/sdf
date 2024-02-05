@@ -7,7 +7,7 @@ export interface writeMustacheTemplateOptions {
   template: string
   path: string
   overwrite?: boolean
-  context: {
+  context?: {
     [k in string]: any
   }
 }

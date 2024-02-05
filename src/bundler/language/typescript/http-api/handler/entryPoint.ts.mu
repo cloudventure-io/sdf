@@ -4,7 +4,7 @@
  */
 
 import * as httpApiRuntime from "@cloudventure/sdf/http-api/runtime";
-import { DereferencedDocument } from "@cloudventure/sdf/http-api/openapi";
+import { BundledDocument } from "@cloudventure/sdf/http-api/openapi/types";
 
 import { {{ OperationModel }} as Operation } from "./{{ InterfacesImport }}";
 import * as validators from "./{{ ValidatorsImport }}";
@@ -12,11 +12,11 @@ import { handler } from "./{{ HandlerImport }}";
 import document from "./{{ DocumentImport }}"
 
 export type OperationRequest = Operation["request"];
-export type OperationResponses = httpApiRuntime.ExtractResponses<Operation["responses"]>;
+export type OperationResponses = httpApiRuntime.ExtractResponses<Operation["response"]>;
 export type Event = httpApiRuntime.EventType<Operation>;
 export type Handler = httpApiRuntime.LambdaHandler<Operation>;
 
-const operation = httpApiRuntime.createOperationBundle(document as unknown as DereferencedDocument<object>, {{ PathPatternString }}, {{ MethodString }});
+const operation = httpApiRuntime.getOperationSchema(document as BundledDocument, {{ PathPatternString }}, {{ MethodString }});
 
 {{#RequestInterceptor}}
 import { requestInterceptor } from "./{{ RequestInterceptor }}";

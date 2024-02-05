@@ -1,8 +1,14 @@
 import { OpenAPIV3 } from "openapi-types"
 
-import { sanitizeSchema } from "./sanitizeSchema"
+import { SchemaRegistry } from "./SchemaRegistry"
 
 describe("sanitize schema", () => {
+  let registry: SchemaRegistry
+
+  beforeEach(() => {
+    registry = new SchemaRegistry()
+  })
+
   it("sanitize schema basic", () => {
     const schema: OpenAPIV3.SchemaObject = {
       title: "Root",
@@ -25,7 +31,7 @@ describe("sanitize schema", () => {
       ],
     }
 
-    const res = sanitizeSchema(schema)
+    const res = registry.register(schema)
     expect(res).toStrictEqual({
       title: "Root",
       type: "object",
@@ -65,7 +71,7 @@ describe("sanitize schema", () => {
       ],
     }
 
-    const res = sanitizeSchema(schema)
+    const res = registry.register(schema)
 
     expect(res).toStrictEqual({
       title: "Root",
@@ -105,7 +111,7 @@ describe("sanitize schema", () => {
       ],
     }
 
-    const res = sanitizeSchema(schema)
+    const res = registry.register(schema)
     expect(res).toStrictEqual({
       title: "Root",
       type: "object",
@@ -152,15 +158,16 @@ describe("sanitize schema", () => {
       ],
     }
 
-    const res = sanitizeSchema(schema)
+    const res = registry.register(schema)
     expect(res).toStrictEqual(schema)
   })
 
   it("should return a copy of the input schema if no allOf is present", () => {
     const inputSchema: OpenAPIV3.SchemaObject = {
+      title: "Root",
       type: "string",
     }
-    const result = sanitizeSchema(inputSchema)
+    const result = registry.register(inputSchema)
     expect(result).toEqual(inputSchema)
     expect(result).not.toBe(inputSchema) // Ensure a copy is returned
   })
@@ -181,7 +188,7 @@ describe("sanitize schema", () => {
         b: { type: "number" },
       },
     }
-    const result = sanitizeSchema(inputSchema)
+    const result = registry.register(inputSchema)
     expect(result).toEqual(expectedSchema)
   })
 
@@ -208,7 +215,7 @@ describe("sanitize schema", () => {
         c: { type: "boolean" },
       },
     }
-    const result = sanitizeSchema(inputSchema)
+    const result = registry.register(inputSchema)
     expect(result).toEqual(expectedSchema)
   })
 
@@ -229,7 +236,7 @@ describe("sanitize schema", () => {
       },
       additionalProperties: false,
     }
-    const result = sanitizeSchema(inputSchema)
+    const result = registry.register(inputSchema)
     expect(result).toEqual(expectedSchema)
   })
 
@@ -250,7 +257,7 @@ describe("sanitize schema", () => {
       },
       required: ["a", "b"],
     }
-    const result = sanitizeSchema(inputSchema)
+    const result = registry.register(inputSchema)
     expect(result).toEqual(expectedSchema)
   })
 })

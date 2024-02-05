@@ -1,18 +1,18 @@
 import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpHeaders } from "../enum/HttpHeaders"
-import { ApiResponse, Operation } from "../runtime"
+import { ApiResponse, HttpOperation } from "../runtime"
 import { HttpApiClientAuthorizer } from "./HttpApiClientAuthorizer"
 
 type RequestInit = Exclude<ConstructorParameters<typeof Request>[1], undefined>
 
-type ExtractOperationRequest<T extends Operation["request"]> = T extends { contentType: "application/json" }
+type ExtractOperationRequest<T extends HttpOperation["request"]> = T extends { contentType: "application/json" }
   ? Omit<T, "contentType"> & Partial<Pick<T, "contentType">>
   : T
 
-export type OperationRequest<T extends Operation> = ExtractOperationRequest<Omit<T["request"], "authorizer">>
+export type OperationRequest<T extends HttpOperation> = ExtractOperationRequest<Omit<T["request"], "authorizer">>
 
-export type OperationResponses<T extends Operation, StatusCodes extends number = 200> = Extract<
-  T["responses"],
+export type OperationResponses<T extends HttpOperation, StatusCodes extends number = 200> = Extract<
+  T["response"],
   { statusCode: StatusCodes }
 >
 
@@ -53,7 +53,7 @@ export class HttpApiClient {
   }
 
   protected async createRequest(
-    req: Partial<Omit<Operation["request"], "authorizer">>,
+    req: Partial<Omit<HttpOperation["request"], "authorizer">>,
     pathPattern: string,
     method: string,
   ): Promise<HttpApiRequest> {
@@ -72,7 +72,7 @@ export class HttpApiClient {
       method: method.toUpperCase(),
       headers: new Headers(
         this.filterUndefined({
-          [HttpHeaders.ContentType]: contentType,
+          [HttpHeaders.ContentType]: contentType as string, // TODO: Fix me
           ...req.header,
         }),
       ),
@@ -86,8 +86,8 @@ export class HttpApiClient {
     return new HttpApiRequest(url, requestInit)
   }
 
-  protected async createResponse<OpType extends Operation>(response: Response): Promise<OpType["responses"]> {
-    let body: OpType["responses"]["body"] = null
+  protected async createResponse<OpType extends HttpOperation>(response: Response): Promise<OpType["response"]> {
+    let body: OpType["response"]["body"] = null
     if (response.headers.get(HttpHeaders.ContentType)?.split(";")[0] === MimeTypes.APPLICATION_JSON) {
       const rawBody = await response.text()
       body = rawBody.length ? JSON.parse(rawBody) : null
@@ -99,10 +99,10 @@ export class HttpApiClient {
       body,
       response.status,
       Array.from(response.headers.entries()).reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-    ) as OpType["responses"]
+    ) as OpType["response"]
   }
 
-  public async request<OpType extends Operation, SuccessCodes extends number>(
+  public async request<OpType extends HttpOperation, SuccessCodes extends number>(
     req: Partial<Omit<OpType["request"], "authorizer">>,
     pathPattern: string,
     method: string,

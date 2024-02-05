@@ -1,4 +1,4 @@
-import Ajv from "ajv"
+import Ajv, { SchemaObject } from "ajv"
 import standaloneCode from "ajv/dist/standalone"
 import { TerraformStack } from "cdktf"
 import { camelCase, constantCase, pascalCase } from "change-case"
@@ -8,14 +8,15 @@ import { compile } from "json-schema-to-typescript"
 import { OpenAPIV3 } from "openapi-types"
 import { dirname, join, relative } from "path"
 
-import { App } from "../../core/App"
+import { App, AppLifeCycle } from "../../core/App"
 import { Resource } from "../../core/Resource"
 import { AsyncResolvable } from "../../core/resolvable/AsyncResolvable"
-import { HttpApi, HttpApiOperation } from "../../http-api"
+import { HttpApi } from "../../http-api"
 import { HttpApiLambdaAuthorizer } from "../../http-api/authorizer"
+import { OperationSchema } from "../../http-api/core/DocumentSchemaAdapter"
 import { HttpStatusCodes } from "../../http-api/enum"
+import { SchemaItem } from "../../http-api/openapi/SchemaItem"
 import { LambdaConfig, LambdaEntryPoint } from "../../lambda"
-import { walkSchema } from "../../utils/walkSchema"
 import { writeFile } from "../../utils/writeFile"
 import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
 import { Bundler } from "../Bundler"
@@ -181,14 +182,6 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
       additionalProperties: false,
     }
 
-    // Add tsEnumNames to all enums if x-ts-enum is set. This will make
-    // json-schema-to-typescript library to generate the type as enum.
-    walkSchema(rootSchema, ({ schema }) => {
-      if ("enum" in schema && schema.enum && schema["x-ts-enum"]) {
-        ;(schema as any).tsEnumNames = (schema.enum as Array<string>).map(e => constantCase(e))
-      }
-    })
-
     const interfaces = await compile(rootSchema, "_", {
       strictIndexSignatures: true,
       declareExternallyReferenced: true,
@@ -235,14 +228,22 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
   }
 
   /** Generates the handler for the given HTTP API operation and returns the validator path. */
-  private async renderValidator(httpApi: HttpApi, operation: HttpApiOperation): Promise<string> {
+  private async renderValidator<SchemaType>(httpApi: HttpApi, op: OperationSchema<SchemaType>): Promise<string> {
+    const { operation } = op
     const { operationId } = operation
+
+    const schemas = Object.entries(op.schemas.requestExpanded)
+      .filter((e): e is [string, SchemaItem] => e[1])
+      .map<SchemaObject>(([key, schema]) => ({
+        $id: key,
+        ...schema.value,
+      }))
 
     const ajv = new Ajv({
       code: { source: true, esm: true },
       strict: false,
       allErrors: true,
-      schemas: operation.validatorSchemas,
+      schemas,
     })
 
     const moduleCode = standaloneCode(ajv)
@@ -255,7 +256,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
       template: templates.httpApiHandlerValidator,
       path: `${validatorPath}.d.ts`,
       context: {
-        Validators: operation.validatorSchemas,
+        Validators: schemas,
       },
       overwrite: true,
     })
@@ -267,50 +268,58 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
    * Generates the handler for the given HTTP API operation
    * and returns the handler name.
    */
-  public async generateHttpApiHandler(httpApi: HttpApi, operation: HttpApiOperation): Promise<LambdaEntryPoint> {
+  public generateHttpApiHandler<SchemaType>(httpApi: HttpApi, op: OperationSchema<SchemaType>): LambdaEntryPoint {
+    const { operation, schemas } = op
     const { operationId } = operation
 
     const handlersDirectory = this.httpApiHandlersDirectory(httpApi)
     const entryPointsDirectory = this.httpApiEntryPointsDirectory(httpApi)
 
-    const validatorPath = await this.renderValidator(httpApi, operation)
-
     const handlerPath = join(handlersDirectory, operationId)
     const entryPointPath = join(entryPointsDirectory, operationId)
 
-    await writeMustacheTemplate({
-      template: templates.httpApiHandlerEntryPoint,
-      path: `${entryPointPath}.ts`,
-      overwrite: true,
-      context: {
-        PathPatternString: JSON.stringify(operation.pathPattern),
-        MethodString: JSON.stringify(operation.method),
-        DocumentImport: relative(dirname(entryPointPath), this.httpApiSpecPath(httpApi)),
-        OperationModel: operation.operationSchema.title,
-        InterfacesImport: relative(dirname(entryPointPath), this.interfacesPath),
-        HandlerImport: relative(dirname(entryPointPath), handlerPath),
-        ValidatorsImport: relative(dirname(entryPointPath), validatorPath),
-        EntryPointFunctionName: entryPointFunctionName,
-        RequestInterceptor:
-          httpApi.config.requestInterceptor === undefined
-            ? undefined
-            : relative(dirname(entryPointPath), join(this.bundleDir, httpApi.config.requestInterceptor)),
-        ResponseInterceptor:
-          httpApi.config.responseInterceptor === undefined
-            ? undefined
-            : relative(dirname(entryPointPath), join(this.bundleDir, httpApi.config.responseInterceptor)),
-      },
-    })
+    new AsyncResolvable(
+      this,
+      `http-api-handler-${operationId}`,
+      async () => {
+        const validatorPath = await this.renderValidator(httpApi, op)
 
-    await writeMustacheTemplate({
-      template: templates.httpApiHandler,
-      path: `${handlerPath}.ts`,
-      overwrite: false,
-      context: {
-        WrapperImport: relative(dirname(handlerPath), entryPointPath),
-        HandlerBody: httpApi.config.handlerBody || "{}",
+        await writeMustacheTemplate({
+          template: templates.httpApiHandlerEntryPoint,
+          path: `${entryPointPath}.ts`,
+          overwrite: true,
+          context: {
+            PathPatternString: JSON.stringify(operation.path.pattern),
+            MethodString: JSON.stringify(operation.method),
+            DocumentImport: relative(dirname(entryPointPath), this.httpApiSpecPath(httpApi)),
+            OperationModel: schemas.title,
+            InterfacesImport: relative(dirname(entryPointPath), this.interfacesPath),
+            HandlerImport: relative(dirname(entryPointPath), handlerPath),
+            ValidatorsImport: relative(dirname(entryPointPath), validatorPath),
+            EntryPointFunctionName: entryPointFunctionName,
+            RequestInterceptor:
+              httpApi.config.requestInterceptor === undefined
+                ? undefined
+                : relative(dirname(entryPointPath), join(this.bundleDir, httpApi.config.requestInterceptor)),
+            ResponseInterceptor:
+              httpApi.config.responseInterceptor === undefined
+                ? undefined
+                : relative(dirname(entryPointPath), join(this.bundleDir, httpApi.config.responseInterceptor)),
+          },
+        })
+
+        await writeMustacheTemplate({
+          template: templates.httpApiHandler,
+          path: `${handlerPath}.ts`,
+          overwrite: false,
+          context: {
+            WrapperImport: relative(dirname(handlerPath), entryPointPath),
+            HandlerBody: httpApi.config.handlerBody || "{}",
+          },
+        })
       },
-    })
+      AppLifeCycle.generation,
+    )
 
     const entryPointRelPath = relative(this.bundleDir, entryPointPath)
 
@@ -321,6 +330,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
     interface TplOp {
       OperationName: string
       OperationModel: string
+      IsOperationEmpty: boolean
       PathPatternEscaped: string
       Method: string
       SuccessCodesList: string
@@ -330,21 +340,26 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
     const operations: Array<TplOp> = []
 
-    await httpApi.documentParser.walkOperations(async operation => {
-      const successCodes =
-        operation.operationSpec["x-sdf-success-codes"] ??
-        Object.keys(operation.operationSpec.responses)
+    Object.values(httpApi.schemaAdapter.operations).forEach(({ operation, schemas }) => {
+      const successCodes: Array<number> =
+        (operation.data["x-sdf-success-codes"] as Array<number>) ??
+        Object.keys(operation.responses)
           .map(parseInt)
           .filter(statusCode => statusCode < HttpStatusCodes.BadRequest)
+
+      const isOperationEmpty = Object.values({ ...schemas.requestExpanded, authorizer: undefined }).every(
+        schema => !schema,
+      )
 
       operations.push({
         OperationName: camelCase(operation.operationId),
         OperationModel: pascalCase(`operation-${operation.operationId}`),
+        IsOperationEmpty: isOperationEmpty,
         Method: operation.method.toUpperCase(),
-        PathPatternEscaped: JSON.stringify(operation.pathPattern),
+        PathPatternEscaped: JSON.stringify(operation.path.pattern),
         SuccessCodesList: successCodes.join(", "),
         SuccessCodesUnion: successCodes.join(" | "),
-        Description: operation.operationSpec.description?.replace(/\*\//g, "* /"), // break closing comments
+        Description: operation.description?.replace(/\*\//g, "* /"), // break closing comments
       })
     })
 
@@ -363,8 +378,12 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
     })
   }
 
-  public async generateHttpApiSpecification(httpApi: HttpApi): Promise<void> {
-    await writeFile(this.httpApiSpecPath(httpApi), JSON.stringify(await httpApi.documentParser.bundle(), null, 2))
+  public generateHttpApiSpecification(httpApi: HttpApi): void {
+    const documentPromise = httpApi.schemaAdapter.bundle()
+
+    new AsyncResolvable(this, "api-spec", async () => {
+      await writeFile(this.httpApiSpecPath(httpApi), JSON.stringify(await documentPromise, null, 2))
+    })
   }
 
   public manifest(): BundlerLanguageTypeScriptManifest {

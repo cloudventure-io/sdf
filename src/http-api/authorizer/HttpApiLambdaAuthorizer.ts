@@ -40,7 +40,7 @@ export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
 
     this.prefix = config.prefix ?? id
 
-    this.bundler.registerSchema(config.contextSchema)
+    this.bundler.schemaRegistry.register(config.contextSchema)
 
     this.contextSchema = {
       title: pascalCase(`AuthorizerContext-${this.config.name}`),

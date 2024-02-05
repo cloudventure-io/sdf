@@ -3,17 +3,15 @@ import { S3Object } from "@cdktf/provider-aws/lib/s3-object"
 import { Resource } from "@cdktf/provider-null/lib/resource"
 import { Fn, TerraformStack, Token } from "cdktf"
 import { Construct } from "constructs"
-import _ from "lodash"
-import { OpenAPIV3 } from "openapi-types"
 import { join, relative } from "path"
 
 import { App, AppLifeCycle } from "../core/App"
+import { SchemaRegistry } from "../core/SchemaRegistry"
 import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
-import { HttpApi, HttpApiOperation } from "../http-api"
+import { HttpApi } from "../http-api"
 import { HttpApiLambdaAuthorizer } from "../http-api/authorizer"
+import { OperationSchema } from "../http-api/core/DocumentSchemaAdapter"
 import { Lambda, LambdaConfig, LambdaConfigCore, LambdaEntryPoint } from "../lambda/Lambda"
-import { sanitizeSchema } from "../utils/sanitizeSchema"
-import { walkSchema } from "../utils/walkSchema"
 import { BundlerLanguage } from "./language/BundlerLanguage"
 import { BundlerLanguageCustom } from "./language/BundlerLanguageCustom"
 import { BundlerLanguageTypeScript } from "./language/BundlerLanguageTypeScript"
@@ -122,6 +120,8 @@ export class Bundler extends Construct {
 
   public readonly lambdaConfigCustomization: Partial<LambdaConfigCore> = {}
 
+  public readonly schemaRegistry: SchemaRegistry = new SchemaRegistry()
+
   constructor(
     scope: Construct,
     id: string,
@@ -152,12 +152,11 @@ export class Bundler extends Construct {
     new AsyncResolvable(
       this,
       "typescript-generate",
-      async () => {
+      async () =>
         await this.language.generate({
-          schemas: this.schemaRegistry,
+          schemas: this.schemaRegistry.schemas,
           resources: this.app.getResources(this),
-        })
-      },
+        }),
       AppLifeCycle.generation,
     )
 
@@ -203,45 +202,6 @@ export class Bundler extends Construct {
     }
   }
 
-  /** the schema registry of the bundler */
-  public schemaRegistry: { [key in string]: OpenAPIV3.SchemaObject } = {}
-
-  /**
-   * registerSchema method registers a new JSON Schema into the schema registry of the bundler.
-   *
-   * It dereferences the provided schema using the schema registry, so that schemas with same title
-   * always point to the same object.
-   *
-   * The top level schema must have a `title` for registration.
-   *
-   * It returns a new copy of the schema with the dereferenced references from schema registry.
-   */
-  public registerSchema(schema: OpenAPIV3.SchemaObject): OpenAPIV3.SchemaObject {
-    if (!schema.title) {
-      throw new Error(`the top level schema must have a title`)
-    }
-
-    const mergedSchema = sanitizeSchema(schema)
-
-    // dereference the input schema using already registered schemas based on titles
-    return walkSchema(mergedSchema, ({ schema }) => {
-      const title = schema.title
-      if (!title) {
-        return
-      }
-
-      if (title in this.schemaRegistry) {
-        if (_.isEqualWith(schema, this.schemaRegistry[title])) {
-          return this.schemaRegistry[title]
-        } else {
-          throw new Error(`schema with title '${title}' was already registered with different structure`)
-        }
-      }
-
-      this.schemaRegistry[title] = schema
-    })
-  }
-
   /** returns the manifest of the bundler */
   public manifest(): BundleManifest {
     return {
@@ -259,12 +219,12 @@ export class Bundler extends Construct {
     const bundlerConfig = this.config
 
     // merge configurations
-    const res = [this.lambdaConfigCustomization, this.language.lambdaConfigCustomization].reduce<LambdaConfigCore>(
+    const result = [this.lambdaConfigCustomization, this.language.lambdaConfigCustomization].reduce<LambdaConfigCore>(
       (acc, config) => ({ ...config, ...acc }),
       { ...lambdaConfig },
     )
 
-    // merge environment variables
+    // merge non-empty environment variables
     const envs = [this.language.lambdaConfigCustomization, this.lambdaConfigCustomization, lambdaConfig]
       .filter(
         (config): config is { environment: { variables: Record<string, string> } } =>
@@ -278,11 +238,12 @@ export class Bundler extends Construct {
       }
     }
 
+    // helper function for construcring the handler configuration
     const getHandlerConfig = (handler: string | undefined): Partial<LambdaConfigCore> => {
       if (!handler || bundlerConfig.bundle === "none") {
+        // if there is no handler and the bundler is "none" we do not add any handler configuration
         return {}
-      }
-      if (bundlerConfig.bundle === "container") {
+      } else if (bundlerConfig.bundle === "container") {
         return {
           imageConfig: {
             command: [handler],
@@ -297,27 +258,27 @@ export class Bundler extends Construct {
       }
     }
 
-    // when entryPoint is not defined or available without async resolution,
-    // we can imediately construct the configuration
+    // when entryPoint is not defined or available syncronously, we can imediately construct the final configuration
     if (!entryPoint || Array.isArray(entryPoint)) {
       if (entryPoint) {
         this.language.registerEntryPoint(entryPoint)
       }
       return {
-        ...res,
+        ...result,
         ...getHandlerConfig(entryPoint?.join(".")),
       }
     }
 
+    // helper function for resolving the entryPoint asyncronously
     const resolveField = (configField: "handler" | "imageConfig") =>
       new AsyncResolvable(
         lambda,
         "entryPoint",
         async (): Promise<LambdaConfig[typeof configField] | undefined> => {
-          const handler = typeof entryPoint === "function" ? await entryPoint() : await entryPoint
+          const handler = await entryPoint()
           if (!handler) {
             // fallback to the original field value
-            return res[configField]
+            return result[configField]
           }
           this.language.registerEntryPoint(handler)
           return getHandlerConfig(handler.join("."))[configField]
@@ -327,12 +288,12 @@ export class Bundler extends Construct {
 
     // otherwise we need to resolve the entryPoint asyncronously
     if (bundlerConfig.bundle === "container") {
-      res.imageConfig = Token.asAnyMap(resolveField("imageConfig"))
+      result.imageConfig = Token.asAnyMap(resolveField("imageConfig"))
     } else if (bundlerConfig.bundle !== "none") {
-      res.handler = Token.asString(resolveField("handler"))
+      result.handler = Token.asString(resolveField("handler"))
     }
 
-    return res
+    return result
   }
 
   /**
@@ -341,8 +302,11 @@ export class Bundler extends Construct {
    * It returns the LambdaEntryPoint or undefined if the bundler does not support
    * generating the LambdaEntryPoint.
    */
-  public async generateHttpApiHandler(httpApi: HttpApi, operation: HttpApiOperation): Promise<LambdaEntryPoint | void> {
-    return await this.language.generateHttpApiHandler(httpApi, operation)
+  public generateHttpApiHandler<SchemaType>(
+    httpApi: HttpApi,
+    operation: OperationSchema<SchemaType>,
+  ): LambdaEntryPoint | void {
+    return this.language.generateHttpApiHandler(httpApi, operation)
   }
 
   /**
@@ -357,8 +321,8 @@ export class Bundler extends Construct {
    * generateLambdaEntryPoint function is invoked by the Lambda construct
    * for generating the http api specification for the HttpApi.
    */
-  public async generateHttpApiSpecification(httpApi: HttpApi): Promise<void> {
-    await this.language.generateHttpApiSpecification(httpApi)
+  public generateHttpApiSpecification(httpApi: HttpApi): void {
+    this.language.generateHttpApiSpecification(httpApi)
   }
 
   /**

@@ -1,25 +1,27 @@
 import { jest } from "@jest/globals"
-import Ajv, { ValidateFunction } from "ajv"
+import Ajv, { SchemaObject, ValidateFunction } from "ajv"
 import { APIGatewayProxyEventV2 } from "aws-lambda"
 import { OpenAPIV3 } from "openapi-types"
 
+import { SchemaRegistry } from "../../core/SchemaRegistry"
 import { MimeTypes } from "../../utils/MimeTypes"
-import { DocumentParser } from "../core/DocumentParser"
+import { DocumentSchemaAdapter } from "../core/DocumentSchemaAdapter"
 import { HttpHeaders } from "../enum/HttpHeaders"
 import { BadGateway } from "../error"
-import { Document, OperationObject } from "../openapi/types"
+import { Document } from "../openapi/Document"
+import { SchemaItem } from "../openapi/SchemaItem"
+import { BundledDocument, OperationObject } from "../openapi/types"
+import { dereference } from "../openapi/utils"
 import { ApiResponse } from "./ApiResponse"
 import { LambdaHandler, wrapper } from "./wrapper"
 
 describe("handler wrapper tests", () => {
-  const createDocumentFromOperation = (
-    pathSpec: OperationObject<object, OpenAPIV3.SchemaObject>,
-  ): Document<object> => ({
+  const createDocumentFromOperation = (pathSpec: OperationObject<OpenAPIV3.SchemaObject>): BundledDocument => ({
     info: {
       title: "test",
       version: "1.0.0",
     },
-    "x-sdf-spec-path": "test",
+    "x-sdf-source": "test",
     components: {},
     openapi: "3.0.0",
     paths: {
@@ -30,56 +32,66 @@ describe("handler wrapper tests", () => {
   })
 
   const createDocument = ({ required }: { required: boolean }) =>
-    createDocumentFromOperation({
-      operationId: "testPost",
-      requestBody: {
-        required,
-        content: {
-          [MimeTypes.APPLICATION_JSON]: {
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                req: { type: "string" },
-                opt: { type: "string" },
-                array: { type: "array", items: { type: "string" } },
+    new Document(
+      dereference(
+        createDocumentFromOperation({
+          operationId: "testPost",
+          requestBody: {
+            required,
+            content: {
+              [MimeTypes.APPLICATION_JSON]: {
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    req: { type: "string" },
+                    opt: { type: "string" },
+                    array: { type: "array", items: { type: "string" } },
+                  },
+                  required: ["req"],
+                },
               },
-              required: ["req"],
-            },
-          },
-          [MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED]: {
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                req: { type: "string" },
-                opt: { type: "string" },
-                array: { type: "array", items: { type: "string" } },
+              [MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED]: {
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    req: { type: "string" },
+                    opt: { type: "string" },
+                    array: { type: "array", items: { type: "string" } },
+                  },
+                  required: ["req"],
+                },
               },
-              required: ["req"],
             },
           },
-        },
-      },
-      responses: {
-        "200": {
-          description: "test",
-          content: {
-            "application/json": {
-              schema: { type: "string" },
+          responses: {
+            "200": {
+              description: "test",
+              content: {
+                "application/json": {
+                  schema: { type: "string" },
+                },
+              },
             },
           },
-        },
-      },
-    })
+        }),
+      ),
+    )
 
   const createHandler = async ({ required, callback }: { required: boolean; callback?: LambdaHandler<any> }) => {
     const document = createDocument({ required })
-    const operationParser = new DocumentParser(document)
+    const schemaRegistry = new SchemaRegistry()
+    const schemaAdapter = new DocumentSchemaAdapter({ document, authorizers: {}, schemaRegistry })
 
-    const operation = await operationParser.parseOperation("/test", OpenAPIV3.HttpMethods.POST)
+    const op = schemaAdapter.operationsMap["testPost"]
 
-    const schemas = operationParser.createValidtorSchemas(operation)
+    const schemas = Object.entries(op.schemas.requestExpanded)
+      .filter((e): e is [string, SchemaItem] => e[1])
+      .map<SchemaObject>(([key, schema]) => ({
+        $id: key,
+        ...schema.value,
+      }))
 
     const ajv = new Ajv({
       strict: false,
@@ -101,7 +113,7 @@ describe("handler wrapper tests", () => {
           return new ApiResponse(body, 200)
         }),
       validators,
-      operation: operation,
+      operation: op.operation,
     })
   }
 

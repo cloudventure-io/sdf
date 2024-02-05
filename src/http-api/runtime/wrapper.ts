@@ -9,33 +9,35 @@ import {
 import { OpenAPIV3 } from "openapi-types"
 
 import { MimeTypes } from "../../utils/MimeTypes"
-import { OperationBundleBase } from "../core/DocumentParser"
 import { HttpHeaders } from "../enum/HttpHeaders"
 import { BadRequest, InternalServerError, UnsupportedMediaType } from "../error"
 import { HttpError } from "../error/HttpError"
-import { DocumentTrace } from "../openapi/DocumentTrace"
-import { DereferencedDocument } from "../openapi/types"
+import { Document } from "../openapi/Document"
+import { Operation } from "../openapi/Operation"
+import { BundledDocument } from "../openapi/types"
+import { dereference } from "../openapi/utils"
 import { ApiResponse } from "./ApiResponse"
 
-export interface Operation {
+export interface HttpOperation {
   request: {
     path?: APIGatewayProxyEventPathParameters
     query?: APIGatewayProxyEventQueryStringParameters
     header?: APIGatewayProxyEventHeaders
 
-    contentType?: "application/json" | "application/x-www-form-urlencoded"
+    contentType?: string | null
     body?: unknown
 
     authorizer?: unknown
   }
-  responses: {
+  response: {
     statusCode: number
     body?: unknown
-    headers: Record<string, string>
+    contentType?: string | null
+    headers?: Record<string, string>
   }
 }
 
-export type ExtractResponseMap<ResponseTypes extends Operation["responses"]> = {
+export type ExtractResponseMap<ResponseTypes extends HttpOperation["response"]> = {
   [statusCode in ResponseTypes["statusCode"]]: ApiResponse<
     Extract<ResponseTypes, { statusCode: statusCode }>["body"],
     statusCode,
@@ -43,20 +45,21 @@ export type ExtractResponseMap<ResponseTypes extends Operation["responses"]> = {
   >
 }
 
-export type ExtractResponses<ResponseTypes extends Operation["responses"]> = ExtractResponseMap<ResponseTypes> extends {
-  [statusCode: string]: infer T
-}
-  ? T
-  : never
+export type ExtractResponses<ResponseTypes extends HttpOperation["response"]> =
+  ExtractResponseMap<ResponseTypes> extends {
+    [statusCode: string]: infer T
+  }
+    ? T
+    : never
 
-export type EventType<OpType extends Operation> = OpType extends { request: { authorizer: unknown } }
+export type EventType<OpType extends HttpOperation> = OpType extends { request: { authorizer: unknown } }
   ? APIGatewayProxyEventV2WithLambdaAuthorizer<OpType["request"]["authorizer"]>
   : APIGatewayProxyEventV2
 
-export type LambdaHandler<OpType extends Operation> = (
+export type LambdaHandler<OpType extends HttpOperation> = (
   options: OpType["request"],
   event: EventType<OpType>,
-) => Promise<ExtractResponses<OpType["responses"]>>
+) => Promise<ExtractResponses<OpType["response"]>>
 
 interface ValidationError {
   keyword: string // validation keyword.
@@ -90,7 +93,7 @@ const validate = <T>(name: string, data: any, validator?: Validator): T => {
   return data as T
 }
 
-const buildRequest = <OpType extends Operation>(
+const buildRequest = <OpType extends HttpOperation>(
   event: APIGatewayProxyEventV2 | APIGatewayProxyEventV2WithLambdaAuthorizer<OpType["request"]["authorizer"]>,
   validators: Validators,
 ): OpType["request"] => {
@@ -104,24 +107,34 @@ const buildRequest = <OpType extends Operation>(
     ),
   }
 
-  const contentType = (
-    Object.entries(event.headers).find(([key]) => key.toLowerCase() === HttpHeaders.ContentType.toLowerCase())?.[1] ||
-    ""
-  )
-    .split(";")[0]
-    .trim()
+  const contentType =
+    (
+      Object.entries(event.headers).find(([key]) => key.toLowerCase() === HttpHeaders.ContentType.toLowerCase())?.[1] ||
+      ""
+    )
+      .split(";")[0]
+      .trim() || null
 
-  const eventBody = event.body
-  let body: Pick<OpType["request"], "contentType" | "body"> | null = null
+  let eventBody: string | Buffer | undefined = event.body
+  let body: Pick<OpType["request"], "contentType" | "body"> = {
+    contentType: null,
+    body: null,
+  }
 
   if (eventBody) {
+    if (event.isBase64Encoded) {
+      eventBody = Buffer.from(eventBody, "base64")
+    } else {
+      eventBody = Buffer.from(eventBody)
+    }
+
     if (contentType === MimeTypes.APPLICATION_JSON) {
       body = {
         contentType,
-        body: JSON.parse(eventBody),
+        body: JSON.parse(eventBody.toString("utf-8")),
       }
     } else if (contentType === MimeTypes.APPLICATION_X_WWW_FORM_URLENCODED) {
-      const params = new URLSearchParams(eventBody)
+      const params = new URLSearchParams(eventBody.toString("utf-8"))
       body = {
         contentType,
         body: Array.from(params.entries()).reduce<{
@@ -135,6 +148,10 @@ const buildRequest = <OpType extends Operation>(
         ),
       }
     } else {
+      body = {
+        contentType,
+        body: eventBody,
+      }
       throw new UnsupportedMediaType("UNSUPPORTED_MEDIA_TYPE", `Content-Type '${contentType}' is not supported`)
     }
   }
@@ -167,27 +184,27 @@ export interface Validators {
   authorizer?: Validator
 }
 
-export type RequestInterceptor = <OpType extends Operation>(
+export type RequestInterceptor = <OpType extends HttpOperation>(
   event: EventType<OpType>,
-  operation: OperationBundleBase,
+  operation: Operation,
 ) => Promise<EventType<OpType>>
 
 export type ResponseInterceptor = (
   response: APIGatewayProxyStructuredResultV2,
-  operation: OperationBundleBase,
+  operation: Operation,
 ) => Promise<APIGatewayProxyStructuredResultV2>
 
-export interface wrapperOptions<OpType extends Operation> {
+export interface wrapperOptions<OpType extends HttpOperation> {
   handler: LambdaHandler<OpType>
   validators: Validators
-  operation: OperationBundleBase
+  operation: Operation
 
   requestInterceptor?: RequestInterceptor
   responseInterceptor?: ResponseInterceptor
 }
 
 export const wrapper =
-  <OpType extends Operation>({
+  <OpType extends HttpOperation>({
     handler,
     validators,
     operation,
@@ -195,7 +212,7 @@ export const wrapper =
     responseInterceptor,
   }: wrapperOptions<OpType>) =>
   async (event: EventType<OpType>): Promise<APIGatewayProxyStructuredResultV2> => {
-    type Responses = ExtractResponses<OpType["responses"]>
+    type Responses = ExtractResponses<OpType["response"]>
     let response: Responses
 
     try {
@@ -226,30 +243,18 @@ export const wrapper =
     return result
   }
 
-export const createOperationBundle = <OperationType extends object = object>(
-  document: DereferencedDocument<OperationType>,
+export const getOperationSchema = (
+  bundledDocument: BundledDocument,
   pathPattern: string,
   method: string,
-): OperationBundleBase => {
-  const documentTrace = new DocumentTrace(document["x-sdf-spec-path"])
-  const pathSpec = document.paths[pathPattern]
-  const pathTrace = documentTrace.append(["paths", pathPattern])
+): Operation => {
+  const document = new Document(dereference(bundledDocument))
 
-  const operationSpec = pathSpec[method] as OperationBundleBase["operationSpec"]
-  const operationTrace = pathTrace.append([method])
+  const operation = document.paths[pathPattern]?.operations[method as OpenAPIV3.HttpMethods]
 
-  return {
-    document,
-    documentTrace,
-
-    pathPattern,
-    pathSpec,
-    pathTrace,
-
-    method: method as OpenAPIV3.HttpMethods,
-
-    operationId: operationSpec?.operationId as string,
-    operationSpec,
-    operationTrace,
+  if (!operation) {
+    throw new Error(`operation not found for ${method} ${pathPattern}`)
   }
+
+  return operation
 }

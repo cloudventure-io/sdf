@@ -13,6 +13,7 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "strict": true,
+    "strictNullChecks": true,
     "skipLibCheck": true,
     "noEmit": false,
     "allowSyntheticDefaultImports": true,

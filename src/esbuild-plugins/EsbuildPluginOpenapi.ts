@@ -2,8 +2,6 @@ import SwaggerParser from "@apidevtools/swagger-parser"
 import * as esbuild from "esbuild"
 import { isAbsolute, join, relative } from "path"
 
-import { Document } from "../http-api/openapi/types"
-
 const name = "sdf-plugin-openapi"
 
 export const createEsbuildPluginOpenAPI = (): esbuild.Plugin => ({
@@ -20,9 +18,9 @@ export const createEsbuildPluginOpenAPI = (): esbuild.Plugin => ({
       // At this point we can only bundle and validate the spec.
       // Dereferencing will break the interface generation process and produce
       // duplicate interfaces.
-      const spec = (await SwaggerParser.bundle(args.path)) as Document<object>
+      const spec = await SwaggerParser.bundle(args.path)
 
-      spec["x-sdf-spec-path"] = relative(process.cwd(), args.path)
+      spec["x-sdf-source"] = relative(process.cwd(), args.path)
 
       return {
         contents: JSON.stringify(spec),

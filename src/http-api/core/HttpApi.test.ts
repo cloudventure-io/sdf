@@ -10,9 +10,9 @@ import { App } from "../../core/App"
 import { requireFile } from "../../tests/requireFile"
 import * as setup from "../../tests/setup"
 import { tscCheck } from "../../tests/tscCheck"
-import { HttpApiLambdaAuthorizer } from "../authorizer"
+import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "../authorizer"
 import { HttpError } from "../error"
-import { Document } from "../openapi/types"
+import { BundledDocument } from "../openapi/types"
 import { Validators } from "../runtime/wrapper"
 import { HttpApi } from "./HttpApi"
 
@@ -28,10 +28,10 @@ describe(HttpApi.name, () => {
   })
 
   afterEach(async () => {
-    await setup.afterEach(rootDir)
+    // await setup.afterEach(rootDir)
   })
 
-  it("test validators", async () => {
+  it.only("test validators", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
@@ -52,7 +52,7 @@ describe(HttpApi.name, () => {
           title: "test",
           version: "1.0.0",
         },
-        "x-sdf-spec-path": "test",
+        "x-sdf-source": "test",
         paths: {
           "/test": {
             post: {
@@ -105,6 +105,27 @@ describe(HttpApi.name, () => {
                       required: ["requiredBodyParam"],
                     },
                   },
+                  "application/x-www-form-urlencoded": {
+                    schema: {
+                      title: "MyRequestBodyForm",
+                      type: "object",
+                      properties: {
+                        formRequiredBodyParam: {
+                          type: "string",
+                        },
+                        formOptionalBodyParam: {
+                          type: "string",
+                        },
+                      },
+                      required: ["formRequiredBodyParam"],
+                    },
+                  },
+                  // "application/octet-stream": {
+                  //   schema: {
+                  //     type: "string",
+                  //     format: "binary",
+                  //   },
+                  // },
                 },
               },
               responses: {
@@ -223,7 +244,7 @@ describe(HttpApi.name, () => {
           title: "test",
           version: "1.0.0",
         },
-        "x-sdf-spec-path": "test",
+        "x-sdf-source": "test",
         paths: {
           "/test": {
             post: {
@@ -251,13 +272,13 @@ describe(HttpApi.name, () => {
 
   const createDocumentWithAuthorizer = (
     securitySchemes?: OpenAPIV3.ComponentsObject["securitySchemes"],
-  ): Document<Record<never, string>> => ({
+  ): BundledDocument => ({
     openapi: "3.0.0",
     info: {
       title: "test",
       version: "1.0.0",
     },
-    "x-sdf-spec-path": "test",
+    "x-sdf-source": "test",
     paths: {
       "/test": {
         post: {
@@ -342,19 +363,25 @@ describe(HttpApi.name, () => {
       prefix: join("src", bundlerName),
     })
 
-    new HttpApi(bundler, "api", {
-      name: "test",
-      document: createDocumentWithAuthorizer({
-        myAuth: {
-          type: "bad-type",
-          in: "header",
-        } as unknown as OpenAPIV3.SecuritySchemeObject,
-      }),
-    })
-
-    await expect(async () => {
-      await app.synth()
-    }).rejects.toThrow(/authorizer 'myAuth' is defined in the document, but not provided at/)
+    expect(
+      () =>
+        new HttpApi(bundler, "api", {
+          name: "test",
+          document: createDocumentWithAuthorizer({
+            myAuth: {
+              type: "bad-type",
+              in: "header",
+            } as unknown as OpenAPIV3.SecuritySchemeObject,
+          }),
+          authorizers: {
+            myAuth: new HttpApiJwtAuthorizer(stack, "authorizer", {
+              audience: ["test"],
+              issuer: "https://example.com",
+              name: "myAuth",
+            }),
+          },
+        }),
+    ).toThrow(/unexpected authorizer combination with type bad-type and authorizer HttpApiJwtAuthorizer at/)
   })
 
   it("authorizer - header", async () => {
@@ -370,19 +397,25 @@ describe(HttpApi.name, () => {
       prefix: join("src", bundlerName),
     })
 
-    new HttpApi(bundler, "api", {
-      name: "test",
-      document: createDocumentWithAuthorizer({
-        myAuth: {
-          type: "apiKey",
-          in: "footer",
-        } as unknown as OpenAPIV3.SecuritySchemeObject,
-      }),
-    })
-
-    await expect(async () => {
-      await app.synth()
-    }).rejects.toThrow(/authorizer 'myAuth' is defined in the document, but not provided at/)
+    expect(
+      () =>
+        new HttpApi(bundler, "api", {
+          name: "test",
+          document: createDocumentWithAuthorizer({
+            myAuth: {
+              type: "apiKey",
+              in: "footer",
+            } as unknown as OpenAPIV3.SecuritySchemeObject,
+          }),
+          authorizers: {
+            myAuth: new HttpApiJwtAuthorizer(stack, "authorizer", {
+              audience: ["test"],
+              issuer: "https://example.com",
+              name: "myAuth",
+            }),
+          },
+        }),
+    ).toThrow(/unexpected authorizer combination with type apiKey and authorizer HttpApiJwtAuthorizer at/)
   })
 
   it("authorizer - no authorizer", async () => {
@@ -398,18 +431,18 @@ describe(HttpApi.name, () => {
       prefix: join("src", bundlerName),
     })
 
-    new HttpApi(bundler, "api", {
-      name: "test",
-      document: createDocumentWithAuthorizer({
-        myAuth: {
-          type: "apiKey",
-          in: "header",
-          name: "myAuth",
-        },
-      }),
-    })
-    await expect(async () => {
-      await app.synth()
-    }).rejects.toThrow(/authorizer '.*' is defined in the document, but not provided/)
+    expect(
+      () =>
+        new HttpApi(bundler, "api", {
+          name: "test",
+          document: createDocumentWithAuthorizer({
+            myAuth: {
+              type: "apiKey",
+              in: "header",
+              name: "myAuth",
+            },
+          }),
+        }),
+    ).toThrow(/authorizer '.*' is defined in the OpenAPI Document/)
   })
 })

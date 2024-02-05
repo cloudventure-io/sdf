@@ -14,7 +14,7 @@ export class {{ ClassName }} extends HttpApiClient {
     */
   {{/Description}}
   public async {{ OperationName }}(
-    request: OperationRequest<{{ OperationModel }}>
+    request: OperationRequest<{{ OperationModel }}>{{#IsOperationEmpty}} = {}{{/IsOperationEmpty}},
   ): Promise<OperationResponses<{{ OperationModel }}, {{ SuccessCodesUnion }}>> {
     return await this.request<{{ OperationModel }}, {{ SuccessCodesUnion }}>(
       request,

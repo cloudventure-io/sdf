@@ -1,7 +1,8 @@
 import { Construct } from "constructs"
 
-import { HttpApi, HttpApiOperation } from "../../http-api"
+import { HttpApi } from "../../http-api"
 import { HttpApiLambdaAuthorizer } from "../../http-api/authorizer"
+import { OperationSchema } from "../../http-api/core/DocumentSchemaAdapter"
 import { LambdaEntryPoint } from "../../lambda"
 import { BundlerLanguage, BundlerLanguageGenerateOptions } from "./BundlerLanguage"
 
@@ -37,9 +38,9 @@ export class BundlerLanguageCustom extends Construct implements BundlerLanguage 
     }
   }
 
-  async generateHttpApiHandler(httpApi: HttpApi, operation: HttpApiOperation) {
+  generateHttpApiHandler<SchemaType>(httpApi: HttpApi, op: OperationSchema<SchemaType>) {
     if (this.config.generateHttpApiHandler) {
-      return await this.config.generateHttpApiHandler(httpApi, operation)
+      return this.config.generateHttpApiHandler(httpApi, op)
     }
   }
 

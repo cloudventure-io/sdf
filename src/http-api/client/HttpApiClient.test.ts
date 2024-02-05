@@ -12,7 +12,7 @@ import * as setup from "../../tests/setup"
 import { tscCheck } from "../../tests/tscCheck"
 import { MimeTypes } from "../../utils/MimeTypes"
 import { HttpApi } from "../core/HttpApi"
-import { ApiResponse, EventType, Operation } from "../runtime"
+import { ApiResponse, EventType, HttpOperation } from "../runtime"
 import { HttpApiClient } from "./HttpApiClient"
 
 const apiEntrypoints = jest.fn<(op: string) => string | undefined>()
@@ -42,10 +42,10 @@ describe(HttpApiClient.name, () => {
       const chunks: Array<Buffer> = []
       request.on("data", chunk => chunks.push(chunk))
       request.on("end", async () => {
-        const { entrypoint }: { entrypoint: (request: EventType<Operation>) => Promise<ApiResponse<any, any>> } =
+        const { entrypoint }: { entrypoint: (request: EventType<HttpOperation>) => Promise<ApiResponse<any, any>> } =
           await requireFile(entrypointPath, rootDir)
 
-        const requestEvent: EventType<Operation> = {
+        const requestEvent: EventType<HttpOperation> = {
           headers: Object.fromEntries(
             Object.entries(request.headers)
               .filter<[string, string | string[]]>(
@@ -103,7 +103,7 @@ describe(HttpApiClient.name, () => {
           title: "test",
           version: "1.0.0",
         },
-        "x-sdf-spec-path": "test",
+        "x-sdf-source": "test",
         paths: {
           "/test": {
             get: {
@@ -192,8 +192,8 @@ describe(HttpApiClient.name, () => {
 
     type BaseClientIface = HttpApiClient & {
       [key in "testGet" | "testPost" | "testGetItem"]: (
-        req: Partial<Omit<Operation["request"], "authorizer">>,
-      ) => Promise<Operation["responses"]>
+        req: Partial<Omit<HttpOperation["request"], "authorizer">>,
+      ) => Promise<HttpOperation["response"]>
     }
 
     const { BaseApiClient }: { BaseApiClient: typeof HttpApiClient } = await requireFile(
