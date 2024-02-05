@@ -81,7 +81,14 @@ jobs:
       - name: Cleanup
         if: ${{ always() && steps.deploy.conclusion == 'success' }}
         working-directory: examples/${{ matrix.example }}/cdktf.out/stacks/deployment
-        run: terraform apply -destroy -auto-approve
+        run: |
+          terraform apply -destroy -auto-approve
+
+          aws logs describe-log-groups --log-group-name-prefix /aws/lambda/${{ matrix.example }}- \
+            | jq '.logGroups[] | .logGroupName // empty' -r \
+            | while read logGroup; do aws logs delete-log-group --log-group-name $logGroup; done
+          
+          
 
   publish:
     needs: [tests, e2e-tests]
