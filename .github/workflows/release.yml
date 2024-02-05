@@ -63,6 +63,12 @@ jobs:
           pnpm synth -n ci-${{ matrix.example }}
           pnpm build
 
+      - name: Pre-deploy clean-up
+        run: |
+          aws logs describe-log-groups --log-group-name-prefix /aws/lambda/${{ matrix.example }}- \
+            | jq '.logGroups[] | .logGroupName // empty' -r \
+            | while read logGroup; do echo Removing Log Group $logGroup; aws logs delete-log-group --log-group-name $logGroup; done
+
       - name: Deploy the example
         working-directory: examples/${{ matrix.example }}/cdktf.out/stacks/deployment
         id: deploy
@@ -81,14 +87,7 @@ jobs:
       - name: Cleanup
         if: ${{ always() && steps.deploy.conclusion == 'success' }}
         working-directory: examples/${{ matrix.example }}/cdktf.out/stacks/deployment
-        run: |
-          terraform apply -destroy -auto-approve
-
-          aws logs describe-log-groups --log-group-name-prefix /aws/lambda/${{ matrix.example }}- \
-            | jq '.logGroups[] | .logGroupName // empty' -r \
-            | while read logGroup; do aws logs delete-log-group --log-group-name $logGroup; done
-          
-          
+        run: terraform apply -destroy -auto-approve
 
   publish:
     needs: [tests, e2e-tests]
