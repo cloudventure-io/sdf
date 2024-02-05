@@ -31,7 +31,7 @@ describe(HttpApi.name, () => {
     await setup.afterEach(rootDir)
   })
 
-  it.only("test validators", async () => {
+  it("test validators", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
     new AwsProvider(stack, "aws")
