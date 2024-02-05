@@ -65,7 +65,7 @@ jobs:
 
       - name: Pre-deploy clean-up
         run: |
-          aws logs describe-log-groups --log-group-name-prefix /aws/lambda/${{ matrix.example }}- \
+          aws logs describe-log-groups --log-group-name-prefix /aws/lambda/ci-${{ matrix.example }}- \
             | jq '.logGroups[] | .logGroupName // empty' -r \
             | while read logGroup; do echo Removing Log Group $logGroup; aws logs delete-log-group --log-group-name $logGroup; done
 
