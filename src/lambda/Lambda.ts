@@ -1,4 +1,5 @@
 import { CloudwatchLogGroup } from "@cdktf/provider-aws/lib/cloudwatch-log-group"
+import { DataAwsCloudwatchLogGroups } from "@cdktf/provider-aws/lib/data-aws-cloudwatch-log-groups"
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
@@ -7,7 +8,7 @@ import {
   LambdaFunction as AwsLambdaFunction,
   LambdaFunctionConfig as AwsLambdaFunctionConfig,
 } from "@cdktf/provider-aws/lib/lambda-function"
-import { Fn, TerraformResource, dependable } from "cdktf"
+import { Fn, TerraformCount, TerraformResource, Token, dependable } from "cdktf"
 import { constantCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 
@@ -35,6 +36,7 @@ export class Lambda extends Construct {
 
   public function: AwsLambdaFunction
   public role: IamRole
+  public logGroupArn: string
 
   public constructor(scope: Construct, id: string, { resources, ...config }: LambdaConfig) {
     super(scope, id)
@@ -85,10 +87,23 @@ export class Lambda extends Construct {
       })
     }
 
-    new CloudwatchLogGroup(this, "logs", {
-      name: `/aws/lambda/${config.functionName}`,
+    const logGroupName = `/aws/lambda/${config.functionName}`
+
+    const existingLogGroups = new DataAwsCloudwatchLogGroups(this, "existing-log-groups", {
+      logGroupNamePrefix: logGroupName,
+    })
+
+    const logs = new CloudwatchLogGroup(this, "logs", {
+      count: TerraformCount.of(
+        Token.asNumber(`\${${Fn.contains(existingLogGroups.logGroupNames, logGroupName)} ? 1 : 0}`),
+      ),
+      name: logGroupName,
       retentionInDays: 30,
     })
+
+    this.logGroupArn = Token.asString(
+      `\${${Fn.contains(existingLogGroups.logGroupNames, logGroupName)} ? [for v in ${existingLogGroups.fqn}.arns: v if endswith(v, "log-group:${logGroupName}")][0] : ${logs.fqn}[0].arn}`,
+    )
 
     new AsyncResolvable(
       this,

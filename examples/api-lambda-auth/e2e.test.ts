@@ -36,7 +36,7 @@ describe("end-to-end tests", () => {
     const client = new ApiClient(baseUrl, "")
     let e: unknown = null
     try {
-      await client.identityMe({})
+      await client.identityMe()
     } catch (ex) {
       e = ex
     }

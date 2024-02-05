@@ -5630,8 +5630,8 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
     peerDependencies:
-      '@types/aws-lambda': ^8.10.126
-      json-schema-to-zod: ^2.0.12
+      '@types/aws-lambda': ^8.10.133
+      json-schema-to-zod: ^2.0.14
     dependencies:
       '@apidevtools/swagger-parser': 10.1.0(openapi-types@12.1.3)
       '@cdktf/provider-archive': 9.0.1(cdktf@0.19.2)(constructs@10.3.0)
