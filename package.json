@@ -17,7 +17,7 @@
     "change-case": "^4.1.2",
     "commander": "^11.1.0",
     "constructs": "^10.3.0",
-    "esbuild": "^0.19.12",
+    "esbuild": "^0.20.0",
     "json-schema-to-typescript": "^13.1.2",
     "json-schema-to-zod": "^2.0.14",
     "lodash": "^4.17.21",
