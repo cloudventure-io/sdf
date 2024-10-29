@@ -10,7 +10,7 @@ import {
 
 import * as validators from "./{{ ValidatorsImport }}";
 import { handler } from "./{{ HandlerImport }}";
-{{~#if MiddlewareImport}}
+{{#if MiddlewareImport}}
 import middleware from "./{{ MiddlewareImport }}";
 {{/if}}
 
