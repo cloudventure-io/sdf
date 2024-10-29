@@ -8,7 +8,7 @@ import {
   LambdaFunctionConfig as AwsLambdaFunctionConfig,
 } from "@cdktf/provider-aws/lib/lambda-function"
 import { Fn, TerraformResource, dependable } from "cdktf"
-import { constantCase, kebabCase } from "change-case"
+import { constantCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 
 import { Bundler } from "../bundler/Bundler"
@@ -57,7 +57,7 @@ export class Lambda extends Construct {
     })
 
     this.role = new IamRole(this, "role", {
-      name: kebabCase(`${config.functionName}-lambda`),
+      name: paramCase(`${config.functionName}-lambda`),
       assumeRolePolicy: assumeRolePolicy.json,
     })
 
