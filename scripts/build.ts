@@ -52,7 +52,16 @@ const run = async () => {
   const dependencies = packageJson.dependencies
   const peerDependencies = packageJson["peerDependencies"] || {}
 
-  const moveToPeerDependencies = ["@types/aws-lambda", "json-schema-to-zod"]
+  const moveToPeerDependencies = [
+    "@types/aws-lambda",
+    "json-schema-to-zod",
+    "@cdktf/provider-archive",
+    "@cdktf/provider-aws",
+    "@cdktf/provider-null",
+    "cdktf",
+    "cdktf-cli",
+    "constructs",
+  ]
 
   moveToPeerDependencies.forEach(d => {
     const ver = dependencies[d]
