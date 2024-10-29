@@ -63,20 +63,21 @@ export class TreeResolver {
     let activity = 0
     const state = this.resolvables.get(c)
 
-    // construction is applied during top to bottom run
+    // construction is applied during depth first run
     if (state && stage === AppLifeCycle.construction) {
       activity += await this.resolveStage(state, stage)
     }
 
-    // resolve all children
+    // resolve children
     while ((await this.resolveChildren(c, stage)) > 0) {
       /* continue */
     }
 
-    // generation is applied during bottom to top run
+    // generation is applied during breadth first run
     if (state && stage === AppLifeCycle.generation) {
       activity += await this.resolveStage(state, stage)
     }
+
     return activity
   }
 

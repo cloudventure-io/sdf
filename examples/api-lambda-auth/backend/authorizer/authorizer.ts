@@ -1,10 +1,11 @@
-import { APIGatewayRequestSimpleAuthorizerHandlerV2WithContext } from "aws-lambda"
+import { Unauthorized } from "@cloudventure/sdf/http-api/runtime/errors"
+import { HttpApiAuthorizerHandler } from "@cloudventure/sdf/http-api/runtime/server/HttpApiAuthorizerServer"
 
-import { Unauthorized } from "@cloudventure/sdf/http-api/error"
+import { AuthorizerContext } from "./../.gen/.entrypoints/authorizer/authorizer"
 
-import { AuthorizerContext } from "./../.gen/entrypoints/authorizer/authorizer"
+export const authorizer: HttpApiAuthorizerHandler<AuthorizerContext> = async event => {
+  console.log("event", JSON.stringify(event))
 
-export const authorizer: APIGatewayRequestSimpleAuthorizerHandlerV2WithContext<AuthorizerContext> = async event => {
   const token = (event.identitySource?.[0] || "").match(/^[^ ]+\s+(.*?)$/)?.[1] || ""
 
   if (!token) {

@@ -1,6 +1,6 @@
 import { Validator } from "@cloudventure/sdf/http-api/runtime";
 
-{{ #Validators }}
+{{#each Validators}}
 declare const {{ $id }}: Validator;
 export { {{ $id }} };
-{{ /Validators }}
+{{/each}}

@@ -1,4 +1,5 @@
-import { ApiResponse } from "@cloudventure/sdf/http-api/runtime"
+// import { ApiResponse } from "@cloudventure/sdf/http-api/runtime"
+import { ApiResponse } from "@cloudventure/sdf/http-api/runtime/common/ApiResponse"
 
 import { ApiClient } from "./backend/client/ApiClient"
 

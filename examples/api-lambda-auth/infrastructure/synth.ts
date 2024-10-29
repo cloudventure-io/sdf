@@ -64,7 +64,7 @@ export const synth = async (options: AppOptions): Promise<App> => {
     authorizers: {
       authorizer,
     },
-    requestInterceptor: "./interceptors",
+    middleware: "./middleware",
     generateClient: {
       name: "api",
     },

@@ -1,6 +1,6 @@
-import { Document, SchemaDecoder, SchemaRecoder } from "./Document"
+import { Document, SchemaDecoder } from "./Document"
+import { MediaType, MediaTypeConfig } from "./MediaType"
 import { Operation } from "./Operation"
-import { SchemaItem } from "./SchemaItem"
 import { map } from "./utils"
 
 export interface RequestBodyConfig<SchemaType> {
@@ -8,9 +8,7 @@ export interface RequestBodyConfig<SchemaType> {
   required?: boolean
 
   content: {
-    [media: string]: {
-      schema?: SchemaType
-    }
+    [media: string]: MediaTypeConfig<SchemaType>
   }
 }
 
@@ -21,9 +19,7 @@ export class RequestBody<SchemaType> {
   public readonly document: Document<SchemaType>
 
   content: {
-    [media: string]: {
-      schema?: SchemaItem
-    }
+    [media: string]: MediaType<SchemaType>
   }
 
   constructor(operation: Operation<SchemaType>, { description, required, content }: RequestBodyConfig<SchemaType>) {
@@ -31,18 +27,14 @@ export class RequestBody<SchemaType> {
 
     this.description = description
     this.required = required
-    this.content = map(content, ({ schema }) => ({ schema: schema && this.document.encoder(schema) }))
+    this.content = map(content, (mediaTypeConfig, mediaType) => new MediaType(this, mediaType, mediaTypeConfig))
   }
 
   decode<ST>(decoder: SchemaDecoder<ST>): RequestBodyConfig<ST> {
     return {
       description: this.description,
       required: this.required,
-      content: map(this.content, ({ schema }) => ({ schema: schema && decoder(schema) })),
+      content: map(this.content, mediaType => mediaType.decode(decoder)),
     }
-  }
-
-  recode(recoder: SchemaRecoder): void {
-    map(this.content, ({ schema }) => ({ schema: schema && recoder(schema) }))
   }
 }

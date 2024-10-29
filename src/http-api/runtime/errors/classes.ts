@@ -1,12 +1,18 @@
-import { HttpStatusCodes } from "../enum/HttpStatusCodes"
+import { HttpStatusCodes } from "../../common/HttpStatusCodes"
 import { HttpError } from "./HttpError"
 
-const defineHttpError = (statusCode: HttpStatusCodes) =>
-  class extends HttpError {
+const statusCodesByNumber = Object.fromEntries(Object.entries(HttpStatusCodes).map(([key, value]) => [value, key]))
+
+const defineHttpError = (statusCode: HttpStatusCodes) => {
+  const Class = class extends HttpError {
     get statusCode(): typeof statusCode {
       return statusCode
     }
   }
+  const name = statusCodesByNumber[statusCode]
+  HttpError.classes[name] = Class
+  return Class
+}
 
 export class BadRequest extends defineHttpError(HttpStatusCodes.BadRequest) {}
 export class Unauthorized extends defineHttpError(HttpStatusCodes.Unauthorized) {}
@@ -27,6 +33,7 @@ export class UnsupportedMediaType extends defineHttpError(HttpStatusCodes.Unsupp
 export class RangeNotSatisfiable extends defineHttpError(HttpStatusCodes.RangeNotSatisfiable) {}
 export class ExpectationFailed extends defineHttpError(HttpStatusCodes.ExpectationFailed) {}
 export class ImATeapot extends defineHttpError(HttpStatusCodes.ImATeapot) {}
+export class UnprocessableContent extends defineHttpError(HttpStatusCodes.UnprocessableContent) {}
 export class PreconditionRequired extends defineHttpError(HttpStatusCodes.PreconditionRequired) {}
 export class TooManyRequests extends defineHttpError(HttpStatusCodes.TooManyRequests) {}
 export class RequestHeaderFieldsTooLarge extends defineHttpError(HttpStatusCodes.RequestHeaderFieldsTooLarge) {}
@@ -58,6 +65,7 @@ export const classes = {
   [RangeNotSatisfiable.name]: RangeNotSatisfiable,
   [ExpectationFailed.name]: ExpectationFailed,
   [ImATeapot.name]: ImATeapot,
+  [UnprocessableContent.name]: UnprocessableContent,
   [PreconditionRequired.name]: PreconditionRequired,
   [TooManyRequests.name]: TooManyRequests,
   [RequestHeaderFieldsTooLarge.name]: RequestHeaderFieldsTooLarge,

@@ -1,4 +1,4 @@
-import { Document, SchemaDecoder, SchemaRecoder } from "./Document"
+import { Document, SchemaDecoder } from "./Document"
 import { SchemaItem } from "./SchemaItem"
 
 export interface BaseParameterConfig<SchemaType> {
@@ -32,9 +32,5 @@ export class BaseParameter<SchemaType> {
       schema: this.schema && decoder(this.schema),
       required: this.required,
     }
-  }
-
-  recode(recoder: SchemaRecoder): void {
-    this.schema = this.schema && recoder(this.schema)
   }
 }

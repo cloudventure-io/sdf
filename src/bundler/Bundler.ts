@@ -322,7 +322,7 @@ export class Bundler extends Construct {
    * for generating the http api specification for the HttpApi.
    */
   public generateHttpApiSpecification(httpApi: HttpApi): void {
-    this.language.generateHttpApiSpecification(httpApi)
+    this.language.generateHttpApiDocument(httpApi)
   }
 
   /**

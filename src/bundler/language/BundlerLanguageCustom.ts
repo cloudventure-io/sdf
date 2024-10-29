@@ -12,7 +12,7 @@ export interface BundlerLanguageCustomConfig {
   generate?: BundlerLanguage["generate"]
   generateHttpApiHandler?: BundlerLanguage["generateHttpApiHandler"]
   generateHttpApiClient?: BundlerLanguage["generateHttpApiClient"]
-  generateHttpApiSpecification?: BundlerLanguage["generateHttpApiSpecification"]
+  generateHttpApiSpecification?: BundlerLanguage["generateHttpApiDocument"]
   generateHttpApiAuthorizer?: BundlerLanguage["generateHttpApiAuthorizer"]
   registerHandler?: BundlerLanguage["registerEntryPoint"]
 }
@@ -50,7 +50,7 @@ export class BundlerLanguageCustom extends Construct implements BundlerLanguage 
     }
   }
 
-  async generateHttpApiSpecification(httpApi: HttpApi): Promise<void> {
+  async generateHttpApiDocument(httpApi: HttpApi): Promise<void> {
     if (this.config.generateHttpApiSpecification) {
       await this.config.generateHttpApiSpecification(httpApi)
     }

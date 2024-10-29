@@ -3,10 +3,12 @@
  * and it will be regenerated when the stack is synthesized.
  */
 
-import { authorizerWrapper } from "@cloudventure/sdf/http-api/runtime";
+import { HttpApiAuthorizerServer } from "@cloudventure/sdf/http-api/runtime/server/HttpApiAuthorizerServer";
 import { {{ AuthorizerModel }} as AuthorizerContext } from "./{{ InterfacesImport }}";
 import { authorizer } from "./{{ HandlerImport }}";
 
 export { AuthorizerContext }
 
-export const {{ EntryPointFunctionName }} = authorizerWrapper<AuthorizerContext>(authorizer);
+const server = new HttpApiAuthorizerServer<AuthorizerContext>(authorizer)
+
+export const {{ EntryPointFunctionName }} = server.createLambdaHandler()

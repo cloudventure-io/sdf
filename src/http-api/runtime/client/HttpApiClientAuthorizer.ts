@@ -1,4 +1,4 @@
-import { HttpHeaders } from "../enum"
+import { HttpHeaders } from "../../common/HttpHeaders"
 import { HttpApiRequest } from "./HttpApiClient"
 
 export interface HttpApiClientAuthorizer {

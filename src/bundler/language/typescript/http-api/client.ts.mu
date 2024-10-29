@@ -1,4 +1,14 @@
-import { HttpApiClient, OperationRequest, OperationResponses } from "@cloudventure/sdf/http-api/client/HttpApiClient"
+
+import {
+  HttpApiClient,
+  HttpApiClientConfig,
+  OperationRequest,
+  OperationRequestDefaultMediaType,
+} from "@cloudventure/sdf/http-api/runtime/client/HttpApiClient"
+
+import { Document } from "@cloudventure/sdf/http-api/openapi/Document"
+import { BundledDocument } from "@cloudventure/sdf/http-api/openapi/types"
+import { dereference } from "@cloudventure/sdf/http-api/openapi/utils"
 
 import {
 {{#Operations}}
@@ -6,7 +16,20 @@ import {
 {{/Operations}}
 } from "./{{ InterfacesImport }}"
 
+{{#Operations}}
+import * as Operation{{ OperationModel }} from "./{{ OperationImport }}"
+{{/Operations}}
+
+import document from "./{{ DocumentImport }}"
+
 export class {{ ClassName }} extends HttpApiClient {
+  #document: Document
+
+  constructor(config: HttpApiClientConfig) {
+    super(config)
+    this.#document = new Document(dereference(document as BundledDocument))
+  }
+
 {{#Operations}}
   {{#Description}}
   /**
@@ -14,13 +37,11 @@ export class {{ ClassName }} extends HttpApiClient {
     */
   {{/Description}}
   public async {{ OperationName }}(
-    request: OperationRequest<{{ OperationModel }}>{{#IsOperationEmpty}} = {}{{/IsOperationEmpty}},
-  ): Promise<OperationResponses<{{ OperationModel }}, {{ SuccessCodesUnion }}>> {
-    return await this.request<{{ OperationModel }}, {{ SuccessCodesUnion }}>(
+    request: OperationRequest{{#if IsSingleRequestBody}}DefaultMediaType{{/if}}<{{ OperationModel }}["request"]>{{#IsOperationEmpty}} = {}{{/IsOperationEmpty}},
+  ): Promise<Operation{{ OperationModel }}.SuccessResponse> {
+    return await this.request<Operation{{ OperationModel }}.SuccessResponse>(
+      this.#document.operations["{{ OperationId }}"],
       request,
-      {{ PathPatternEscaped }},
-      "{{ Method }}",
-      [{{ SuccessCodesList }}]
     )
   }
 {{/Operations}}

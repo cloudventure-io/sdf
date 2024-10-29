@@ -32,6 +32,14 @@ export interface RequestBodyObject<SchemaType extends OpenAPIV3.SchemaObject | O
   }
 }
 
+export interface OperationSdfGen {
+  content: {
+    body: unknown
+    mediaType?: string
+  }
+  statusCode?: number
+}
+
 export interface OperationObject<
   SchemaType extends OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject =
     | OpenAPIV3.SchemaObject
@@ -42,6 +50,8 @@ export interface OperationObject<
   responses: {
     [code: string]: ResponseObject<SchemaType>
   }
+
+  "x-sdf-gen"?: OperationSdfGen
 }
 
 export interface PathItemObjectBase<

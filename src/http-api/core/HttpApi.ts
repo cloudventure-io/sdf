@@ -36,9 +36,6 @@ export interface HttpApiConfig {
   /** map of authorizers */
   authorizers?: Record<string, HttpApiAuthorizer>
 
-  /** the response body of the generated handler fuction, defaults to `{}` */
-  handlerBody?: string
-
   /** the API path prefix for the generated files, defaults to {id} */
   prefix?: string
 
@@ -46,10 +43,7 @@ export interface HttpApiConfig {
   name: string
 
   /** the request interceptor path relative to the bundler path */
-  requestInterceptor?: string
-
-  /** the response interceptor path relative to the bundler path */
-  responseInterceptor?: string
+  middleware?: string
 
   /**
    * When true the list of security scopes will not be sent to API Gateway

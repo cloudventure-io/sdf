@@ -1,8 +1,8 @@
-import { APIGatewayRequestSimpleAuthorizerHandlerV2WithContext } from "aws-lambda"
+import { HttpApiAuthorizerHandler } from "@cloudventure/sdf/http-api/runtime/server/HttpApiAuthorizerServer";
 
 import { AuthorizerContext } from "./{{ WrapperImport }}";
 
-export const authorizer: APIGatewayRequestSimpleAuthorizerHandlerV2WithContext<AuthorizerContext> = async event => {
+export const authorizer: HttpApiAuthorizerHandler<AuthorizerContext> = async event => {
   return {
     isAuthorized: false,
     context: {{ AuthorizerBody }},

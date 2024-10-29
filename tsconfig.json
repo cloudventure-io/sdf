@@ -17,7 +17,8 @@
     "skipLibCheck": true,
     "noEmit": false,
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "strictFunctionTypes": true
   },
   "include": ["./src"],
   "exclude": ["./publish"]

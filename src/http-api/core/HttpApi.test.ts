@@ -11,9 +11,10 @@ import { requireFile } from "../../tests/requireFile"
 import * as setup from "../../tests/setup"
 import { tscCheck } from "../../tests/tscCheck"
 import { HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from "../authorizer"
-import { HttpError } from "../error"
+import { HttpHeaders } from "../common/HttpHeaders"
 import { BundledDocument } from "../openapi/types"
-import { Validators } from "../runtime/wrapper"
+import { HttpError } from "../runtime/errors"
+import { Validators } from "../runtime/server/validator"
 import { HttpApi } from "./HttpApi"
 
 describe(HttpApi.name, () => {
@@ -118,14 +119,9 @@ describe(HttpApi.name, () => {
                         },
                       },
                       required: ["formRequiredBodyParam"],
+                      additionalProperties: false,
                     },
                   },
-                  // "application/octet-stream": {
-                  //   schema: {
-                  //     type: "string",
-                  //     format: "binary",
-                  //   },
-                  // },
                 },
               },
               responses: {
@@ -135,6 +131,7 @@ describe(HttpApi.name, () => {
                     "application/json": {
                       schema: { type: "string" },
                     },
+                    "application/octet-stream": {},
                   },
                 },
               },
@@ -142,17 +139,13 @@ describe(HttpApi.name, () => {
           },
         },
       },
-      handlerBody: JSON.stringify(""),
     })
 
     await app.synth()
 
     await tscCheck(rootDir)
 
-    const validators = await requireFile<Validators>(
-      "src/.gen/entrypoints/api/validators/testPost.validator.js",
-      rootDir,
-    )
+    const validators = await requireFile<Validators>("src/.gen/api/validators/testPost.validator.js", rootDir)
     expect(typeof validators.path).toBe("function")
     expect(typeof validators.query).toBe("function")
     expect(typeof validators.header).toBe("function")
@@ -160,21 +153,21 @@ describe(HttpApi.name, () => {
 
     const { entrypoint } = await requireFile<{
       entrypoint: (event: Partial<APIGatewayProxyEventV2>) => Promise<APIGatewayProxyResult>
-    }>("src/.gen/entrypoints/api/testPost.ts", rootDir)
+    }>("src/.gen/.entrypoints/api/testPost.ts", rootDir)
 
     expect(typeof entrypoint).toBe("function")
 
     // test path parameter validation
     let res = await entrypoint({})
     expect(res.statusCode).toBe(400)
-    expect(res.headers?.["Content-Type"]).toBe("application/json")
+    expect(res.headers?.[HttpHeaders.ContentType]).toBe("application/json")
     let error = HttpError.fromJSON(JSON.parse(res.body))
     expect(error.code).toBe("VALIDATION_ERROR_PATH")
 
     // test query string validation
     res = await entrypoint({ pathParameters: { requiredPath: "test" } })
     expect(res.statusCode).toBe(400)
-    expect(res.headers?.["Content-Type"]).toBe("application/json")
+    expect(res.headers?.[HttpHeaders.ContentType]).toBe("application/json")
     error = HttpError.fromJSON(JSON.parse(res.body))
     expect(error.code).toBe("VALIDATION_ERROR_QUERY_STRING")
 
@@ -185,7 +178,7 @@ describe(HttpApi.name, () => {
       headers: {},
     })
     expect(res.statusCode).toBe(400)
-    expect(res.headers?.["Content-Type"]).toBe("application/json")
+    expect(res.headers?.[HttpHeaders.ContentType]).toBe("application/json")
     error = HttpError.fromJSON(JSON.parse(res.body))
     expect(error.code).toBe("VALIDATION_ERROR_HEADER")
 
@@ -196,18 +189,18 @@ describe(HttpApi.name, () => {
       headers: { "x-required-header": "test" },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.headers?.["Content-Type"]).toBe("application/json")
-    expect(JSON.parse(res.body)).toBe("")
+    expect(res.headers?.[HttpHeaders.ContentType]).toBe("application/json")
+    expect(typeof JSON.parse(res.body)).toBe("string")
 
     // test body validation
     res = await entrypoint({
       pathParameters: { requiredPath: "test" },
       queryStringParameters: { requiredQuery: "test" },
-      headers: { "x-required-header": "test", "content-type": "application/json" },
+      headers: { "x-required-header": "test", [HttpHeaders.ContentType]: "application/json" },
       body: JSON.stringify({}),
     })
     expect(res.statusCode).toBe(400)
-    expect(res.headers?.["Content-Type"]).toBe("application/json")
+    expect(res.headers?.[HttpHeaders.ContentType]).toBe("application/json")
     error = HttpError.fromJSON(JSON.parse(res.body))
     expect(error.code).toBe("VALIDATION_ERROR_BODY")
 
@@ -215,12 +208,12 @@ describe(HttpApi.name, () => {
     res = await entrypoint({
       pathParameters: { requiredPath: "test" },
       queryStringParameters: { requiredQuery: "test" },
-      headers: { "x-required-header": "test", "content-type": "application/json" },
+      headers: { "x-required-header": "test", [HttpHeaders.ContentType]: "application/json" },
       body: JSON.stringify({ requiredBodyParam: "test" }),
     })
     expect(res.statusCode).toBe(200)
-    expect(res.headers?.["Content-Type"]).toBe("application/json")
-    expect(JSON.parse(res.body)).toBe("")
+    expect(res.headers?.[HttpHeaders.ContentType]).toBe("application/json")
+    expect(typeof JSON.parse(res.body)).toBe("string")
   })
 
   it("broken typescript", async () => {
@@ -249,6 +242,11 @@ describe(HttpApi.name, () => {
           "/test": {
             post: {
               operationId: "testPost",
+              "x-sdf-gen": {
+                content: {
+                  body: 5,
+                },
+              },
               responses: {
                 "200": {
                   description: "test",
@@ -263,11 +261,10 @@ describe(HttpApi.name, () => {
           },
         },
       },
-      handlerBody: `5`,
     })
 
     await app.synth()
-    await expect(tscCheck(rootDir)).rejects.toThrowError(/Type 'number' is not assignable to type 'string'/)
+    await expect(tscCheck(rootDir)).rejects.toThrow(/Type 'number' is not assignable to type 'string'/)
   })
 
   const createDocumentWithAuthorizer = (
@@ -287,11 +284,6 @@ describe(HttpApi.name, () => {
           responses: {
             "200": {
               description: "test",
-              content: {
-                "application/json": {
-                  schema: { type: "object" },
-                },
-              },
             },
           },
         },
@@ -343,7 +335,6 @@ describe(HttpApi.name, () => {
       authorizers: {
         myAuth: authorizer,
       },
-      handlerBody: `{}`,
     })
 
     await app.synth()

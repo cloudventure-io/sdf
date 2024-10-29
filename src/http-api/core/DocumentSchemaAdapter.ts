@@ -8,6 +8,7 @@ import { HttpApiAuthorizer, HttpApiJwtAuthorizer, HttpApiLambdaAuthorizer } from
 import { Document, SchemaDecoder } from "../openapi/Document"
 import { Operation } from "../openapi/Operation"
 import { ParameterTypes } from "../openapi/Parameter"
+import { Response } from "../openapi/Response"
 import { SchemaItem } from "../openapi/SchemaItem"
 
 export interface HttpApiOperationAuthorizer {
@@ -206,19 +207,16 @@ export class DocumentSchemaAdapter {
     if (operation.requestBody) {
       const bodies: Array<OpenAPIV3.SchemaObject> = []
 
-      for (const [contentType, bodySchema] of Object.entries(operation.requestBody.content)) {
-        if (!bodySchema.schema) {
-          continue
-        }
+      for (const [mediaType, media] of Object.entries(operation.requestBody.content)) {
         bodies.push({
           type: "object",
           properties: {
-            contentType: {
-              const: contentType,
+            mediaType: {
+              const: mediaType,
             } as OpenAPIV3.SchemaObject,
-            body: this.decode(bodySchema.schema),
+            body: media.schema ? this.decode(media.schema) : {},
           },
-          required: ["contentType", "body"],
+          required: ["mediaType", "body"],
           additionalProperties: false,
           description: operation.requestBody.description,
         })
@@ -227,11 +225,8 @@ export class DocumentSchemaAdapter {
       if (!operation.requestBody.required) {
         bodies.push({
           type: "object",
-          properties: {
-            contentType: { type: "null" } as unknown as OpenAPIV3.SchemaObject,
-            body: {},
-          },
-          required: ["contentType", "body"],
+          properties: {},
+          required: [],
           additionalProperties: false,
         })
       }
@@ -247,58 +242,66 @@ export class DocumentSchemaAdapter {
     return { request, requestExpanded }
   }
 
-  private createResponseSchema(operation: Operation<SchemaType>) {
-    const responses: Array<OpenAPIV3.SchemaObject> = []
+  private createResponseHeadersSchema(response: Response<SchemaType>): {
+    schema: OpenAPIV3.SchemaObject
+    required: boolean
+  } {
+    const schema = {
+      type: "object",
+      properties: {},
+      required: [] as Array<string>,
+      additionalProperties: {
+        type: "string",
+      },
+    } satisfies OpenAPIV3.SchemaObject
 
-    for (const [statusCode, response] of Object.entries(operation.responses)) {
-      if (!response.content || Object.keys(response.content).length == 0) {
-        responses.push({
-          type: "object",
-          properties: {
-            contentType: {
-              type: "null",
-            } as unknown as OpenAPIV3.SchemaObject,
-            statusCode: {
-              const: parseInt(statusCode),
-            } as OpenAPIV3.SchemaObject,
-            body: {
-              type: "null",
-            } as unknown as OpenAPIV3.SchemaObject,
-          },
-          required: ["contentType", "statusCode", "body"],
-          additionalProperties: false,
-          description: response.description,
-        })
-        continue
-      }
+    let required = false
 
-      for (const [contentType, body] of Object.entries(response.content)) {
-        if (!body.schema) {
+    if (response.headers) {
+      for (const [name, header] of Object.entries(response.headers)) {
+        if (!header.schema) {
           continue
         }
-
-        responses.push({
-          type: "object",
-          properties: {
-            contentType: {
-              const: contentType,
-            } as OpenAPIV3.SchemaObject,
-            statusCode: {
-              const: parseInt(statusCode),
-            } as OpenAPIV3.SchemaObject,
-            body: this.decode(body.schema),
-          },
-          required: ["contentType", "statusCode", "body"],
-          additionalProperties: false,
-          description: response.description,
-        })
+        schema.properties[name] = this.decode(header.schema)
+        if (header.required) {
+          schema.required.push(name)
+          required = true
+        }
       }
     }
 
-    return {
+    return { schema, required }
+  }
+
+  private createResponseSchema(operation: Operation<SchemaType>) {
+    const responses = {
       title: pascalCase(`Operation-${operation.operationId}-Responses`),
-      oneOf: responses,
+      type: "object",
+      properties: {},
+      required: [] as Array<string>,
+      additionalProperties: false,
+    } satisfies OpenAPIV3.SchemaObject
+
+    for (const [statusCode, response] of Object.entries(operation.responses)) {
+      const responseSchema = {
+        type: "object",
+        properties: {
+          headers: this.createResponseHeadersSchema(response).schema,
+        },
+        required: ["headers"] as Array<string>,
+        additionalProperties: false,
+      } satisfies OpenAPIV3.SchemaObject
+
+      responses.properties[statusCode] = responseSchema
+      responses.required.push(statusCode)
+
+      for (const [mediaType, media] of Object.entries(response.content || {})) {
+        responseSchema.properties[mediaType] = media.schema ? this.decode(media.schema) : {}
+        responseSchema.required.push(mediaType)
+      }
     }
+
+    return responses
   }
 
   private parseOperation(operation: Operation<SchemaType>): OperationSchema<SchemaType> {

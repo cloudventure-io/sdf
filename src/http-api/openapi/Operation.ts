@@ -1,12 +1,13 @@
 import { camelCase } from "change-case"
 import { OpenAPIV3 } from "openapi-types"
 
-import { Document, Links, SchemaDecoder, SchemaRecoder, SecurityRequirementsConfig } from "./Document"
+import { Document, Links, SchemaDecoder, SecurityRequirementsConfig } from "./Document"
 import { DocumentTrace } from "./DocumentTrace"
 import { Parameter, ParameterConfig, ParametersMap } from "./Parameter"
 import { Path } from "./Path"
 import { RequestBody, RequestBodyConfig } from "./RequestBody"
 import { Response, ResponseConfig } from "./Response"
+import { OperationSdfGen } from "./types"
 import { map } from "./utils"
 
 export interface OperationConfig<SchemaType = OpenAPIV3.SchemaObject> {
@@ -24,7 +25,9 @@ export interface OperationConfig<SchemaType = OpenAPIV3.SchemaObject> {
   security?: SecurityRequirementsConfig
 
   "x-sdf-links"?: Links
-  "x-sdf-success-codes"?: Array<string>
+  "x-sdf-success-codes"?: Array<number>
+
+  "x-sdf-gen"?: OperationSdfGen
 }
 
 export class Operation<SchemaType = OpenAPIV3.SchemaObject> {
@@ -41,13 +44,15 @@ export class Operation<SchemaType = OpenAPIV3.SchemaObject> {
 
   links: Links
 
-  successCodes?: Array<string>
+  successCodes: Array<number>
 
   security?: SecurityRequirementsConfig
 
   readonly document: Document<SchemaType>
 
   public data: Record<string, unknown> = {}
+
+  gen: OperationConfig<SchemaType>["x-sdf-gen"]
 
   constructor(
     public readonly path: Path<SchemaType>,
@@ -62,10 +67,12 @@ export class Operation<SchemaType = OpenAPIV3.SchemaObject> {
 
       "x-sdf-links": links,
       "x-sdf-success-codes": successCodes,
+      "x-sdf-gen": gen,
     }: OperationConfig<SchemaType>,
   ) {
     this.document = path.document
     this.description = description
+    this.gen = gen
 
     operationId ??= camelCase(`${path.pattern}-${method}`)
     if (operationId in this.document.operations) {
@@ -75,11 +82,34 @@ export class Operation<SchemaType = OpenAPIV3.SchemaObject> {
     this.document.operations[operationId] = this
 
     this.parameters = parameters?.map((param, index) => new Parameter(this, index, param)) || []
-    this.responses = map(responses, (response, statusCode) => new Response(this, parseInt(statusCode), response))
+    this.responses = map(responses, (response, statusCode) => {
+      // LIMIT: OAS3.0 only numeric status codes are supported (https://swagger.io/specification/v3/#responses-object)
+      if ("" + parseInt(statusCode) != statusCode) {
+        throw new Error(
+          `the '${statusCode}' is invalid, only specific status codes are supported at ${this.trace().append("responses")}`,
+        )
+      }
+      return new Response(this, parseInt(statusCode), response)
+    })
+
+    if (!Object.keys(this.responses).length) {
+      throw new Error(`operation must have at least one response at ${this.trace().append("responses")}`)
+    }
+
     this.requestBody = requestBody ? new RequestBody(this, requestBody) : undefined
 
     this.links = links ?? {}
-    this.successCodes = successCodes
+
+    this.successCodes = successCodes?.length
+      ? successCodes.filter(code => code in this.responses)
+      : Object.keys(this.responses)
+          .map(parseInt)
+          .filter(code => code < 400)
+
+    if (!this.successCodes.length) {
+      throw new Error(`operation must have at least one success code at ${this.trace()}`)
+    }
+
     this.security = security
   }
 
@@ -136,18 +166,18 @@ export class Operation<SchemaType = OpenAPIV3.SchemaObject> {
 
       "x-sdf-links": this.links,
       "x-sdf-success-codes": this.successCodes,
+      "x-sdf-gen": this.gen,
 
       ...this.data,
     }
   }
 
-  recode(recoder: SchemaRecoder): void {
-    this.parameters.map(param => param.recode(recoder))
-    map(this.responses, responses => responses.recode(recoder))
-    this.requestBody?.recode(recoder)
-  }
-
   trace(): DocumentTrace {
     return this.path.trace().append(this.method)
+  }
+
+  defaultResponse(): Response<SchemaType> {
+    const statusCode = Object.keys(this.responses).map(parseInt).sort()[0]
+    return this.responses[statusCode]
   }
 }

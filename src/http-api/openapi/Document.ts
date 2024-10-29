@@ -39,7 +39,6 @@ export interface DocumentConfig<SchemaType = OpenAPIV3.SchemaObject> {
 
 export type SchemaEncoder<SchemaType> = (input: SchemaType) => SchemaItem
 export type SchemaDecoder<SchemaType> = (input: SchemaItem) => SchemaType
-export type SchemaRecoder = (input: SchemaItem) => SchemaItem
 
 export class Document<SchemaType = OpenAPIV3.SchemaObject> {
   readonly openapi: string
@@ -106,10 +105,6 @@ export class Document<SchemaType = OpenAPIV3.SchemaObject> {
         securitySchemes: this.securitySchemes,
       },
     }
-  }
-
-  recode(recoder: SchemaRecoder): Document<SchemaItem> {
-    return new Document(this.decode(recoder))
   }
 
   trace(): DocumentTrace {

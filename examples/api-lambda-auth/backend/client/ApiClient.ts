@@ -1,6 +1,6 @@
-import { HttpApiClientTokenAuthorizer } from "@cloudventure/sdf/http-api/client"
+import { HttpApiClientTokenAuthorizer } from "@cloudventure/sdf/http-api/runtime/client/HttpApiClientAuthorizer"
 
-import { BaseApiClient } from "../.gen/client/BaseApiClient"
+import { BaseApiClient } from "../.gen/api/BaseApiClient"
 
 export class ApiClient extends BaseApiClient {
   constructor(baseUrl: string, token: string) {

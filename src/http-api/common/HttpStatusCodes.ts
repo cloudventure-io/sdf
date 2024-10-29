@@ -34,6 +34,7 @@ export enum HttpStatusCodes {
   RangeNotSatisfiable = 416,
   ExpectationFailed = 417,
   ImATeapot = 418,
+  UnprocessableContent = 422,
   PreconditionRequired = 428,
   TooManyRequests = 429,
   RequestHeaderFieldsTooLarge = 431,
@@ -45,3 +46,7 @@ export enum HttpStatusCodes {
   ServiceUnavailable = 503,
   GatewayTimeout = 504,
 }
+
+export const HttpStatusCodesNames = Object.fromEntries(
+  Object.entries(HttpStatusCodes).map(([key, value]) => [value, key]),
+) as { [key in HttpStatusCodes]: string }

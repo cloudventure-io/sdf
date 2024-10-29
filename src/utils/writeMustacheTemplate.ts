@@ -1,4 +1,4 @@
-import Mustache from "mustache"
+import { default as Handlebars } from "handlebars"
 
 import { fileExists } from "../utils/fileExists"
 import { writeFile } from "./writeFile"
@@ -22,6 +22,8 @@ export const writeMustacheTemplate = async ({
     return
   }
 
-  const content = Mustache.render(template, context, {}, { escape: v => v })
+  const tpl = Handlebars.compile(template, { noEscape: true })
+  const content = tpl(context)
+
   await writeFile(path, content)
 }
