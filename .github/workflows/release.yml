@@ -101,12 +101,11 @@ jobs:
         uses: ./.github/actions/install-and-build
 
       - name: Publish
-        uses: JS-DevTools/npm-publish@v1
+        uses: JS-DevTools/npm-publish@v3
         id: publish
         with:
           token: ${{ secrets.NPMJS_TOKEN }}
           access: public
-          check-version: true
           package: dist/package.json
 
       - name: Tag
