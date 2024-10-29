@@ -1,9 +1,9 @@
 import { default as Handlebars } from "handlebars"
 
-import { fileExists } from "../utils/fileExists"
+import { fileExists } from "./fileExists"
 import { writeFile } from "./writeFile"
 
-export interface writeMustacheTemplateOptions {
+export interface writeHbsTemplateOptions {
   template: string
   path: string
   overwrite?: boolean
@@ -12,12 +12,12 @@ export interface writeMustacheTemplateOptions {
   }
 }
 
-export const writeMustacheTemplate = async ({
+export const writeHbsTemplate = async ({
   template,
   path,
   overwrite,
   context,
-}: writeMustacheTemplateOptions): Promise<void> => {
+}: writeHbsTemplateOptions): Promise<void> => {
   if (!overwrite && (await fileExists(path))) {
     return
   }

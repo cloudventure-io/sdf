@@ -22,13 +22,13 @@ const run = async () => {
       ],
     },
     {
-      entryPoints: glob.sync("./src/**/*.mu"),
+      entryPoints: glob.sync("./src/**/*.hbs"),
       options: [
         {
           outdir: "dist",
           format: "cjs",
           outExtension: {
-            ".js": ".mu.js",
+            ".js": ".hbs.js",
           },
         },
       ],
@@ -44,7 +44,7 @@ const run = async () => {
     legalComments: "eof",
     outbase: "src",
     loader: {
-      ".mu": "text",
+      ".hbs": "text",
     },
     treeShaking: true,
   }

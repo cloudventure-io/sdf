@@ -1,7 +1,7 @@
 {
   "transform": {
     "^.+\\.ts$": ["@cloudventure/jest-transformer-esbuild"],
-    "\\.ts\\.mu": ["./tmp/jest-raw-transformer.js"]
+    "\\.ts\\.hbs": ["./tmp/jest-raw-transformer.js"]
   },
   "modulePathIgnorePatterns": [
     "<rootDir>/.github",

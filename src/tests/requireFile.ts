@@ -7,7 +7,7 @@ export const requireFile = async <T>(path: string, bundleDir: string): Promise<T
 
   const options: esbuild.BuildOptions = {
     loader: {
-      ".mu": "text",
+      ".hbs": "text",
     },
     absWorkingDir: bundleDir,
     platform: "node",

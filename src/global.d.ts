@@ -1,4 +1,4 @@
-declare module "*.mu" {
+declare module "*.hbs" {
   const tpl: string
   export default tpl
 }

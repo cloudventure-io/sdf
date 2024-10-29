@@ -20,7 +20,7 @@ import { SchemaItem } from "../../http-api/openapi/SchemaItem"
 import { ApiResponseByMediaType, DefaultMediaType, EmptyResponse } from "../../http-api/runtime/common/ApiResponse"
 import { LambdaConfig, LambdaEntryPoint } from "../../lambda"
 import { writeFile } from "../../utils/writeFile"
-import { writeMustacheTemplate } from "../../utils/writeMustacheTemplate"
+import { writeHbsTemplate } from "../../utils/writeHbsTemplate"
 import { Bundler } from "../Bundler"
 import { BundlerLanguage } from "./BundlerLanguage"
 import * as templates from "./typescript/Templates"
@@ -219,7 +219,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
         },
       )
 
-      await writeMustacheTemplate({
+      await writeHbsTemplate({
         path: resourcesPath,
         template: templates.resources,
         overwrite: true,
@@ -296,7 +296,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
     await writeFile(`${validatorPath}.js`, moduleCode)
 
-    await writeMustacheTemplate({
+    await writeHbsTemplate({
       template: templates.httpApiHandlerValidator,
       path: `${validatorPath}.d.ts`,
       context: {
@@ -361,7 +361,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
             .flat(),
         )
 
-        await writeMustacheTemplate({
+        await writeHbsTemplate({
           template: templates.httpApiOperation,
           path: `${operationPath}.ts`,
           overwrite: true,
@@ -377,7 +377,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
         const validatorPath = await this.renderValidator(httpApi, op)
 
-        await writeMustacheTemplate({
+        await writeHbsTemplate({
           template: templates.httpApiHandlerEntryPoint,
           path: `${entryPointPath}.ts`,
           overwrite: true,
@@ -411,7 +411,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
           (opDefaultMediaType?.schema?.value && JSONSchemaFaker.generate(opDefaultMediaType?.schema?.value)) ||
           undefined
 
-        await writeMustacheTemplate({
+        await writeHbsTemplate({
           template: templates.httpApiHandler,
           path: `${handlerPath}.ts`,
           overwrite: false,
@@ -473,7 +473,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
       })
     })
 
-    await writeMustacheTemplate({
+    await writeHbsTemplate({
       template: templates.httpApiClient,
       path: `${clientClassPath}.ts`,
       context: {
@@ -491,7 +491,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
     new AsyncResolvable(this, "api-spec", async () => {
       await writeFile(this.httpApiSpecPath(httpApi), JSON.stringify(await documentPromise, null, 2))
-      await writeMustacheTemplate({
+      await writeHbsTemplate({
         template: templates.httpApiDocument,
         path: `${this.httpApiDocumentPath(httpApi)}.ts`,
         overwrite: true,
@@ -535,7 +535,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
     const handlerPath = this.httpApiAuthorizerHandlerPath(authorizer)
     const entryPointPath = this.httpApiAuthorizerEntryPointPath(authorizer)
 
-    await writeMustacheTemplate({
+    await writeHbsTemplate({
       template: templates.httpApiAuthorizerEntryPoint,
       path: `${entryPointPath}.ts`,
       overwrite: true,
@@ -547,7 +547,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
       },
     })
 
-    await writeMustacheTemplate({
+    await writeHbsTemplate({
       template: templates.httpApiAuthorizerHandler,
       path: `${handlerPath}.ts`,
       overwrite: false,
