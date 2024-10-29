@@ -112,6 +112,7 @@ export class HttpApiClient {
     if (response.content.mediaType === MimeTypes.ApplicationJson) {
       try {
         return HttpError.fromJSON(response.body)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* noop */
       }

@@ -4,7 +4,7 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
-import { camelCase, paramCase } from "change-case"
+import { camelCase, kebabCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
 
@@ -221,7 +221,7 @@ export class HttpApi extends Construct {
       memorySize: 512,
       ...this.config.lambdaConfig,
 
-      functionName: `${this.config.name}-${paramCase(operation.operationId)}`,
+      functionName: `${this.config.name}-${kebabCase(operation.operationId)}`,
       publish: true,
       resources: operation.resolveLinks(),
 

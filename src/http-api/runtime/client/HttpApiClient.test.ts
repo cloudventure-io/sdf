@@ -86,7 +86,9 @@ describe(HttpApiClient.name, () => {
   })
 
   afterEach(async () => {
-    apiServer && (await apiServer.close())
+    if (apiServer) {
+      await apiServer.close()
+    }
     apiEntrypoints.mockClear()
     await setup.afterEach(rootDir)
   })
