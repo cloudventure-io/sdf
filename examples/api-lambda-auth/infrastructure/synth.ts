@@ -31,13 +31,14 @@ export const synth = async (options: AppOptions): Promise<App> => {
   const app = new App(options)
   const stack = new TerraformStack(app, "deployment")
 
-  new AwsProvider(stack, "aws")
-  new ArchiveProvider(stack, "archive")
+  const aws = new AwsProvider(stack, "aws")
+  const archive = new ArchiveProvider(stack, "archive")
 
   const bundler = new Bundler(stack, "api-with-authorizer", {
     language: "typescript",
     bundle: "direct",
     path: srcpath,
+    providers: [aws, archive],
   })
 
   const authorizer = new HttpApiLambdaAuthorizer(bundler, "authorizer", {
@@ -70,8 +71,12 @@ export const synth = async (options: AppOptions): Promise<App> => {
     },
   })
 
-  new TerraformOutput(stack, "api_url", {
+  new TerraformOutput(bundler, "api_url", {
     value: httpApi.apigw.apiEndpoint,
+  })
+
+  new TerraformOutput(stack, "api_url", {
+    value: bundler.output("api_url"),
   })
 
   if (opts.stateBucket) {

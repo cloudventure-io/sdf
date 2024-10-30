@@ -1,7 +1,7 @@
 import { ArchiveProvider } from "@cdktf/provider-archive/lib/provider"
 import { AwsProvider } from "@cdktf/provider-aws/lib/provider"
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda"
-import { TerraformStack } from "cdktf"
+import { TerraformLocal, TerraformOutput, TerraformStack } from "cdktf"
 import { OpenAPIV3 } from "openapi-types"
 import { join } from "path"
 
@@ -35,17 +35,23 @@ describe(HttpApi.name, () => {
   it("test validators", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
+
+    const local = new TerraformLocal(stack, "local", "test-value")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "direct",
       path: rootDir,
       prefix: "src",
+      providers: [aws, archive],
+      variables: {
+        inputvar: local.expression,
+      },
     })
 
-    new HttpApi(bundler, "api", {
+    const api = new HttpApi(bundler, "api", {
       name: "test",
       document: {
         openapi: "3.0.0",
@@ -141,6 +147,14 @@ describe(HttpApi.name, () => {
       },
     })
 
+    new TerraformOutput(bundler, "outvar", {
+      value: api.apigw.apiEndpoint,
+    })
+
+    new TerraformOutput(stack, "output", {
+      value: bundler.output("outvar"),
+    })
+
     await app.synth()
 
     await tscCheck(rootDir)
@@ -219,14 +233,15 @@ describe(HttpApi.name, () => {
   it("broken typescript", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
+      providers: [aws, archive],
     })
 
     new HttpApi(bundler, "api", {
@@ -297,14 +312,15 @@ describe(HttpApi.name, () => {
   it("authorizer", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
+      providers: [aws, archive],
     })
 
     const authorizer = new HttpApiLambdaAuthorizer(bundler, "my-auth", {
@@ -344,14 +360,15 @@ describe(HttpApi.name, () => {
   it("authorizer - apiKey", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
+      providers: [aws, archive],
     })
 
     expect(
@@ -378,14 +395,15 @@ describe(HttpApi.name, () => {
   it("authorizer - header", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
+      providers: [aws, archive],
     })
 
     expect(
@@ -412,14 +430,15 @@ describe(HttpApi.name, () => {
   it("authorizer - no authorizer", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
+      providers: [aws, archive],
     })
 
     expect(

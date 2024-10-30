@@ -96,14 +96,15 @@ describe(HttpApiClient.name, () => {
   it("test client", async () => {
     const app = new App({ outdir: outDir })
     const stack = new TerraformStack(app, "stack")
-    new AwsProvider(stack, "aws")
-    new ArchiveProvider(stack, "archive")
+    const aws = new AwsProvider(stack, "aws")
+    const archive = new ArchiveProvider(stack, "archive")
 
     const bundler = new Bundler(stack, bundlerName, {
       language: "typescript",
       bundle: "none",
       path: rootDir,
       prefix: "src",
+      providers: [aws, archive],
     })
 
     new HttpApi(bundler, "api", {

@@ -1,11 +1,12 @@
 import { DataArchiveFile } from "@cdktf/provider-archive/lib/data-archive-file"
 import { S3Object } from "@cdktf/provider-aws/lib/s3-object"
 import { Resource } from "@cdktf/provider-null/lib/resource"
-import { Fn, TerraformStack, Token } from "cdktf"
+import { Fn, TerraformHclModuleConfig, TerraformProvider, TerraformStack, Token } from "cdktf"
 import { Construct } from "constructs"
 import { join, relative } from "path"
 
 import { App, AppLifeCycle } from "../core/App"
+import { Module } from "../core/Module"
 import { SchemaRegistry } from "../core/SchemaRegistry"
 import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
 import { HttpApi } from "../http-api"
@@ -98,21 +99,29 @@ export interface BundlerContainerImageConfig {
   workingWirectory?: string
 }
 
-export type BundlerConfig = ((BundlerConfigTypeScript | BundlerConfigCustom) &
+export type BundlerConfig<
+  Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
+> = ((BundlerConfigTypeScript | BundlerConfigCustom) &
   (BundlerConfigDirect | BundlerConfigS3 | BundlerConfigContainer | BundlerConfigNone)) & {
   /** the language of the bundler */
   language: "typescript" | "custom"
 
   /** the bundle method */
   bundle: "direct" | "s3" | "container" | "none"
+
+  /** external variables */
+  variables?: Variables
+  providers?: Array<TerraformProvider>
 }
 
-export type BundleManifest = BundlerConfig & {
+export type BundleManifest = Omit<BundlerConfig, "variables" | "providers"> & {
   /** The id of the bundle */
   id: string
 }
 
-export class Bundler extends Construct {
+export class Bundler<
+  Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
+> extends Module<Variables> {
   private app: App
   private stack: TerraformStack
 
@@ -122,15 +131,15 @@ export class Bundler extends Construct {
 
   public readonly schemaRegistry: SchemaRegistry = new SchemaRegistry()
 
-  constructor(
-    scope: Construct,
-    id: string,
-    private config: BundlerConfig,
-  ) {
-    super(scope, id)
+  private config: BundlerConfig<Variables>
 
-    this.node.setContext(Bundler.name, this)
-    this.node.setContext(this.constructor.name, this)
+  constructor(scope: Construct, id: string, { variables, providers, ...config }: BundlerConfig<Variables>) {
+    super(scope, id, { variables, providers }, (self: Construct) => {
+      self.node.setContext(Bundler.name, self)
+      self.node.setContext(self.constructor.name, self)
+    })
+
+    this.config = config
 
     this.app = App.getAppFromContext(this)
     this.stack = this.app.getStack(this)

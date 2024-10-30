@@ -10,20 +10,23 @@ importers:
     dependencies:
       '@cloudventure/sdf':
         specifier: file:../../dist
-        version: file:../../dist(@types/aws-lambda@8.10.133)(ink@3.2.0(react@17.0.2))(json-schema-to-zod@2.0.14)(react@17.0.2)
+        version: file:../../dist(@cdktf/provider-archive@10.2.0(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2))(@cdktf/provider-aws@19.39.0(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2))(@cdktf/provider-null@10.0.1(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2))(@types/aws-lambda@8.10.145)(cdktf-cli@0.20.9(ink@3.2.0(react@17.0.2))(react@17.0.2))(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2)(json-schema-to-zod@2.4.1)
       commander:
         specifier: ^11.1.0
         version: 11.1.0
       dotenv:
         specifier: ^16.4.1
         version: 16.4.1
+      json-schema-to-zod:
+        specifier: ^2.4.1
+        version: 2.4.1
     devDependencies:
       '@cloudventure/jest-transformer-esbuild':
         specifier: ^1.0.14
         version: 1.0.14(jest@29.7.0(@types/node@20.11.16))
       '@types/aws-lambda':
-        specifier: ^8.10.133
-        version: 8.10.133
+        specifier: ^8.10.145
+        version: 8.10.145
       axios:
         specifier: ^1.6.7
         version: 1.6.7
@@ -316,7 +319,13 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
     peerDependencies:
+      '@cdktf/provider-archive': ^10.2.0
+      '@cdktf/provider-aws': ^19.39.0
+      '@cdktf/provider-null': ^10.0.1
       '@types/aws-lambda': ^8.10.145
+      cdktf: ^0.20.9
+      cdktf-cli: ^0.20.9
+      constructs: ^10.4.2
       json-schema-to-zod: ^2.4.1
 
   '@esbuild/aix-ppc64@0.19.12':
@@ -824,8 +833,8 @@ packages:
   '@sinonjs/fake-timers@10.3.0':
     resolution: {integrity: sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA==}
 
-  '@types/aws-lambda@8.10.133':
-    resolution: {integrity: sha512-sr852MAL/79rjDelXP6ZuJ6GwOvXIRrFAoC8a+w91mZ5XR71CuzSgo1d0+pG1qgfPhjFgaibu7SWaoC5BA7pyQ==}
+  '@types/aws-lambda@8.10.145':
+    resolution: {integrity: sha512-dtByW6WiFk5W5Jfgz1VM+YPA21xMXTuSFoLYIDY0L44jDLLflVPtZkYuu3/YxpGcvjzKFBZLU+GyKjR0HOYtyw==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -1598,6 +1607,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
+    deprecated: Glob versions prior to v9 are no longer supported
 
   globals@11.12.0:
     resolution: {integrity: sha512-WOBp/EEGUiIsJSp7wcv/y6MO+lV9UoncWqxuFfm8eBwzWNgyfBd6Gz+IeKQ9jCmyhoH99g15M3T+QaVHFjizVA==}
@@ -1703,6 +1713,7 @@ packages:
 
   inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
+    deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
@@ -2086,8 +2097,8 @@ packages:
     engines: {node: '>=16.0.0'}
     hasBin: true
 
-  json-schema-to-zod@2.0.14:
-    resolution: {integrity: sha512-Pp9wg1/AcMw5KA1RA7t6ybUTIes1yX0vp8PeE48cPnddHb+ZZWbAKPaFXVf4Pif4XSbo9u9i/hIzBcS1UHK/TA==}
+  json-schema-to-zod@2.4.1:
+    resolution: {integrity: sha512-aMoez9TxgnfLAIZaWTPaQ+j7rOt1K9Ew/TBI85XcnhcFlo/47b1MDgpi4r07XndLSZWOX/KsJiRJvhdzSvo2Dw==}
     hasBin: true
 
   json-schema-traverse@0.4.1:
@@ -2828,8 +2839,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@5.7.0-dev.20241029:
-    resolution: {integrity: sha512-3aXt1i2woT3j471mo6wFtEg44jqF8Qnfwh+pUFdPuIEltQ36GmP7JjewpLcO0IwYiVruip1J52P3XK3/R9K33A==}
+  typescript@5.7.0-dev.20241030:
+    resolution: {integrity: sha512-GTDPhqdtcO+8WOPjYAp33e8dtlZN6pY9Z89aVLH1PsaiA1yaWNPVNCQ1KRCc1BK/jQGJVVBhu0fxWGSLjAE1Dw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -3075,7 +3086,7 @@ snapshots:
 
   '@babel/generator@7.25.0':
     dependencies:
-      '@babel/types': 7.25.2
+      '@babel/types': 7.26.0
       '@jridgewell/gen-mapping': 0.3.5
       '@jridgewell/trace-mapping': 0.3.25
       jsesc: 2.5.2
@@ -3234,7 +3245,7 @@ snapshots:
     dependencies:
       '@babel/code-frame': 7.26.0
       '@babel/parser': 7.26.1
-      '@babel/types': 7.25.2
+      '@babel/types': 7.26.0
 
   '@babel/traverse@7.23.9':
     dependencies:
@@ -3429,14 +3440,14 @@ snapshots:
       esbuild: 0.19.12
       jest: 29.7.0(@types/node@20.11.16)
 
-  '@cloudventure/sdf@file:../../dist(@types/aws-lambda@8.10.133)(ink@3.2.0(react@17.0.2))(json-schema-to-zod@2.0.14)(react@17.0.2)':
+  '@cloudventure/sdf@file:../../dist(@cdktf/provider-archive@10.2.0(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2))(@cdktf/provider-aws@19.39.0(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2))(@cdktf/provider-null@10.0.1(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2))(@types/aws-lambda@8.10.145)(cdktf-cli@0.20.9(ink@3.2.0(react@17.0.2))(react@17.0.2))(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2)(json-schema-to-zod@2.4.1)':
     dependencies:
       '@apidevtools/swagger-parser': 10.1.0(openapi-types@12.1.3)
       '@cdktf/provider-archive': 10.2.0(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2)
       '@cdktf/provider-aws': 19.39.0(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2)
       '@cdktf/provider-null': 10.0.1(cdktf@0.20.9(constructs@10.4.2))(constructs@10.4.2)
       '@eslint/eslintrc': 3.1.0
-      '@types/aws-lambda': 8.10.133
+      '@types/aws-lambda': 8.10.145
       ajv: 8.17.1
       cdktf: 0.20.9(constructs@10.4.2)
       cdktf-cli: 0.20.9(ink@3.2.0(react@17.0.2))(react@17.0.2)
@@ -3447,20 +3458,13 @@ snapshots:
       handlebars: 4.7.8
       json-schema-faker: 0.5.6
       json-schema-to-typescript: 15.0.2
-      json-schema-to-zod: 2.0.14
+      json-schema-to-zod: 2.4.1
       lodash: 4.17.21
       mustache: 4.2.0
       openapi-types: 12.1.3
       zod: 3.23.8
     transitivePeerDependencies:
-      - '@types/react'
-      - bufferutil
-      - debug
-      - encoding
-      - ink
-      - react
       - supports-color
-      - utf-8-validate
 
   '@esbuild/aix-ppc64@0.19.12':
     optional: true
@@ -4004,7 +4008,7 @@ snapshots:
     dependencies:
       '@sinonjs/commons': 3.0.1
 
-  '@types/aws-lambda@8.10.133': {}
+  '@types/aws-lambda@8.10.145': {}
 
   '@types/babel__core@7.20.5':
     dependencies:
@@ -4636,7 +4640,7 @@ snapshots:
     dependencies:
       semver: 7.6.3
       shelljs: 0.8.5
-      typescript: 5.7.0-dev.20241029
+      typescript: 5.7.0-dev.20241030
 
   eastasianwidth@0.2.0: {}
 
@@ -5642,7 +5646,7 @@ snapshots:
       minimist: 1.2.8
       prettier: 3.3.3
 
-  json-schema-to-zod@2.0.14: {}
+  json-schema-to-zod@2.4.1: {}
 
   json-schema-traverse@0.4.1: {}
 
@@ -6333,7 +6337,7 @@ snapshots:
 
   typescript@5.4.5: {}
 
-  typescript@5.7.0-dev.20241029: {}
+  typescript@5.7.0-dev.20241030: {}
 
   uglify-js@3.19.3:
     optional: true
