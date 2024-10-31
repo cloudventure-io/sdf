@@ -61,6 +61,7 @@ const run = async () => {
     "cdktf",
     "cdktf-cli",
     "constructs",
+    "openapi-types",
   ]
 
   moveToPeerDependencies.forEach(d => {
