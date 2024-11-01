@@ -37,10 +37,12 @@ describe("HttpApiServer", () => {
       jsonBody,
       formBody,
       responses,
+      params,
     }: {
       jsonBody?: OpenAPIV3.SchemaObject
       formBody?: OpenAPIV3.SchemaObject
       responses?: OperationConfig["responses"]
+      params?: OperationConfig["parameters"]
     } = {},
   ) => {
     const app = new App({ outdir: outDir })
@@ -89,6 +91,7 @@ describe("HttpApiServer", () => {
                   in: "query",
                   name: "query-optional",
                 },
+                ...(params || []),
               ],
               requestBody: {
                 required: false,
@@ -158,34 +161,37 @@ describe("HttpApiServer", () => {
   }
 
   it("response generation - global default - success", async () => {
-    await synthApp({ content: { body: { json: true } } })
+    await synthApp({ content: { body: JSON.stringify({ json: true }) } })
     await tscCheck(rootDir)
   })
 
   it("response generation - global default - error", async () => {
-    await synthApp({ content: { body: { nojson: true } } })
+    await synthApp({ content: { body: JSON.stringify({ nojson: true }) } })
     await expect(tscCheck(rootDir)).rejects.toThrow(/is not assignable to type 'Response'/)
   })
 
   it("response generation - status code default with specific body - success", async () => {
-    await synthApp({ content: { body: { json: true } }, statusCode: 200 })
+    await synthApp({ content: { body: JSON.stringify({ json: true }) }, statusCode: 200 })
     await tscCheck(rootDir)
   })
 
   it("response generation - status code default with specific body - error", async () => {
-    await synthApp({ content: { body: { nojson: true } }, statusCode: 200 })
+    await synthApp({ content: { body: JSON.stringify({ nojson: true }) }, statusCode: 200 })
     await expect(tscCheck(rootDir)).rejects.toThrow(/is not assignable to type 'Response'/)
   })
 
   it("response generation - status code default with arbitrary body - success", async () => {
-    await synthApp({ content: { body: { arbitrary: "content" }, mediaType: "application/json" }, statusCode: 201 })
+    await synthApp({
+      content: { body: JSON.stringify({ arbitrary: "content" }), mediaType: "application/json" },
+      statusCode: 201,
+    })
     await tscCheck(rootDir)
   })
 
   it("response generation - constrained by codec type - error", async () => {
     await synthApp(
       {
-        content: { body: { form: false }, mediaType: "application/x-www-form-urlencoded" },
+        content: { body: JSON.stringify({ form: false }), mediaType: "application/x-www-form-urlencoded" },
         statusCode: 200,
       },
       {
@@ -207,7 +213,7 @@ describe("HttpApiServer", () => {
   })
 
   it("response generation - global default with arbitrary content - success", async () => {
-    const body = { arbitrary: "content" }
+    const body = JSON.stringify({ arbitrary: "content" })
     await synthApp(
       { content: { body, mediaType: "application/json" }, statusCode: 200 },
       {
@@ -234,13 +240,50 @@ describe("HttpApiServer", () => {
     expect(res).toStrictEqual({
       statusCode: HttpStatusCodes.Ok,
       headers: { [HttpHeaders.ContentType]: "application/json" },
-      body: JSON.stringify(body),
+      body: body,
       isBase64Encoded: false,
     })
   })
 
+  it("cookie validation - success", async () => {
+    const body = `request.cookie["cookie-required"]`
+
+    await synthApp(
+      { content: { body, mediaType: "application/json" }, statusCode: 200 },
+      {
+        params: [
+          {
+            in: "cookie",
+            name: "cookie-required",
+            required: true,
+            schema: { type: "string", pattern: "^match" },
+          },
+        ],
+      },
+    )
+    await tscCheck(rootDir)
+
+    const { entrypoint } = await requireFile<{
+      entrypoint: (
+        event: Partial<APIGatewayProxyEventV2WithRequestContext<unknown>>,
+      ) => Promise<APIGatewayProxyStructuredResultV2>
+    }>("src/.gen/.entrypoints/api/testPost.ts", rootDir)
+
+    let res = await entrypoint({ cookies: ["cookie-required=match-value"] })
+
+    expect(res).toStrictEqual({
+      statusCode: HttpStatusCodes.Ok,
+      headers: { [HttpHeaders.ContentType]: "application/json" },
+      body: JSON.stringify("match-value"),
+      isBase64Encoded: false,
+    })
+
+    res = await entrypoint({ cookies: ["cookie-required=nomatch-value"] })
+    expect(res.statusCode).toStrictEqual(HttpStatusCodes.BadRequest)
+  })
+
   it("application/json codec - success", async () => {
-    const body = { json: true }
+    const body = JSON.stringify({ json: true })
 
     await synthApp({ content: { body } })
     await tscCheck(rootDir)
@@ -252,20 +295,20 @@ describe("HttpApiServer", () => {
     }>("src/.gen/.entrypoints/api/testPost.ts", rootDir)
 
     const res = await entrypoint({
-      body: JSON.stringify(body),
+      body: body,
       headers: { [HttpHeaders.ContentType]: "application/json" },
     })
 
     expect(res).toStrictEqual({
       statusCode: 200,
       headers: { [HttpHeaders.ContentType]: "application/json" },
-      body: JSON.stringify(body),
+      body: body,
       isBase64Encoded: false,
     })
   })
 
   it("unsupported media type - error", async () => {
-    const body = { json: true }
+    const body = JSON.stringify({ json: true })
 
     await synthApp({ content: { body } })
     await tscCheck(rootDir)
@@ -277,7 +320,7 @@ describe("HttpApiServer", () => {
     }>("src/.gen/.entrypoints/api/testPost.ts", rootDir)
 
     const res = await entrypoint({
-      body: JSON.stringify(body),
+      body: body,
       headers: { [HttpHeaders.ContentType]: "application/aaa" },
     })
 

@@ -408,8 +408,9 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
         const handlerBody =
           operation.gen?.content.body ||
-          (opDefaultMediaType?.schema?.value && JSONSchemaFaker.generate(opDefaultMediaType?.schema?.value)) ||
-          undefined
+          JSON.stringify(
+            opDefaultMediaType?.schema?.value && JSONSchemaFaker.generate(opDefaultMediaType?.schema?.value),
+          )
 
         await writeHbsTemplate({
           template: templates.httpApiHandler,
@@ -421,7 +422,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
               class: defaultResponse.class,
               statusCode: handlerStatusCode,
               statusCodeName: HttpStatusCodesNames[handlerStatusCode],
-              body: handlerBody && JSON.stringify(handlerBody),
+              body: handlerBody,
             },
           },
         })

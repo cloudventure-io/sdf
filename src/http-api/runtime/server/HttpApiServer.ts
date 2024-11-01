@@ -116,6 +116,11 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
       event,
       path: validate("PATH", event.pathParameters || {}, this.validators.path),
       query: validate("QUERY_STRING", event.queryStringParameters || {}, this.validators.query),
+      cookie: validate(
+        "COOKIE",
+        Object.fromEntries((event.cookies || []).map(cookie => cookie.split("=", 2))),
+        this.validators.cookie,
+      ),
       header: validate("HEADER", this.headerEncoder.encode(event.headers || {}), this.validators.header),
       mediaType: "",
       body: undefined,

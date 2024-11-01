@@ -122,7 +122,7 @@ describe(HttpApiClient.name, () => {
               operationId: "testGet",
               "x-sdf-gen": {
                 content: {
-                  body: { name: "test get response" },
+                  body: JSON.stringify({ name: "test get response" }),
                 },
               },
               responses: {
@@ -158,7 +158,7 @@ describe(HttpApiClient.name, () => {
               operationId: "testPost",
               "x-sdf-gen": {
                 content: {
-                  body: { name: "test post response" },
+                  body: JSON.stringify({ name: "test post response" }),
                 },
               },
               requestBody: {
@@ -198,7 +198,7 @@ describe(HttpApiClient.name, () => {
               operationId: "testGetItem",
               "x-sdf-gen": {
                 content: {
-                  body: { name: "test get item response" },
+                  body: JSON.stringify({ name: "test get item response" }),
                 },
               },
               responses: {
