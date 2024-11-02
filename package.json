@@ -75,5 +75,10 @@
   "bugs": {
     "url": "https://github.com/cloudventure-io/sdf/issues"
   },
-  "homepage": "https://github.com/cloudventure-io/sdf#readme"
+  "homepage": "https://github.com/cloudventure-io/sdf#readme",
+  "pnpm": {
+    "overrides": {
+      "jsonpath-plus": "^10.0.0"
+    }
+  }
 }
