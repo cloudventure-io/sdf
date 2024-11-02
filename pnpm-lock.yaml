@@ -62,9 +62,6 @@ importers:
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
-      mustache:
-        specifier: ^4.2.0
-        version: 4.2.0
       openapi-types:
         specifier: ^12.1.3
         version: 12.1.3
@@ -2736,10 +2733,6 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  mustache@4.2.0:
-    resolution: {integrity: sha512-71ippSywq5Yb7/tVYyGbkBggbU8H3u5Rz56fH60jGFgr8uHwxs+aSKeqmluIVzM0m0kB7xQjKS6qPfd0b2ZoqQ==}
-    hasBin: true
-
   mute-stream@1.0.0:
     resolution: {integrity: sha512-avsJQhyd+680gKXyG/sQc0nXaC6rBkPOfyHYcFb9+hdkqQkR9bdnkJ0AMZhke0oesPqIO+mFFJ+IdBc7mst4IA==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -3432,8 +3425,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@5.7.0-dev.20241029:
-    resolution: {integrity: sha512-3aXt1i2woT3j471mo6wFtEg44jqF8Qnfwh+pUFdPuIEltQ36GmP7JjewpLcO0IwYiVruip1J52P3XK3/R9K33A==}
+  typescript@5.7.0-dev.20241102:
+    resolution: {integrity: sha512-LnGndSZH+ssQTXmJh5R+4lu7a5WXqnOEsSG/VStm45xb10Mgf8R4h/uycBl/PdIfXkSOoAXsmPvZxd66IvD5CQ==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -5439,7 +5432,7 @@ snapshots:
     dependencies:
       semver: 7.6.3
       shelljs: 0.8.5
-      typescript: 5.7.0-dev.20241029
+      typescript: 5.7.0-dev.20241102
 
   eastasianwidth@0.2.0: {}
 
@@ -6892,8 +6885,6 @@ snapshots:
 
   ms@2.1.3: {}
 
-  mustache@4.2.0: {}
-
   mute-stream@1.0.0: {}
 
   nan@2.22.0: {}
@@ -7599,7 +7590,7 @@ snapshots:
 
   typescript@5.6.3: {}
 
-  typescript@5.7.0-dev.20241029: {}
+  typescript@5.7.0-dev.20241102: {}
 
   uglify-js@3.19.3:
     optional: true
