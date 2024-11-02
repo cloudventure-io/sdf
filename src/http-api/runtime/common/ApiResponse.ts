@@ -65,11 +65,12 @@ export class TextResponse<
   Body extends string,
   StatusCode extends number,
   Headers extends ResponseHeaders,
-> extends ApiResponse<Body, "text/plain", StatusCode, Headers> {
+  MediaType extends string = "text/plain",
+> extends ApiResponse<Body, MediaType, StatusCode, Headers> {
   private codec = new Utf8MediaContainerCodec()
 
-  constructor(body: Body, statusCode: StatusCode, headers?: Headers) {
-    super({ mediaType: "text/plain", body }, statusCode, headers)
+  constructor(body: Body, statusCode: StatusCode, headers?: Headers, mediaType: MediaType = "text/plain" as MediaType) {
+    super({ mediaType, body }, statusCode, headers)
   }
 
   encodeBody() {
@@ -78,6 +79,16 @@ export class TextResponse<
 
   decodeBody(output: MediaContainer) {
     return (this.content.body = this.codec.decode(output) as Body)
+  }
+}
+
+export class HtmlResponse<
+  Body extends string,
+  StatusCode extends number,
+  Headers extends ResponseHeaders,
+> extends TextResponse<Body, StatusCode, Headers, "text/html"> {
+  constructor(body: Body, statusCode: StatusCode, headers?: Headers) {
+    super(body, statusCode, headers, "text/html")
   }
 }
 
@@ -150,7 +161,7 @@ export type DefaultMediaType = typeof DefaultMediaType
 
 export const ApiResponseByMediaType = {
   "text/plain": TextResponse,
-  "text/html": TextResponse,
+  "text/html": HtmlResponse,
   "application/octet-stream": BinaryResponse,
   "application/json": JsonResponse,
   "application/x-www-form-urlencoded": FormResponse,
