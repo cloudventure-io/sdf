@@ -6,6 +6,9 @@ import {
   OperationRequestDefaultMediaType,
 } from "@cloudventure/sdf/http-api/runtime/client/HttpApiClient"
 
+// @ts-ignore
+type _ = OperationRequestDefaultMediaType
+
 import { Document } from "@cloudventure/sdf/http-api/openapi/Document"
 import { BundledDocument } from "@cloudventure/sdf/http-api/openapi/types"
 import { dereference } from "@cloudventure/sdf/http-api/openapi/utils"
