@@ -34,9 +34,10 @@ type PreserveBodyType<Body, Constraint> = IsEqual<Body, ConstrainBodyType<Body, 
 export type ConstructServerRequest<Request extends GeneratedRequestShape> = {
   event: APIGatewayProxyEventV2WithRequestContext<unknown>
 
-  path: Record<string, string | undefined> & Required<Request>["path"]
-  query: Record<string, string | undefined> & Required<Request>["query"]
-  header: Record<string, string | undefined> & Required<Request>["header"]
+  path: Record<string, string | number | boolean | undefined> & Required<Request>["path"]
+  query: Record<string, string | number | boolean | undefined> & Required<Request>["query"]
+  header: Record<string, string | number | boolean | undefined> & Required<Request>["header"]
+  cookie: Record<string, string | number | boolean | undefined> & Required<Request>["cookie"]
 } & (Request extends {
   authorizer: infer Authorizer
 }
@@ -137,7 +138,9 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
       return request
     }
 
-    const mediaType = request.header[HttpHeaders.ContentType]?.split(";")[0]?.trim()
+    const mediaType = String(request.header[HttpHeaders.ContentType] || "")
+      .split(";")[0]
+      ?.trim()
 
     if (!mediaType) {
       if (requestBody.required) {

@@ -159,7 +159,7 @@ export class DocumentSchemaAdapter {
       const schema = {
         type: "object",
         additionalProperties: {
-          type: "string",
+          oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
         },
         properties: {},
         required: [] as Array<string>,

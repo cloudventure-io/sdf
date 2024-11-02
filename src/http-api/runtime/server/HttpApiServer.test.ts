@@ -249,14 +249,16 @@ describe("HttpApiServer", () => {
     const body = `request.cookie["cookie-required"]`
 
     await synthApp(
-      { content: { body, mediaType: "application/json" }, statusCode: 200 },
+      { content: { body }, statusCode: 201 },
       {
         params: [
           {
             in: "cookie",
             name: "cookie-required",
             required: true,
-            schema: { type: "string", pattern: "^match" },
+            schema: {
+              oneOf: [{ type: "string", pattern: "^match" }, { type: "number" }],
+            },
           },
         ],
       },
@@ -272,7 +274,7 @@ describe("HttpApiServer", () => {
     let res = await entrypoint({ cookies: ["cookie-required=match-value"] })
 
     expect(res).toStrictEqual({
-      statusCode: HttpStatusCodes.Ok,
+      statusCode: HttpStatusCodes.Created,
       headers: { [HttpHeaders.ContentType]: "application/json" },
       body: JSON.stringify("match-value"),
       isBase64Encoded: false,
@@ -280,6 +282,9 @@ describe("HttpApiServer", () => {
 
     res = await entrypoint({ cookies: ["cookie-required=nomatch-value"] })
     expect(res.statusCode).toStrictEqual(HttpStatusCodes.BadRequest)
+
+    res = await entrypoint({ cookies: ["cookie-required=2.71"] })
+    expect(res.body).toBe(JSON.stringify(2.71))
   })
 
   it("application/json codec - success", async () => {

@@ -1,7 +1,8 @@
 export type GeneratedRequestShape = {
-  path?: Record<string, string | undefined>
-  query?: Record<string, string | undefined>
-  header?: Record<string, string | undefined>
+  path?: Record<string, string | number | boolean | undefined>
+  query?: Record<string, string | number | boolean | undefined>
+  header?: Record<string, string | number | boolean | undefined>
+  cookie?: Record<string, string | number | boolean | undefined>
 
   authorizer?: unknown
 } & (

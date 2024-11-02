@@ -54,9 +54,9 @@ export class HttpApiClient {
     this.authorizer = authorizer
   }
 
-  private filterUndefined(input: Record<string, string | undefined>): Record<string, string> {
+  private filterUndefined(input: Record<string, string | number | boolean | undefined>): Record<string, string> {
     return Object.entries(input).reduce(
-      (acc, [key, value]) => (value === undefined ? acc : { ...acc, [key]: value }),
+      (acc, [key, value]) => (value === undefined ? acc : { ...acc, [key]: String(value) }),
       {} as Record<string, string>,
     )
   }

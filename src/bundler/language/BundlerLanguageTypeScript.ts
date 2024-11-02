@@ -1,4 +1,4 @@
-import Ajv, { SchemaObject } from "ajv"
+import Ajv, { Options, SchemaObject } from "ajv"
 import standaloneCode from "ajv/dist/standalone"
 import { TerraformStack } from "cdktf"
 import { camelCase, constantCase, pascalCase } from "change-case"
@@ -7,7 +7,7 @@ import { mkdir, rm } from "fs/promises"
 import { JSONSchemaFaker } from "json-schema-faker"
 import { compile } from "json-schema-to-typescript"
 import { OpenAPIV3 } from "openapi-types"
-import { dirname, join, relative } from "path"
+import { basename, dirname, join, relative } from "path"
 
 import { App, AppLifeCycle } from "../../core/App"
 import { Resource } from "../../core/Resource"
@@ -283,18 +283,34 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
         ...schema.value,
       }))
 
-    const ajv = new Ajv({
+    const ajvOptions: Options = {
       code: { source: true, esm: true },
-      strict: false,
+      strict: true,
       allErrors: true,
-      schemas,
+      useDefaults: true,
+    }
+
+    const coerceKeys = ["query", "path", "header", "cookie"]
+
+    const ajv = new Ajv({
+      ...ajvOptions,
+      // schemas,
+      schemas: schemas.filter(schema => !coerceKeys.includes(schema.$id as string)),
+    })
+
+    const ajvCoerce = new Ajv({
+      ...ajvOptions,
+      coerceTypes: true,
+      schemas: schemas.filter(schema => coerceKeys.includes(schema.$id as string)),
     })
 
     const moduleCode = standaloneCode(ajv)
+    const coercedModuleCode = standaloneCode(ajvCoerce)
 
     const validatorPath = this.httpApiValidatorPath(httpApi, operationId)
 
-    await writeFile(`${validatorPath}.js`, moduleCode)
+    await writeFile(`${validatorPath}.js`, moduleCode + `; export * from "./${basename(validatorPath)}.coerced"`)
+    await writeFile(`${validatorPath}.coerced.js`, coercedModuleCode)
 
     await writeHbsTemplate({
       template: templates.httpApiHandlerValidator,
