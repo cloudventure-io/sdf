@@ -90,7 +90,7 @@ export class HttpApi extends Construct {
 
   constructor(
     scope: Construct,
-    private id: string,
+    public readonly id: string,
     public readonly config: HttpApiConfig,
   ) {
     super(scope, id)

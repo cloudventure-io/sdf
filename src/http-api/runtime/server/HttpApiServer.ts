@@ -3,7 +3,7 @@ import { APIGatewayProxyEventV2WithRequestContext, APIGatewayProxyStructuredResu
 import { HttpHeaders } from "../../common/HttpHeaders"
 import { Operation } from "../../openapi/Operation"
 import { AwsHttpEventCodec } from "../codec/AwsHttpEventCodec"
-import { Codec, CodecInput, CodecOutput } from "../codec/Codec"
+import { Codec, CodecInput } from "../codec/Codec"
 import { HeaderEncoder } from "../codec/HeaderEncoder"
 import { MediaContainer, MediaContainerCodecs } from "../codec/MediaContainerCodec"
 import { ApiResponse, DefaultMediaType } from "../common/ApiResponse"
@@ -47,7 +47,7 @@ export type ConstructServerRequest<Request extends GeneratedRequestShape> = {
     mediaType: infer MediaType extends string
     body: infer Body
   }
-    ? { mediaType: MediaType; body: PreserveBodyType<Body, CodecOutputType<MediaType>> }
+    ? { mediaType: MediaType; body: PreserveBodyType<Body, CodecInputType<MediaType>> }
     : Record<string, never>)
 
 type ConditionalExtend<T, U> = T extends U ? T : unknown
@@ -59,10 +59,6 @@ export type ConstructResponseBody<
 > = FallbackToDefault<ConditionalExtend<Response[MediaType], CodecInputType<MediaType>>, CodecInputType<MediaType>>
 
 type MediaCodecs = typeof MediaContainerCodecs
-
-export type CodecOutputType<K extends string> = CodecOutput<
-  MediaCodecs[K extends keyof MediaCodecs ? K : DefaultMediaType]
->
 
 export type CodecInputType<K extends string> = CodecInput<
   MediaCodecs[K extends keyof MediaCodecs ? K : DefaultMediaType]
@@ -171,7 +167,9 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
     return request
   }
 
-  private async invokeHandler(event: APIGatewayProxyEventV2WithRequestContext<unknown>): Promise<ApiResponse> {
+  private async invokeHandler(
+    event: APIGatewayProxyEventV2WithRequestContext<unknown>,
+  ): Promise<{ response: ApiResponse; error?: unknown }> {
     try {
       let request = await this.createRequest(event)
 
@@ -185,15 +183,21 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
         throw new InternalServerError("INTERNAL_SERVER_ERROR", "handler must return an ApiResponse")
       }
 
-      return response
+      return { response }
     } catch (error) {
       if (error instanceof ApiResponse) {
-        return error
+        return { response: error }
       } else if (error instanceof HttpError) {
-        return ApiResponse.fromError(error)
+        return {
+          response: ApiResponse.fromError(error),
+          error,
+        }
       } else {
         console.error(error)
-        return ApiResponse.fromError(new InternalServerError("INTERNAL_SERVER_ERROR", "internal server error"))
+        return {
+          response: ApiResponse.fromError(new InternalServerError("INTERNAL_SERVER_ERROR", "internal server error")),
+          error,
+        }
       }
     }
   }
@@ -202,13 +206,13 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
     return async (
       event: APIGatewayProxyEventV2WithRequestContext<unknown>,
     ): Promise<APIGatewayProxyStructuredResultV2> => {
-      let response = await this.invokeHandler(event)
+      const result = await this.invokeHandler(event)
 
       if (this.middleware?.response) {
-        response = await this.middleware.response(response, this.operation)
+        result.response = await this.middleware.response(result.response, this.operation, result.error)
       }
 
-      return this.codec.encode(response)
+      return this.codec.encode(result.response)
     }
   }
 }

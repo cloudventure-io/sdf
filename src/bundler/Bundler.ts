@@ -101,6 +101,7 @@ export interface BundlerContainerImageConfig {
 
 export type BundlerConfig<
   Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
+  Providers extends Record<string, TerraformProvider> = Record<string, TerraformProvider>,
 > = ((BundlerConfigTypeScript | BundlerConfigCustom) &
   (BundlerConfigDirect | BundlerConfigS3 | BundlerConfigContainer | BundlerConfigNone)) & {
   /** the language of the bundler */
@@ -111,7 +112,7 @@ export type BundlerConfig<
 
   /** external variables */
   variables?: Variables
-  providers?: Array<TerraformProvider>
+  providers?: Providers
 }
 
 export type BundleManifest = Omit<BundlerConfig, "variables" | "providers"> & {
@@ -121,7 +122,8 @@ export type BundleManifest = Omit<BundlerConfig, "variables" | "providers"> & {
 
 export class Bundler<
   Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
-> extends Module<Variables> {
+  Providers extends Record<string, TerraformProvider> = Record<string, TerraformProvider>,
+> extends Module<Variables, Providers> {
   private app: App
   private stack: TerraformStack
 
@@ -133,7 +135,7 @@ export class Bundler<
 
   private config: BundlerConfig<Variables>
 
-  constructor(scope: Construct, id: string, { variables, providers, ...config }: BundlerConfig<Variables>) {
+  constructor(scope: Construct, id: string, { variables, providers, ...config }: BundlerConfig<Variables, Providers>) {
     super(scope, id, { variables, providers }, (self: Construct) => {
       self.node.setContext(Bundler.name, self)
       self.node.setContext(self.constructor.name, self)

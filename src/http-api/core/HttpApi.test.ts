@@ -45,7 +45,7 @@ describe(HttpApi.name, () => {
       bundle: "direct",
       path: rootDir,
       prefix: "src",
-      providers: [aws, archive],
+      providers: { aws, archive },
       variables: {
         inputvar: local.expression,
       },
@@ -241,7 +241,7 @@ describe(HttpApi.name, () => {
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     new HttpApi(bundler, "api", {
@@ -320,7 +320,7 @@ describe(HttpApi.name, () => {
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     const authorizer = new HttpApiLambdaAuthorizer(bundler, "my-auth", {
@@ -368,7 +368,7 @@ describe(HttpApi.name, () => {
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     expect(
@@ -403,7 +403,7 @@ describe(HttpApi.name, () => {
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     expect(
@@ -438,7 +438,7 @@ describe(HttpApi.name, () => {
       bundle: "direct",
       path: rootDir,
       prefix: join("src", bundlerName),
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     expect(

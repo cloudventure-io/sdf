@@ -88,7 +88,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
   /** The path of the HTTP API directory */
   private httpApiDir(httpApi: HttpApi): string {
-    return join(this.genDir, httpApi.prefix)
+    return join(this.genDir, httpApi.id)
   }
 
   /** The path of the OpenAPI document */
@@ -121,7 +121,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
 
   /** The path of the entry points directory */
   private httpApiEntryPointsDir(httpApi: HttpApi): string {
-    return join(this.genDir, ".entrypoints", httpApi.prefix)
+    return join(this.genDir, ".entrypoints", httpApi.id)
   }
 
   private httpApiEntryPointPath(httpApi: HttpApi, operationId: string): string {

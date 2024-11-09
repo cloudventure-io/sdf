@@ -4,5 +4,5 @@ import { HttpApiServerRequestShape } from "./HttpApiServer"
 
 export interface Middleware {
   request?: (request: HttpApiServerRequestShape, operation: Operation) => Promise<HttpApiServerRequestShape>
-  response?: (response: ApiResponse, operation: Operation) => Promise<ApiResponse>
+  response?: (response: ApiResponse, operation: Operation, error?: unknown) => Promise<ApiResponse>
 }

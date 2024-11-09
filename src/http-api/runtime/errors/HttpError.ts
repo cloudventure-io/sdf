@@ -5,6 +5,7 @@ export abstract class HttpError extends Error {
     public code: string,
     public message: string,
     public details?: unknown,
+    public internal?: unknown,
   ) {
     super(`[${code}]: ${message}`)
   }

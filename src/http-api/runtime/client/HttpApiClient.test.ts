@@ -104,7 +104,7 @@ describe(HttpApiClient.name, () => {
       bundle: "none",
       path: rootDir,
       prefix: "src",
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     new HttpApi(bundler, "api", {

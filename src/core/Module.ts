@@ -10,23 +10,28 @@ import { Construct } from "constructs"
 
 import { App } from "./App"
 
-export interface ModuleConfig<Variables extends TerraformHclModuleConfig["variables"]> {
+export interface ModuleConfig<
+  Variables extends TerraformHclModuleConfig["variables"],
+  Providers extends Record<string, TerraformProvider>,
+> {
   variables?: Variables
-  providers?: Array<TerraformProvider>
+  providers?: Providers
 }
 
 export class Module<
   Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
+  Providers extends Record<string, TerraformProvider> = Record<string, TerraformProvider>,
   SetContext extends (scope: Construct) => void = (scope: Construct) => void,
 > extends TerraformStack {
   public readonly variables: { [key in keyof Variables]: Variables[key] } = {} as any
+  public readonly providers: { [key in keyof Providers]: Providers[key] } = {} as any
 
   public readonly module: TerraformHclModule
 
   constructor(
     scope: Construct,
     public readonly id: string,
-    { variables = {}, providers = [] }: ModuleConfig<Variables>,
+    { variables = {}, providers = {} as Providers }: ModuleConfig<Variables, Providers>,
     setContext?: SetContext,
   ) {
     super(App.getAppFromContext(scope), id)
@@ -42,7 +47,14 @@ export class Module<
       source: `../${id}`,
       skipAssetCreationFromLocalModules: true,
       variables,
-      providers,
+      providers: Object.entries(providers).map(([, provider]) =>
+        provider.alias
+          ? {
+              moduleAlias: provider.alias,
+              provider,
+            }
+          : provider,
+      ),
     })
 
     this.variables = Object.entries(variables || {}).reduce(
@@ -50,11 +62,14 @@ export class Module<
       this.variables,
     )
 
-    providers.forEach(provider => {
+    this.providers = Object.entries(providers).reduce((acc, [key, provider]) => {
       const ProviderClass: { new (...args: any[]): typeof provider } = provider.constructor as any
-      const key = provider.node.id
-      new ProviderClass(this, key)
-    })
+      const id = provider.node.id
+      return {
+        ...acc,
+        [key]: new ProviderClass(this, id, { alias: provider.alias }),
+      }
+    }, this.providers)
   }
 
   output(name: string): IResolvable {

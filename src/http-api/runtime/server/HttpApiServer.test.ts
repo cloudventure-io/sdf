@@ -55,7 +55,7 @@ describe("HttpApiServer", () => {
       bundle: "direct",
       path: rootDir,
       prefix: "src",
-      providers: [aws, archive],
+      providers: { aws, archive },
     })
 
     new HttpApi(bundler, "api", {
