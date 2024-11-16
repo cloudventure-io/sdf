@@ -112,7 +112,7 @@ importers:
         specifier: ^8.12.2
         version: 8.12.2(eslint@9.13.0)(typescript@5.6.3)
       eslint:
-        specifier: ^9.13.0
+        specifier: '=9.13.0'
         version: 9.13.0
       eslint-config-prettier:
         specifier: ^9.1.0
@@ -3439,8 +3439,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@5.7.0-dev.20241102:
-    resolution: {integrity: sha512-LnGndSZH+ssQTXmJh5R+4lu7a5WXqnOEsSG/VStm45xb10Mgf8R4h/uycBl/PdIfXkSOoAXsmPvZxd66IvD5CQ==}
+  typescript@5.8.0-dev.20241116:
+    resolution: {integrity: sha512-JLN5vNtl3rgeYYsQjLSXda0/Y4NXhntNDWpUTsavNhhT5YTOvJ6mg9bp3dBnY8vON4jVoR+xlf3Im+6FXGnu3Q==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -5452,7 +5452,7 @@ snapshots:
     dependencies:
       semver: 7.6.3
       shelljs: 0.8.5
-      typescript: 5.7.0-dev.20241102
+      typescript: 5.8.0-dev.20241116
 
   eastasianwidth@0.2.0: {}
 
@@ -7616,7 +7616,7 @@ snapshots:
 
   typescript@5.6.3: {}
 
-  typescript@5.7.0-dev.20241102: {}
+  typescript@5.8.0-dev.20241116: {}
 
   uglify-js@3.19.3:
     optional: true
