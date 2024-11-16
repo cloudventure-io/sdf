@@ -13,7 +13,7 @@ import { SchemaItem } from "../openapi/SchemaItem"
 
 export interface HttpApiOperationAuthorizer {
   securityScheme: OpenAPIV3.SecuritySchemeObject
-  authorizer: HttpApiAuthorizer
+  authorizer: HttpApiAuthorizer | null
 }
 
 /**
@@ -61,7 +61,7 @@ type SchemaType = OpenAPIV3.SchemaObject
 
 export interface DocumentSchemaAdapterConfig {
   document: Document<SchemaType>
-  authorizers: Record<string, HttpApiAuthorizer>
+  authorizers: Record<string, HttpApiAuthorizer | null>
 
   schemaRegistry: SchemaRegistry
 }
@@ -86,7 +86,7 @@ export class DocumentSchemaAdapter {
     return schema.value
   }
 
-  private parseAuthorizers(authorizers: Record<string, HttpApiAuthorizer>) {
+  private parseAuthorizers(authorizers: Record<string, HttpApiAuthorizer | null>) {
     if (!this.document?.securitySchemes) {
       return
     }
@@ -97,11 +97,12 @@ export class DocumentSchemaAdapter {
 
       const authorizer = authorizers[name]
 
-      if (!authorizer) {
+      if (authorizer === undefined) {
         throw new Error(`authorizer '${name}' is defined in the OpenAPI Document, but not provided at ${trace}`)
       }
 
       if (
+        authorizer !== null &&
         !(
           authorizer instanceof HttpApiLambdaAuthorizer &&
           securityScheme.type === "apiKey" &&
@@ -110,7 +111,7 @@ export class DocumentSchemaAdapter {
         !(authorizer instanceof HttpApiJwtAuthorizer && securityScheme.type === "oauth2")
       ) {
         throw new Error(
-          `unexpected authorizer combination with type ${securityScheme.type} and authorizer ${authorizer.constructor.name} at ${trace}`,
+          `unexpected authorizer combination with type ${securityScheme.type} and authorizer ${authorizer?.constructor?.name} at ${trace}`,
         )
       }
 
@@ -138,7 +139,7 @@ export class DocumentSchemaAdapter {
       )
     }
 
-    return authorizer.authorizer.contextSchema
+    return authorizer.authorizer?.contextSchema
   }
 
   private createBaseReuqestSchema(operation: Operation<SchemaType>, requestExpanded: OperationSchemaRequestExpanded) {
@@ -346,7 +347,7 @@ export class DocumentSchemaAdapter {
    */
   bundle(decoder: SchemaDecoder<OpenAPIV3.SchemaObject> = schema => this.decode(schema)): Promise<OpenAPIV3.Document> {
     // ⚠️ This function must be synchronous to make a current copy of the document instantly.
-    const document = lodash.cloneDeep(this.document.decode(decoder))
+    const document = lodash.cloneDeep(this.document.decodeClean(decoder))
 
     return SwaggerParser.bundle(document) as Promise<OpenAPIV3.Document>
   }

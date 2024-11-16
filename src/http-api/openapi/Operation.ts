@@ -172,6 +172,19 @@ export class Operation<SchemaType = OpenAPIV3.SchemaObject> {
     }
   }
 
+  decodeClean<ST>(decoder: SchemaDecoder<ST>): OperationConfig<ST> {
+    return {
+      description: this.description,
+      operationId: this.operationId,
+      parameters: this.parameters.length > 0 ? this.parameters.map(param => param.decodeClean(decoder)) : undefined,
+      responses: map(this.responses, response => response.decodeClean(decoder)),
+      requestBody: this.requestBody?.decodeClean(decoder),
+      security: this.security,
+
+      ...this.data,
+    }
+  }
+
   trace(): DocumentTrace {
     return this.path.trace().append(this.method)
   }

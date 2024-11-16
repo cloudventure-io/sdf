@@ -37,4 +37,8 @@ export class RequestBody<SchemaType> {
       content: map(this.content, mediaType => mediaType.decode(decoder)),
     }
   }
+
+  decodeClean<ST>(decoder: SchemaDecoder<ST>): RequestBodyConfig<ST> {
+    return this.decode(decoder)
+  }
 }

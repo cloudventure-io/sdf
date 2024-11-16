@@ -73,6 +73,13 @@ export class Path<SchemaType> {
     }
   }
 
+  decodeClean<ST>(decoder: SchemaDecoder<ST>): PathConfig<ST> {
+    return {
+      ...map(this.operations, operation => operation.decodeClean(decoder)),
+      parameters: this.parameters.length ? this.parameters.map(param => param.decodeClean(decoder)) : undefined,
+    }
+  }
+
   trace(): DocumentTrace {
     return this.document.trace().append("paths", this.pattern)
   }

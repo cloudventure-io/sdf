@@ -49,6 +49,10 @@ export class Response<SchemaType> {
     }
   }
 
+  decodeClean<ST>(decoder: SchemaDecoder<ST>): ResponseConfig<ST> {
+    return this.decode(decoder)
+  }
+
   defaultMediaType(): MediaType<SchemaType> | undefined {
     if (!this.content) {
       return

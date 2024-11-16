@@ -43,6 +43,10 @@ export class Parameter<SchemaType> extends BaseParameter<SchemaType> {
     }
   }
 
+  decodeClean<ST>(decoder: SchemaDecoder<ST>): ParameterConfig<ST> {
+    return this.decode(decoder)
+  }
+
   trace() {
     return this.parent.trace().append("parameters", this.index)
   }

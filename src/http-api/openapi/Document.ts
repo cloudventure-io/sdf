@@ -90,13 +90,31 @@ export class Document<SchemaType = OpenAPIV3.SchemaObject> {
 
   decode<ST>(decoder: SchemaDecoder<ST>): DocumentConfig<ST> {
     return {
-      openapi: this.openapi,
+      ...this.decodeClean(decoder),
 
       "x-sdf-links": this.links,
       "x-sdf-source": this.source,
 
       info: this.info,
       paths: map(this.paths, path => path.decode(decoder)),
+
+      security: this.security,
+
+      components: {
+        schemas: map(this.schemas, schema => decoder(schema)),
+        securitySchemes: this.securitySchemes,
+      },
+    }
+  }
+
+  decodeClean<ST>(decoder: SchemaDecoder<ST>): DocumentConfig<ST> {
+    return {
+      openapi: this.openapi,
+
+      "x-sdf-source": this.source,
+
+      info: this.info,
+      paths: map(this.paths, path => path.decodeClean(decoder)),
 
       security: this.security,
 

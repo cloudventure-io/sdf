@@ -16,7 +16,7 @@ import { HttpApiAuthorizer } from "../authorizer/HttpApiAuthorizer"
 import { Document } from "../openapi/Document"
 import { BundledDocument } from "../openapi/types"
 import { dereference } from "../openapi/utils"
-import { DocumentSchemaAdapter, OperationSchema } from "./DocumentSchemaAdapter"
+import { DocumentSchemaAdapter, HttpApiOperationAuthorizer, OperationSchema } from "./DocumentSchemaAdapter"
 
 type SchemaType = OpenAPIV3.SchemaObject
 
@@ -34,7 +34,7 @@ export interface HttpApiConfig {
   lambdaConfig?: LambdaConfig
 
   /** map of authorizers */
-  authorizers?: Record<string, HttpApiAuthorizer>
+  authorizers?: Record<string, HttpApiAuthorizer | null>
 
   /** the API path prefix for the generated files, defaults to {id} */
   prefix?: string
@@ -139,9 +139,18 @@ export class HttpApi extends Construct {
     })
 
     // define authorizers
-    Object.values(this.schemaAdapter.authorizers).forEach(({ securityScheme, authorizer }) => {
-      securityScheme["x-amazon-apigateway-authorizer"] = authorizer.spec(this)
-    })
+    Object.values(this.schemaAdapter.authorizers)
+      .filter(
+        (
+          a: HttpApiOperationAuthorizer,
+        ): a is {
+          securityScheme: OpenAPIV3.SecuritySchemeObject
+          authorizer: HttpApiAuthorizer
+        } => !!a.authorizer,
+      )
+      .forEach(({ securityScheme, authorizer }) => {
+        securityScheme["x-amazon-apigateway-authorizer"] = authorizer.spec(this)
+      })
 
     // define lambda functions
     for (const operation of this.schemaAdapter.operations) {
