@@ -34,7 +34,7 @@ export interface BundlerLanguage {
   generateHttpApiClient: (httpApi: HttpApi) => Promise<void>
 
   /** generate http api specification */
-  generateHttpApiDocument: (httpApi: HttpApi) => void
+  generateHttpApiDocument: (httpApi: HttpApi) => string | void
 
   /** generate http api authorizer */
   generateHttpApiAuthorizer: (authorizer: HttpApiLambdaAuthorizer) => Promise<LambdaEntryPoint | void>

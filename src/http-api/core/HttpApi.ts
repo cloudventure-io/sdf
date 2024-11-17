@@ -4,6 +4,7 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
+import { AssetType, TerraformAsset, Token } from "cdktf"
 import { camelCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
@@ -88,6 +89,12 @@ export class HttpApi extends Construct {
   /** the API path prefix for the generated files */
   public readonly prefix: string
 
+  /**
+   * The asset path of the OpenAPI specification.
+   * Note, that it contains a resolvable value pointing to the asset path.
+   */
+  public readonly apiSpecAssetPath?: string
+
   constructor(
     scope: Construct,
     public readonly id: string,
@@ -108,7 +115,7 @@ export class HttpApi extends Construct {
     })
 
     // generate the API Gateway specification
-    this.bundler.generateHttpApiSpecification(this)
+    const apiSpecPath = this.bundler.generateHttpApiSpecification(this)
 
     // define API GW integration role
     this.integrationRole = new IamRole(this, "integration-role", {
@@ -212,6 +219,25 @@ export class HttpApi extends Construct {
         "client-generator",
         async () => this.bundler.generateHttpApiClient(this),
         AppLifeCycle.generation,
+      )
+    }
+
+    if (apiSpecPath) {
+      // The TerraformAsset should be defined in AsyncResolvable
+      // because the spec file is created with AsyncResolvable.
+      this.apiSpecAssetPath = Token.asString(
+        new AsyncResolvable(
+          this,
+          "openapi-json-asset",
+          async () => {
+            const asset = new TerraformAsset(this, "openapi-json-asset", {
+              path: apiSpecPath,
+              type: AssetType.FILE,
+            })
+            return asset.path
+          },
+          AppLifeCycle.generation,
+        ),
       )
     }
   }

@@ -503,17 +503,20 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
     })
   }
 
-  public generateHttpApiDocument(httpApi: HttpApi): void {
+  public generateHttpApiDocument(httpApi: HttpApi): string {
     const documentPromise = httpApi.schemaAdapter.bundle()
+    const path = this.httpApiSpecPath(httpApi)
 
     new AsyncResolvable(this, "api-spec", async () => {
-      await writeFile(this.httpApiSpecPath(httpApi), JSON.stringify(await documentPromise, null, 2))
+      await writeFile(path, JSON.stringify(await documentPromise, null, 2))
       await writeHbsTemplate({
         template: templates.httpApiDocument,
         path: `${this.httpApiDocumentPath(httpApi)}.ts`,
         overwrite: true,
       })
     })
+
+    return path
   }
 
   public manifest(): BundlerLanguageTypeScriptManifest {

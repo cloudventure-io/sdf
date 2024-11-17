@@ -50,9 +50,9 @@ export class BundlerLanguageCustom extends Construct implements BundlerLanguage 
     }
   }
 
-  async generateHttpApiDocument(httpApi: HttpApi): Promise<void> {
+  generateHttpApiDocument(httpApi: HttpApi): string | void {
     if (this.config.generateHttpApiSpecification) {
-      await this.config.generateHttpApiSpecification(httpApi)
+      return this.config.generateHttpApiSpecification(httpApi)
     }
   }
 

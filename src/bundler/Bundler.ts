@@ -332,8 +332,8 @@ export class Bundler<
    * generateLambdaEntryPoint function is invoked by the Lambda construct
    * for generating the http api specification for the HttpApi.
    */
-  public generateHttpApiSpecification(httpApi: HttpApi): void {
-    this.language.generateHttpApiDocument(httpApi)
+  public generateHttpApiSpecification(httpApi: HttpApi): string | void {
+    return this.language.generateHttpApiDocument(httpApi)
   }
 
   /**
