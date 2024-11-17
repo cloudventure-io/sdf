@@ -58,6 +58,7 @@ export class HttpApiJwtAuthorizer extends HttpApiAuthorizer {
       type: "object",
       properties: {
         jwt: {
+          type: "object",
           properties: {
             claims: this.claimsSchema,
           },
