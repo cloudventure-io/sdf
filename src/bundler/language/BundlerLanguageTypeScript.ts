@@ -10,6 +10,7 @@ import { OpenAPIV3 } from "openapi-types"
 import { basename, dirname, join, relative } from "path"
 
 import { App, AppLifeCycle } from "../../core/App"
+import { TerraformProviders, TerraformVariables } from "../../core/Module"
 import { Resource } from "../../core/Resource"
 import { AsyncResolvable } from "../../core/resolvable/AsyncResolvable"
 import { HttpApi } from "../../http-api"
@@ -56,7 +57,13 @@ export interface BundlerLanguageTypeScriptConfig {
   zod?: boolean
 }
 
-export class BundlerLanguageTypeScript extends Construct implements BundlerLanguage {
+export class BundlerLanguageTypeScript<
+    Variables extends TerraformVariables = TerraformVariables,
+    Providers extends TerraformProviders = TerraformProviders,
+  >
+  extends Construct
+  implements BundlerLanguage
+{
   public readonly language = "typescript"
 
   /** The app this bundler belongs to */
@@ -162,7 +169,7 @@ export class BundlerLanguageTypeScript extends Construct implements BundlerLangu
   }
 
   constructor(
-    bundler: Bundler,
+    bundler: Bundler<Variables, Providers>,
     id: string,
     private config: BundlerLanguageTypeScriptConfig,
   ) {

@@ -10,17 +10,17 @@ import { Construct } from "constructs"
 
 import { App } from "./App"
 
-export interface ModuleConfig<
-  Variables extends TerraformHclModuleConfig["variables"],
-  Providers extends Record<string, TerraformProvider>,
-> {
+export type TerraformVariables = TerraformHclModuleConfig["variables"]
+export type TerraformProviders = Record<string, TerraformProvider>
+
+export interface ModuleConfig<Variables extends TerraformVariables, Providers extends TerraformProviders> {
   variables?: Variables
   providers?: Providers
 }
 
 export class Module<
-  Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
-  Providers extends Record<string, TerraformProvider> = Record<string, TerraformProvider>,
+  Variables extends TerraformVariables = TerraformVariables,
+  Providers extends TerraformProviders = TerraformProviders,
   SetContext extends (scope: Construct) => void = (scope: Construct) => void,
 > extends TerraformStack {
   public readonly variables: { [key in keyof Variables]: Variables[key] } = {} as any

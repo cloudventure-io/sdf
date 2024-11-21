@@ -1,12 +1,12 @@
 import { DataArchiveFile } from "@cdktf/provider-archive/lib/data-archive-file"
 import { S3Object } from "@cdktf/provider-aws/lib/s3-object"
 import { Resource } from "@cdktf/provider-null/lib/resource"
-import { Fn, TerraformHclModuleConfig, TerraformProvider, TerraformStack, Token } from "cdktf"
+import { Fn, TerraformStack, Token } from "cdktf"
 import { Construct } from "constructs"
 import { join, relative } from "path"
 
 import { App, AppLifeCycle } from "../core/App"
-import { Module } from "../core/Module"
+import { Module, TerraformProviders, TerraformVariables } from "../core/Module"
 import { SchemaRegistry } from "../core/SchemaRegistry"
 import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
 import { HttpApi } from "../http-api"
@@ -60,15 +60,17 @@ export interface BundlerConfigDirect {
   path: string
 }
 
-export interface BundlerConfigS3 {
+export type VariableRef<Variables, T> = (variables: Variables) => T
+
+export interface BundlerConfigS3<Variables extends TerraformVariables = TerraformVariables> {
   /** the s3 bundle method */
   bundle: "s3"
 
   /** the s3 bucket */
-  s3Bucket: string
+  s3Bucket: string | VariableRef<Variables, string>
 
   /** the s3 prefix */
-  s3Prefix?: string
+  s3Prefix?: string | VariableRef<Variables, string>
 
   /**
    * If language if typescript, this is the path of the source code.
@@ -77,20 +79,20 @@ export interface BundlerConfigS3 {
   path: string
 }
 
-export interface BundlerConfigContainer {
+export interface BundlerConfigContainer<Variables extends TerraformVariables = TerraformVariables> {
   /** the container bundle method */
   bundle: "container"
 
   /** The image URI */
-  imageUri: string
+  imageUri: string | VariableRef<Variables, string>
 
   /** The default image config for the Lambda Function */
-  imageConfig?: BundlerContainerImageConfig
+  imageConfig?: BundlerContainerImageConfig<Variables>
 }
 
-export interface BundlerContainerImageConfig {
+export interface BundlerContainerImageConfig<Variables extends TerraformVariables = TerraformVariables> {
   /** The command that is passed to the container */
-  command?: Array<string>
+  command?: Array<string> | VariableRef<Variables, Array<string>>
 
   /** the entrypoint that is passed to the container */
   entryPoint?: Array<string>
@@ -100,10 +102,10 @@ export interface BundlerContainerImageConfig {
 }
 
 export type BundlerConfig<
-  Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
-  Providers extends Record<string, TerraformProvider> = Record<string, TerraformProvider>,
+  Variables extends TerraformVariables = TerraformVariables,
+  Providers extends TerraformProviders = TerraformProviders,
 > = ((BundlerConfigTypeScript | BundlerConfigCustom) &
-  (BundlerConfigDirect | BundlerConfigS3 | BundlerConfigContainer | BundlerConfigNone)) & {
+  (BundlerConfigDirect | BundlerConfigS3<Variables> | BundlerConfigContainer<Variables> | BundlerConfigNone)) & {
   /** the language of the bundler */
   language: "typescript" | "custom"
 
@@ -121,8 +123,8 @@ export type BundleManifest = Omit<BundlerConfig, "variables" | "providers"> & {
 }
 
 export class Bundler<
-  Variables extends TerraformHclModuleConfig["variables"] = TerraformHclModuleConfig["variables"],
-  Providers extends Record<string, TerraformProvider> = Record<string, TerraformProvider>,
+  Variables extends TerraformVariables = TerraformVariables,
+  Providers extends TerraformProviders = TerraformProviders,
 > extends Module<Variables, Providers> {
   private app: App
   private stack: TerraformStack
@@ -182,7 +184,7 @@ export class Bundler<
         const key = `${config.s3Prefix ? `${config.s3Prefix}/` : ""}${this.stack.node.id}-${this.node.id}.zip`
 
         const s3Object = new S3Object(this, "code-s3", {
-          bucket: config.s3Bucket,
+          bucket: this.resolveVariableRef(config.s3Bucket),
           key: key,
           source: codeArchive.outputPath,
           sourceHash: codeArchive.outputMd5,
@@ -196,7 +198,7 @@ export class Bundler<
           },
         })
 
-        this.lambdaConfigCustomization.s3Bucket = config.s3Bucket
+        this.lambdaConfigCustomization.s3Bucket = this.resolveVariableRef(config.s3Bucket)
         this.lambdaConfigCustomization.s3Key = s3Object.key
         this.lambdaConfigCustomization.s3ObjectVersion = Fn.lookupNested(updateTrigger.triggers, ["version"])
       } else {
@@ -205,12 +207,23 @@ export class Bundler<
       }
     } else if (config.bundle === "container") {
       this.lambdaConfigCustomization.packageType = "Image"
-      this.lambdaConfigCustomization.imageUri = config.imageUri
+      this.lambdaConfigCustomization.imageUri = this.resolveVariableRef(config.imageUri)
 
       if (config.imageConfig && Object.keys(config.imageConfig).length > 0) {
-        this.lambdaConfigCustomization.imageConfig = config.imageConfig
+        this.lambdaConfigCustomization.imageConfig = {
+          command: config.imageConfig.command && this.resolveVariableRef(config.imageConfig.command),
+          entryPoint: config.imageConfig.entryPoint,
+          workingDirectory: config.imageConfig.workingWirectory,
+        }
       }
     }
+  }
+
+  private resolveVariableRef<T extends string | Array<string>>(value: T | VariableRef<Variables, T>): T {
+    if (typeof value === "function") {
+      return value(this.variables)
+    }
+    return value as T
   }
 
   /** returns the manifest of the bundler */
