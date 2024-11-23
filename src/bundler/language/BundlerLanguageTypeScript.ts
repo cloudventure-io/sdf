@@ -539,7 +539,7 @@ export class BundlerLanguageTypeScript<
 
   public registerEntryPoint(handler: LambdaEntryPoint): string {
     this.entryPoints.add(`${handler[0]}.ts`)
-    return handler.join(".")
+    return typeof handler === "string" ? handler : handler.join(".")
   }
 
   private httpApiAuthorizerEntryPointDirectory(authorizer: HttpApiLambdaAuthorizer): string {

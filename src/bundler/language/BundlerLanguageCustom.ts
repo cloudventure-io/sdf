@@ -14,11 +14,11 @@ export interface BundlerLanguageCustomConfig {
   generateHttpApiClient?: BundlerLanguage["generateHttpApiClient"]
   generateHttpApiSpecification?: BundlerLanguage["generateHttpApiDocument"]
   generateHttpApiAuthorizer?: BundlerLanguage["generateHttpApiAuthorizer"]
-  registerHandler?: BundlerLanguage["registerEntryPoint"]
+  registerEntryPoint?: BundlerLanguage["registerEntryPoint"]
 }
 
 export class BundlerLanguageCustom extends Construct implements BundlerLanguage {
-  public readonly language = "custom"
+  public language = "custom"
 
   constructor(
     scope: Construct,
@@ -61,8 +61,8 @@ export class BundlerLanguageCustom extends Construct implements BundlerLanguage 
   }
 
   public registerEntryPoint(handler: LambdaEntryPoint): string | void {
-    if (this.config.registerHandler) {
-      return this.config.registerHandler(handler)
+    if (this.config.registerEntryPoint) {
+      return this.config.registerEntryPoint(handler)
     }
   }
 

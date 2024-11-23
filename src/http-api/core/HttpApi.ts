@@ -32,7 +32,7 @@ export interface HttpApiConfig {
   stageName?: string
 
   /** lambda function configuration */
-  lambdaConfig?: LambdaConfig
+  lambdaConfig?: Omit<LambdaConfig, "functionName">
 
   /** map of authorizers */
   authorizers?: Record<string, HttpApiAuthorizer | null>
@@ -249,7 +249,7 @@ export class HttpApi extends Construct {
     this.bundler.schemaRegistry.register(schemas.operation.value)
 
     // generate the function handler
-    const entryPoint = this.bundler.generateHttpApiHandler(this, op)
+    const entryPoint = this.bundler.generateHttpApiHandler(this, op) || ["jj", op.operation.operationId]
 
     const lambda = new Lambda(this, `api-handler-${camelCase(operation.operationId)}`, {
       timeout: 29,

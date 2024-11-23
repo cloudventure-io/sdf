@@ -18,7 +18,7 @@ import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
 
 export type LambdaFunctionConfig = Omit<AwsLambdaFunctionConfig, "role">
 
-export type LambdaEntryPoint = [path: string, handler: string]
+export type LambdaEntryPoint = string | [path: string, handler: string]
 
 export type LambdaConfigCore = {
   -readonly [P in keyof LambdaFunctionConfig]: LambdaFunctionConfig[P]

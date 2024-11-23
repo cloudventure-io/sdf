@@ -39,6 +39,11 @@ export interface BundlerConfigTypeScript {
   }
 }
 
+export interface BundlerConfigLanguageContainer {
+  /** the language of the bundler */
+  language: "container"
+}
+
 export interface BundlerConfigCustom {
   /** the language of the bundler */
   language: "custom"
@@ -104,10 +109,10 @@ export interface BundlerContainerImageConfig<Variables extends TerraformVariable
 export type BundlerConfig<
   Variables extends TerraformVariables = TerraformVariables,
   Providers extends TerraformProviders = TerraformProviders,
-> = ((BundlerConfigTypeScript | BundlerConfigCustom) &
+> = ((BundlerConfigTypeScript | BundlerConfigCustom | BundlerConfigLanguageContainer) &
   (BundlerConfigDirect | BundlerConfigS3<Variables> | BundlerConfigContainer<Variables> | BundlerConfigNone)) & {
   /** the language of the bundler */
-  language: "typescript" | "custom"
+  language: "typescript" | "custom" | "container"
 
   /** the bundle method */
   bundle: "direct" | "s3" | "container" | "none"
@@ -153,6 +158,15 @@ export class Bundler<
         path: config.path,
         prefix: config.prefix,
         zod: config.typescript?.zod,
+      })
+    } else if (config.language === "container") {
+      this.language = new BundlerLanguageCustom(this, "container", {
+        generateHttpApiHandler(httpApi, operation) {
+          return [httpApi.id, operation.operation.operationId]
+        },
+        async generateHttpApiAuthorizer(authorizer) {
+          return authorizer.id
+        },
       })
     } else {
       this.language = new BundlerLanguageCustom(this, "custom", {
@@ -263,14 +277,14 @@ export class Bundler<
     }
 
     // helper function for construcring the handler configuration
-    const getHandlerConfig = (handler: string | undefined): Partial<LambdaConfigCore> => {
+    const getHandlerConfig = (handler: string | [string, string] | undefined): Partial<LambdaConfigCore> => {
       if (!handler || bundlerConfig.bundle === "none") {
         // if there is no handler and the bundler is "none" we do not add any handler configuration
         return {}
       } else if (bundlerConfig.bundle === "container") {
         return {
           imageConfig: {
-            command: [handler],
+            command: typeof handler === "string" ? [handler] : handler,
             ...(bundlerConfig.imageConfig?.entryPoint ? { entryPoint: bundlerConfig.imageConfig.entryPoint } : {}),
             ...(bundlerConfig.imageConfig?.workingWirectory
               ? { workingDirectory: bundlerConfig.imageConfig.workingWirectory }
@@ -278,18 +292,18 @@ export class Bundler<
           },
         }
       } else {
-        return { handler: handler }
+        return { handler: typeof handler === "string" ? handler : handler.join(".") }
       }
     }
 
     // when entryPoint is not defined or available syncronously, we can imediately construct the final configuration
-    if (!entryPoint || Array.isArray(entryPoint)) {
+    if (!entryPoint || Array.isArray(entryPoint) || typeof entryPoint === "string") {
       if (entryPoint) {
         this.language.registerEntryPoint(entryPoint)
       }
       return {
         ...result,
-        ...getHandlerConfig(entryPoint?.join(".")),
+        ...getHandlerConfig(entryPoint || undefined),
       }
     }
 
@@ -305,7 +319,7 @@ export class Bundler<
             return result[configField]
           }
           this.language.registerEntryPoint(handler)
-          return getHandlerConfig(handler.join("."))[configField]
+          return getHandlerConfig(handler)[configField]
         },
         AppLifeCycle.generation,
       )
