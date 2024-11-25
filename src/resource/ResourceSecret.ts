@@ -1,4 +1,5 @@
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document"
+import { DataAwsSecretsmanagerSecret } from "@cdktf/provider-aws/lib/data-aws-secretsmanager-secret"
 import { SecretsmanagerSecret, SecretsmanagerSecretConfig } from "@cdktf/provider-aws/lib/secretsmanager-secret"
 import {
   SecretsmanagerSecretVersion,
@@ -10,7 +11,7 @@ import { OpenAPIV3 } from "openapi-types"
 import { Resource } from "../core"
 
 export class ResourceSecret extends Resource {
-  public secret: SecretsmanagerSecret
+  public secret: SecretsmanagerSecret | DataAwsSecretsmanagerSecret
   public secretVersion?: SecretsmanagerSecretVersion
 
   get configSpec(): OpenAPIV3.SchemaObject {
@@ -42,18 +43,26 @@ export class ResourceSecret extends Resource {
   constructor(
     scope: Construct,
     public id: string,
-    secret: SecretsmanagerSecret | SecretsmanagerSecretConfig,
+    secret: SecretsmanagerSecret | (SecretsmanagerSecretConfig & { exists?: boolean }),
     version?: Omit<SecretsmanagerSecretVersionConfig, "secretId">,
   ) {
     super(scope, id)
 
-    this.secret = secret instanceof SecretsmanagerSecret ? secret : new SecretsmanagerSecret(this, id, secret)
+    if (secret instanceof SecretsmanagerSecret) {
+      this.secret = secret
 
-    if (version) {
-      this.secretVersion = new SecretsmanagerSecretVersion(this, `${id}-version`, {
-        ...version,
-        secretId: this.secret.id,
+      if (version) {
+        this.secretVersion = new SecretsmanagerSecretVersion(this, `${id}-version`, {
+          ...version,
+          secretId: this.secret.id,
+        })
+      }
+    } else if (secret.exists) {
+      this.secret = new DataAwsSecretsmanagerSecret(this, id, {
+        name: secret.name,
       })
+    } else {
+      this.secret = new SecretsmanagerSecret(this, id, secret)
     }
 
     this.permissions = {
