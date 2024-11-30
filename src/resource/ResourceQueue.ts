@@ -19,18 +19,23 @@ export class ResourceQueue extends Resource {
         name: {
           type: "string",
         },
+        url: {
+          type: "string",
+        },
       },
-      required: ["arn", "name"],
+      required: ["arn", "name", "url"],
     }
   }
 
   public permissions: {
-    pull: DataAwsIamPolicyDocument
+    subscribe: DataAwsIamPolicyDocument
+    publish: DataAwsIamPolicyDocument
   }
 
   public config: {
     arn: string
     name: string
+    url: string
   }
 
   constructor(
@@ -43,10 +48,18 @@ export class ResourceQueue extends Resource {
     this.queue = queue instanceof SqsQueue ? queue : new SqsQueue(this, id, queue)
 
     this.permissions = {
-      pull: new DataAwsIamPolicyDocument(this, "pull", {
+      subscribe: new DataAwsIamPolicyDocument(this, "subscribe", {
         statement: [
           {
             actions: ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+            resources: [this.queue.arn],
+          },
+        ],
+      }),
+      publish: new DataAwsIamPolicyDocument(this, "publish", {
+        statement: [
+          {
+            actions: ["sqs:SendMessage"],
             resources: [this.queue.arn],
           },
         ],
@@ -56,6 +69,7 @@ export class ResourceQueue extends Resource {
     this.config = {
       arn: this.queue.arn,
       name: this.queue.name,
+      url: this.queue.url,
     }
   }
 }
