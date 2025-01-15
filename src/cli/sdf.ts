@@ -40,6 +40,7 @@ const loadConfig = async (): Promise<SdfConfig> => {
 
 cmd
   .command("synth")
+  .helpOption(false)
   .allowUnknownOption(true)
   .action(async (_, cmd: Command) => {
     const config = await loadConfig()
