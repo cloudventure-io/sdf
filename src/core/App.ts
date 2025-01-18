@@ -12,6 +12,7 @@ import { TreeResolver } from "./resolvable/TreeResolver"
 export interface AppOptions extends CdkTfAppConfig {
   argv?: Array<string>
   outdir: string
+  userdata?: unknown
 }
 
 export interface StackManifest {
@@ -21,6 +22,7 @@ export interface StackManifest {
 
 export interface AppManifest {
   stacks: Array<StackManifest>
+  userdata?: unknown
 }
 
 export enum AppLifeCycle {
@@ -43,16 +45,20 @@ export class App extends CdkTfApp {
 
   private _workdir: string
 
+  public userdata?: unknown
+
   /** The working directory of SDF */
   get workdir(): string {
     return this._workdir
   }
 
-  constructor({ outdir: outdir, ...options }: AppOptions) {
+  constructor({ outdir: outdir, userdata, ...options }: AppOptions) {
     super({
       ...options,
       outdir: resolve(outdir),
     })
+
+    this.userdata = userdata
 
     this.node.setContext(App.name, this)
     this._workdir = join(this.outdir, ".sdf")
@@ -107,6 +113,7 @@ export class App extends CdkTfApp {
       .filter<TerraformStack>((construct): construct is TerraformStack => TerraformStack.isStack(construct))
 
     const metadata: AppManifest = {
+      userdata: this.userdata,
       stacks: stacks.map(stack => ({
         id: stack.node.id,
         bundles: stack.node
