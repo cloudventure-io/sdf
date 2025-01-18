@@ -50,19 +50,19 @@ export class ResourceSecret extends Resource {
 
     if (secret instanceof SecretsmanagerSecret) {
       this.secret = secret
-
-      if (version) {
-        this.secretVersion = new SecretsmanagerSecretVersion(this, `${id}-version`, {
-          ...version,
-          secretId: this.secret.id,
-        })
-      }
     } else if (secret.exists) {
       this.secret = new DataAwsSecretsmanagerSecret(this, id, {
         name: secret.name,
       })
     } else {
       this.secret = new SecretsmanagerSecret(this, id, secret)
+    }
+
+    if (this.secret instanceof SecretsmanagerSecret && version) {
+      this.secretVersion = new SecretsmanagerSecretVersion(this, `${id}-version`, {
+        ...version,
+        secretId: this.secret.id,
+      })
     }
 
     this.permissions = {
