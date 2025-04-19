@@ -207,7 +207,7 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
       event: APIGatewayProxyEventV2WithRequestContext<unknown>,
     ): Promise<APIGatewayProxyStructuredResultV2> => {
       if (this.middleware?.rawRequest) {
-        event = await this.middleware.rawRequest(event)
+        event = await this.middleware.rawRequest(event, this.operation)
       }
       const result = await this.invokeHandler(event)
 
@@ -218,7 +218,7 @@ export class HttpApiServer<OpType extends HttpApiServerOperation> {
       let response = this.codec.encode(result.response)
 
       if (this.middleware?.rawResponse) {
-        response = await this.middleware.rawResponse(response)
+        response = await this.middleware.rawResponse(response, this.operation)
       }
 
       return response
