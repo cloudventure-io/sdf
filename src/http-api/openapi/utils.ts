@@ -69,13 +69,15 @@ export function dereference(
 
     const paths = ref.slice(2).split("/")
 
-    result = paths.map(decodeURIComponent).reduce((acc, path) => {
-      if (path in acc) {
-        return acc[path]
-      } else {
-        throw new Error(`Invalid reference '${ref}' at ${trace}`)
-      }
-    }, document)
+    result = paths
+      .map(s => decodeURIComponent(s).replace(/~1/g, "/").replace(/~0/g, "~")) // https://datatracker.ietf.org/doc/html/rfc6901#section-3
+      .reduce((acc, path) => {
+        if (path in acc) {
+          return acc[path]
+        } else {
+          throw new Error(`Invalid reference '${ref}' at ${trace}`)
+        }
+      }, document)
 
     visited.set(item, result)
 
