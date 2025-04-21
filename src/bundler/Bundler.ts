@@ -6,8 +6,8 @@ import { Construct } from "constructs"
 import { join, relative } from "path"
 
 import { App, AppLifeCycle } from "../core/App"
-import { Module, TerraformProviders, TerraformVariables } from "../core/Module"
 import { SchemaRegistry } from "../core/SchemaRegistry"
+import { StackModule, TerraformProviders, TerraformVariables } from "../core/StackModule"
 import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
 import { HttpApi } from "../http-api"
 import { HttpApiLambdaAuthorizer } from "../http-api/authorizer"
@@ -130,7 +130,7 @@ export type BundleManifest = Omit<BundlerConfig, "variables" | "providers"> & {
 export class Bundler<
   Variables extends TerraformVariables = TerraformVariables,
   Providers extends TerraformProviders = TerraformProviders,
-> extends Module<Variables, Providers> {
+> extends StackModule<Variables, Providers> {
   private app: App
   private stack: TerraformStack
 

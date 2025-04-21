@@ -4,9 +4,9 @@ import { mkdir, writeFile } from "fs/promises"
 import { join, resolve } from "path"
 
 import { BundleManifest, Bundler } from "../bundler"
-import { Module } from "./Module"
 import { Resource } from "./Resource"
 import { StackController } from "./StackController"
+import { StackModule } from "./StackModule"
 import { AsyncResolvable } from "./resolvable/AsyncResolvable"
 import { TreeResolver } from "./resolvable/TreeResolver"
 
@@ -71,7 +71,23 @@ export class App extends CdkTfApp {
     construct: Construct,
     type: T,
   ): InstanceType<T> {
-    const value: any = construct.node.tryGetContext(type.name)
+    let value: any
+
+    do {
+      value = construct.node.tryGetContext(type.name)
+
+      if (value) {
+        break
+      } else {
+        const stack = TerraformStack.of(construct)
+        if (stack instanceof StackModule) {
+          construct = stack.module
+        } else {
+          break
+        }
+      }
+    } while (construct)
+
     if (!value) {
       throw new Error(`cannot find ${type.name} in context`)
     } else if (!(value instanceof type)) {
@@ -107,10 +123,10 @@ export class App extends CdkTfApp {
   private intersectStacks(
     srcStack: TerraformStack,
     dstStack: TerraformStack,
-  ): { srcChain: Array<Module>; ancestor: TerraformStack; dstChain: Array<Module> } | undefined {
-    const getStackChain = (stack: TerraformStack): [Array<Module>, TerraformStack] => {
-      const chain: Array<Module> = []
-      while (stack instanceof Module) {
+  ): { srcChain: Array<StackModule>; dstChain: Array<StackModule>; srcRoot: TerraformStack; dstRoot: TerraformStack } {
+    const getStackChain = (stack: TerraformStack): [Array<StackModule>, TerraformStack] => {
+      const chain: Array<StackModule> = []
+      while (stack instanceof StackModule) {
         chain.push(stack)
         stack = this.getStack(stack.module)
       }
@@ -121,7 +137,12 @@ export class App extends CdkTfApp {
     const [dstChain, dstRoot] = getStackChain(dstStack)
 
     if (srcRoot !== dstRoot) {
-      return
+      return {
+        srcChain,
+        dstChain: dstChain.reverse(),
+        srcRoot,
+        dstRoot,
+      }
     }
 
     let ancestor: TerraformStack | undefined
@@ -136,11 +157,11 @@ export class App extends CdkTfApp {
       ancestor = srcRoot
     }
 
-    const srcAncestorIndex = srcChain.indexOf(ancestor as Module)
+    const srcAncestorIndex = srcChain.indexOf(ancestor as StackModule)
     if (srcAncestorIndex !== -1) {
       srcChain.splice(srcAncestorIndex)
     }
-    const dstAncestorIndex = dstChain.indexOf(ancestor as Module)
+    const dstAncestorIndex = dstChain.indexOf(ancestor as StackModule)
     if (dstAncestorIndex !== -1) {
       dstChain.splice(dstAncestorIndex)
     }
@@ -148,23 +169,25 @@ export class App extends CdkTfApp {
 
     return {
       srcChain,
-      ancestor,
       dstChain,
+      srcRoot,
+      dstRoot,
     }
   }
 
   public crossStackReference(fromStack: TerraformStack, toStack: TerraformStack, identifier: string): string {
     const intersection = this.intersectStacks(fromStack, toStack)
-    if (!intersection) {
-      return super.crossStackReference(fromStack, toStack, identifier)
-    }
-
     const uniqueId = `${fromStack.node.id}.${identifier}`
+
     let currentOutputId = identifier
 
     intersection.srcChain.forEach(src => {
       currentOutputId = src.registerOutgoingCrossModuleReference(uniqueId, currentOutputId)
     })
+
+    if (intersection.srcRoot !== intersection.dstRoot) {
+      currentOutputId = super.crossStackReference(intersection.srcRoot, intersection.dstRoot, currentOutputId)
+    }
 
     intersection.dstChain.forEach(dst => {
       currentOutputId = dst.registerIncomingCrossModuleReference(uniqueId, currentOutputId)

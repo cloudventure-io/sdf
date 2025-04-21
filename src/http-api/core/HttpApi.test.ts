@@ -29,7 +29,7 @@ describe(HttpApi.name, () => {
   })
 
   afterEach(async () => {
-    await setup.afterEach(rootDir)
+    // await setup.afterEach(rootDir)
   })
 
   it("test validators", async () => {

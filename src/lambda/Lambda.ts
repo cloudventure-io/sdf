@@ -8,12 +8,13 @@ import {
   LambdaFunctionConfig as AwsLambdaFunctionConfig,
 } from "@cdktf/provider-aws/lib/lambda-function"
 import { Fn, TerraformResource, dependable } from "cdktf"
-import { constantCase, paramCase } from "change-case"
+import { constantCase } from "change-case"
 import { Construct } from "constructs"
 
 import { Bundler } from "../bundler/Bundler"
 import { App, AppLifeCycle } from "../core/App"
 import { Resource } from "../core/Resource"
+import { StackModule } from "../core/StackModule"
 import { AsyncResolvable } from "../core/resolvable/AsyncResolvable"
 
 export type LambdaFunctionConfig = Omit<AwsLambdaFunctionConfig, "role">
@@ -21,7 +22,10 @@ export type LambdaFunctionConfig = Omit<AwsLambdaFunctionConfig, "role">
 export type LambdaEntryPoint = string | [path: string, handler: string]
 
 export type LambdaConfigCore = {
-  -readonly [P in keyof LambdaFunctionConfig]: LambdaFunctionConfig[P]
+  -readonly [P in keyof Omit<
+    LambdaFunctionConfig,
+    "provider" | "provisioners" | "count" | "dependsOn" | "forEach" | "lifecycle"
+  >]: LambdaFunctionConfig[P]
 }
 
 export type LambdaConfig = LambdaConfigCore & {
@@ -29,7 +33,7 @@ export type LambdaConfig = LambdaConfigCore & {
   resources?: { [name in string]: Array<string> }
 }
 
-export class Lambda extends Construct {
+export class Lambda extends StackModule {
   private bundler: Bundler
   private app: App
 
@@ -37,10 +41,14 @@ export class Lambda extends Construct {
   public role: IamRole
 
   public constructor(scope: Construct, id: string, { resources, ...config }: LambdaConfig) {
-    super(scope, id)
+    const bundler = App.getFromContext(scope, Bundler)
+
+    super(scope, id, {
+      providers: bundler.providers,
+    })
 
     this.app = App.getAppFromContext(this)
-    this.bundler = App.getFromContext(this, Bundler)
+    this.bundler = bundler
 
     const assumeRolePolicy = new DataAwsIamPolicyDocument(this, "assume-role-policy", {
       statement: [
@@ -57,7 +65,7 @@ export class Lambda extends Construct {
     })
 
     this.role = new IamRole(this, "role", {
-      name: paramCase(`${config.functionName}-lambda`),
+      name: `${config.functionName}-lambda`,
       assumeRolePolicy: assumeRolePolicy.json,
     })
 

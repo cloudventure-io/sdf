@@ -11,6 +11,7 @@ import { OpenAPIV3 } from "openapi-types"
 
 import { Bundler } from "../../bundler"
 import { App, AppLifeCycle } from "../../core/App"
+import { StackModule } from "../../core/StackModule"
 import { AsyncResolvable } from "../../core/resolvable/AsyncResolvable"
 import { Lambda, LambdaConfig } from "../../lambda/Lambda"
 import { HttpApiAuthorizer } from "../authorizer/HttpApiAuthorizer"
@@ -62,7 +63,7 @@ export interface HttpApiConfig {
  * HttpApi is a construct that generates a HTTP API Gateway based on the provided OpenAPI Document.
  * It also generates lambda functions for the API Gateway operations.
  */
-export class HttpApi extends Construct {
+export class HttpApi extends StackModule {
   /** lambda functions defined based on the provided OpenAPI Document */
   public readonly lambdas: { [operationId in string]: Lambda } = {}
 
@@ -100,8 +101,11 @@ export class HttpApi extends Construct {
     public readonly id: string,
     public readonly config: HttpApiConfig,
   ) {
-    super(scope, id)
-    this.bundler = App.getFromContext(this, Bundler)
+    const bundler = App.getFromContext(scope, Bundler)
+    super(scope, id, {
+      providers: bundler.providers,
+    })
+    this.bundler = bundler
     this.prefix = config.prefix ?? id
 
     this.stageName = config.stageName || "$default"

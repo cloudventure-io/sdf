@@ -2,6 +2,7 @@ import { TerraformStack } from "cdktf"
 import { Construct } from "constructs"
 
 import { Resource } from "./Resource"
+import { StackModule } from "./StackModule"
 
 export class StackController {
   private stacks = new WeakMap<TerraformStack, Record<string, Resource>>()
@@ -18,8 +19,18 @@ export class StackController {
     return stack
   }
 
+  public getTopTerraformStack(scope: Construct): TerraformStack {
+    let stack = this.getStack(scope)
+
+    while (stack instanceof StackModule) {
+      stack = this.getStack(stack.module)
+    }
+
+    return stack
+  }
+
   public registerResource(resource: Resource, id: string) {
-    const stack = this.getStack(resource)
+    const stack = this.getTopTerraformStack(resource)
 
     let resources = this.stacks.get(stack)
 
@@ -38,7 +49,7 @@ export class StackController {
   }
 
   public getResource(scope: Construct, id: string): Resource {
-    const stack = this.getStack(scope)
+    const stack = this.getTopTerraformStack(scope)
 
     const resource = this.stacks.get(stack)?.[id]
 
@@ -50,7 +61,7 @@ export class StackController {
   }
 
   public getResources(scope: Construct): Record<string, Resource> {
-    const stack = this.getStack(scope)
+    const stack = this.getTopTerraformStack(scope)
     return this.stacks.get(stack) ?? {}
   }
 }

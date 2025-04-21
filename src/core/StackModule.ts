@@ -20,7 +20,7 @@ export interface ModuleConfig<Variables extends TerraformVariables, Providers ex
   providers?: Providers
 }
 
-export class Module<
+export class StackModule<
   Variables extends TerraformVariables = TerraformVariables,
   Providers extends TerraformProviders = TerraformProviders,
   SetContext extends (scope: Construct) => void = (scope: Construct) => void,
@@ -36,7 +36,8 @@ export class Module<
     { variables = {}, providers = {} as Providers }: ModuleConfig<Variables, Providers>,
     setContext?: SetContext,
   ) {
-    super(App.getAppFromContext(scope), id)
+    const path = `module_${id}`
+    super(App.getAppFromContext(scope), path)
 
     if (setContext) {
       setContext(this)
@@ -45,8 +46,8 @@ export class Module<
     this.addOverride("terraform.backend", undefined)
     this.addOverride("provider", undefined)
 
-    this.module = new TerraformHclModule(scope, `${id}-module`, {
-      source: `../${id}`,
+    this.module = new TerraformHclModule(scope, `module-${id}`, {
+      source: `../${path}`,
       skipAssetCreationFromLocalModules: true,
       variables,
       providers: Object.entries(providers).map(([, provider]) =>
@@ -101,6 +102,7 @@ export class Module<
         sensitive: true,
       })
       this.module.set(res.friendlyUniqueId, ref(identifier, this))
+      this.incomingCrossModuleReferences[name] = res
     }
     return `var.${res.friendlyUniqueId}`
   }

@@ -38,7 +38,7 @@ export const synth = async (options: AppOptions): Promise<App> => {
     language: "typescript",
     bundle: "direct",
     path: srcpath,
-    providers: [aws, archive],
+    providers: { aws, archive },
   })
 
   const authorizer = new HttpApiLambdaAuthorizer(bundler, "authorizer", {
