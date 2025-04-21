@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "fs/promises"
 import { join, resolve } from "path"
 
 import { BundleManifest, Bundler } from "../bundler"
+import { Module } from "./Module"
 import { Resource } from "./Resource"
 import { StackController } from "./StackController"
 import { AsyncResolvable } from "./resolvable/AsyncResolvable"
@@ -101,6 +102,75 @@ export class App extends CdkTfApp {
 
   public getStack(scope: Construct): TerraformStack {
     return this.stackController.getStack(scope)
+  }
+
+  private intersectStacks(
+    srcStack: TerraformStack,
+    dstStack: TerraformStack,
+  ): { srcChain: Array<Module>; ancestor: TerraformStack; dstChain: Array<Module> } | undefined {
+    const getStackChain = (stack: TerraformStack): [Array<Module>, TerraformStack] => {
+      const chain: Array<Module> = []
+      while (stack instanceof Module) {
+        chain.push(stack)
+        stack = this.getStack(stack.module)
+      }
+      return [chain, stack]
+    }
+
+    const [srcChain, srcRoot] = getStackChain(srcStack)
+    const [dstChain, dstRoot] = getStackChain(dstStack)
+
+    if (srcRoot !== dstRoot) {
+      return
+    }
+
+    let ancestor: TerraformStack | undefined
+    for (const src of srcChain) {
+      if (dstChain.includes(src)) {
+        ancestor = src
+        break
+      }
+    }
+
+    if (!ancestor) {
+      ancestor = srcRoot
+    }
+
+    const srcAncestorIndex = srcChain.indexOf(ancestor as Module)
+    if (srcAncestorIndex !== -1) {
+      srcChain.splice(srcAncestorIndex)
+    }
+    const dstAncestorIndex = dstChain.indexOf(ancestor as Module)
+    if (dstAncestorIndex !== -1) {
+      dstChain.splice(dstAncestorIndex)
+    }
+    dstChain.reverse()
+
+    return {
+      srcChain,
+      ancestor,
+      dstChain,
+    }
+  }
+
+  public crossStackReference(fromStack: TerraformStack, toStack: TerraformStack, identifier: string): string {
+    const intersection = this.intersectStacks(fromStack, toStack)
+    if (!intersection) {
+      return super.crossStackReference(fromStack, toStack, identifier)
+    }
+
+    const uniqueId = `${fromStack.node.id}.${identifier}`
+    let currentOutputId = identifier
+
+    intersection.srcChain.forEach(src => {
+      currentOutputId = src.registerOutgoingCrossModuleReference(uniqueId, currentOutputId)
+    })
+
+    intersection.dstChain.forEach(dst => {
+      currentOutputId = dst.registerIncomingCrossModuleReference(uniqueId, currentOutputId)
+    })
+
+    return currentOutputId
   }
 
   async synth(): Promise<void> {

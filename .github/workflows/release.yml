@@ -23,6 +23,10 @@ jobs:
       - name: Install and build
         uses: ./.github/actions/install-and-build
 
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
       - name: Run Tests
         run: pnpm test
 
