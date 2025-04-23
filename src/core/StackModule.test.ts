@@ -1,4 +1,4 @@
-import { LocalBackend, TerraformLocal, TerraformOutput, TerraformStack } from "cdktf"
+import { Fn, LocalBackend, TerraformLocal, TerraformOutput, TerraformStack, ref } from "cdktf"
 import { spawn } from "child_process"
 import path from "path"
 
@@ -58,6 +58,11 @@ describe(StackModule.name, () => {
     const moduleLeft = new StackModule(moduleTop, "module-left", {})
     const moduleLeftLeft = new StackModule(moduleLeft, "module-left-left", {})
     const moduleLeftLeftLocal = new TerraformLocal(moduleLeftLeft, "local-module-left-left", "some-value")
+    const moduleLeftLeftLocalSensitive = new TerraformLocal(
+      moduleLeftLeft,
+      "local-module-left-left-sensitive",
+      Fn.sensitive("some-sensitive-value"),
+    )
 
     const moduleRight = new StackModule(moduleTop, "module-right", {})
     const moduleRightRight = new StackModule(moduleRight, "module-right-right", {})
@@ -66,10 +71,30 @@ describe(StackModule.name, () => {
       "local-module-right-right",
       moduleLeftLeftLocal.expression,
     )
+    const moduleRightRightLocalSensitive = new TerraformLocal(
+      moduleRightRight,
+      "local-module-right-right-sensitive",
+      moduleLeftLeftLocalSensitive.expression,
+    )
 
     new TerraformOutput(stack, "output", {
       staticId: true,
       value: moduleRightRightLocal.expression,
+      sensitive: true,
+    })
+    new TerraformOutput(stack, "output-is-sensitive", {
+      staticId: true,
+      value: ref(`issensitive(${moduleRightRightLocal.expression})`),
+      sensitive: true,
+    })
+    new TerraformOutput(stack, "output-sensitive", {
+      staticId: true,
+      value: moduleRightRightLocalSensitive.expression,
+      sensitive: true,
+    })
+    new TerraformOutput(stack, "output-sensitive-is-sensitive", {
+      staticId: true,
+      value: ref(`issensitive(${moduleRightRightLocalSensitive.expression})`),
       sensitive: true,
     })
 
@@ -78,8 +103,12 @@ describe(StackModule.name, () => {
     await tfExec(path.join(rootDir, "cdktf.out/stacks/main"), ["init"])
     await tfExec(path.join(rootDir, "cdktf.out/stacks/main"), ["apply", "-auto-approve"])
     const [res] = await tfExec(path.join(rootDir, "cdktf.out/stacks/main"), ["output", "-json"])
+    const output = JSON.parse(res)
 
-    expect(JSON.parse(res)?.output?.value).toBe("some-value")
+    expect(output?.["output"]?.value).toBe("some-value")
+    expect(output?.["output-is-sensitive"]?.value).toBe(false)
+    expect(output?.["output-sensitive"]?.value).toBe("some-sensitive-value")
+    expect(output?.["output-sensitive-is-sensitive"]?.value).toBe(true)
   })
 
   it("test cross-stack references", async () => {
@@ -116,6 +145,40 @@ describe(StackModule.name, () => {
     new TerraformOutput(stack2, "output", {
       staticId: true,
       value: stack2ModuleLocal.expression,
+      sensitive: true,
+    })
+
+    await app.synth()
+
+    await tfExec(path.join(rootDir, `cdktf.out/stacks/${stack1.node.id}`), ["init"])
+    await tfExec(path.join(rootDir, `cdktf.out/stacks/${stack1.node.id}`), ["apply", "-auto-approve"])
+
+    await tfExec(path.join(rootDir, `cdktf.out/stacks/${stack2.node.id}`), ["init"])
+    await tfExec(path.join(rootDir, `cdktf.out/stacks/${stack2.node.id}`), ["apply", "-auto-approve"])
+    const [res] = await tfExec(path.join(rootDir, `cdktf.out/stacks/${stack2.node.id}`), ["output", "-json"])
+
+    expect(JSON.parse(res)?.output?.value).toBe("some-value")
+  })
+
+  it("test pure cross-stack references", async () => {
+    const app = new App({ outdir: outDir })
+
+    const stack1 = new TerraformStack(app, "stack1")
+
+    new LocalBackend(stack1, {
+      path: path.join(rootDir, `terraform.${stack1.node.id}.tfstate`),
+    })
+
+    const local = new TerraformLocal(stack1, "output", "some-value")
+
+    const stack2 = new TerraformStack(app, "stack2")
+    new LocalBackend(stack2, {
+      path: path.join(rootDir, `terraform.${stack2.node.id}.tfstate`),
+    })
+
+    new TerraformOutput(stack2, "output", {
+      staticId: true,
+      value: local.expression,
       sensitive: true,
     })
 

@@ -107,13 +107,16 @@ export class StackModule<
   private incomingCrossModuleReferences: Record<string, TerraformVariable> = {}
   public registerIncomingCrossModuleReference(name: string, identifier: string): string {
     let res = this.incomingCrossModuleReferences[name]
+
     if (!res) {
       res = new TerraformVariable(this, `sdf-cmi-${name}`, {
+        type: "object({sensitive = bool, value = any})",
         sensitive: true,
       })
       this.module.set(res.friendlyUniqueId, ref(identifier, this))
       this.incomingCrossModuleReferences[name] = res
     }
+
     return `var.${res.friendlyUniqueId}`
   }
 }
