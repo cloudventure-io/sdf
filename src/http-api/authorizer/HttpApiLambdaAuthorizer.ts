@@ -36,7 +36,7 @@ export class HttpApiLambdaAuthorizer extends HttpApiAuthorizer {
     public config: HttpApiLambdaAuthorizerConfig,
   ) {
     super(scope, id)
-    this.bundler = App.getFromContext(this, Bundler)
+    this.bundler = App.findInScopes(this, Bundler.isBundler)
 
     this.prefix = config.prefix ?? id
 

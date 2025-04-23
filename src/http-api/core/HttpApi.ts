@@ -101,10 +101,8 @@ export class HttpApi extends StackModule {
     public readonly id: string,
     public readonly config: HttpApiConfig,
   ) {
-    const bundler = App.getFromContext(scope, Bundler)
-    super(scope, id, {
-      providers: bundler.providers,
-    })
+    const bundler = App.findInScopes(scope, s => Bundler.isBundler(s))
+    super(scope, id)
     this.bundler = bundler
     this.prefix = config.prefix ?? id
 

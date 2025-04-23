@@ -8,9 +8,7 @@ export class StackController {
   private stacks = new WeakMap<TerraformStack, Record<string, Resource>>()
 
   public getStack(scope: Construct): TerraformStack {
-    const stack = scope.node.scopes
-      .reverse()
-      .find<TerraformStack>((scope): scope is TerraformStack => TerraformStack.isStack(scope))
+    const stack = TerraformStack.of(scope)
 
     if (!stack) {
       throw new Error(`cannot find stack in scope ${scope.node.path}`)
@@ -22,7 +20,7 @@ export class StackController {
   public getTopTerraformStack(scope: Construct): TerraformStack {
     let stack = this.getStack(scope)
 
-    while (stack instanceof StackModule) {
+    while (StackModule.isStackModule(stack)) {
       stack = this.getStack(stack.module)
     }
 

@@ -23,7 +23,7 @@ export class AsyncResolvable<T = unknown> implements IResolvable {
     public readonly stage: AppLifeCycle = AppLifeCycle.construction,
   ) {
     this.addr = `${scope.node.path},stage=${stage},name=${name}`
-    App.getAppFromContext(scope).addResolvable(this)
+    App.of(scope).addResolvable(this)
   }
 
   public resolve(): T {

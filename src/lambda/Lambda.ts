@@ -41,13 +41,11 @@ export class Lambda extends StackModule {
   public role: IamRole
 
   public constructor(scope: Construct, id: string, { resources, ...config }: LambdaConfig) {
-    const bundler = App.getFromContext(scope, Bundler)
+    const bundler = App.findInScopes(scope, Bundler.isBundler)
 
-    super(scope, id, {
-      providers: bundler.providers,
-    })
+    super(scope, id)
 
-    this.app = App.getAppFromContext(this)
+    this.app = App.of(this)
     this.bundler = bundler
 
     const assumeRolePolicy = new DataAwsIamPolicyDocument(this, "assume-role-policy", {

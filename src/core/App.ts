@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "fs/promises"
 import { join, resolve } from "path"
 
 import { BundleManifest, Bundler } from "../bundler"
+import { isinstance } from "../utils/isinstance"
 import { Resource } from "./Resource"
 import { StackController } from "./StackController"
 import { StackModule } from "./StackModule"
@@ -40,6 +41,8 @@ export enum AppLifeCycle {
   generation = "generation",
 }
 
+const APP_SYMBOL = Symbol.for("sdf/core/App")
+
 export class App extends CdkTfApp {
   private treeResolver: TreeResolver
   private stackController: StackController
@@ -58,46 +61,50 @@ export class App extends CdkTfApp {
       ...options,
       outdir: resolve(outdir),
     })
+    Object.defineProperty(this, APP_SYMBOL, { value: true })
 
     this.userdata = userdata
 
-    this.node.setContext(App.name, this)
     this._workdir = join(this.outdir, ".sdf")
     this.treeResolver = new TreeResolver(this)
     this.stackController = new StackController()
   }
 
-  public static getFromContext<T extends (new (...args: any[]) => any) | (abstract new (...args: any[]) => any)>(
+  public static isApp(x: any): x is App {
+    return isinstance(x, App, APP_SYMBOL)
+  }
+
+  public static findInScopes<T extends (new (...args: any[]) => any) | (abstract new (...args: any[]) => any)>(
     construct: Construct,
-    type: T,
+    isinstance: (c: Construct) => c is InstanceType<T>,
   ): InstanceType<T> {
-    let value: any
+    let value: InstanceType<T> | undefined
+    let currentScope = construct
 
     do {
-      value = construct.node.tryGetContext(type.name)
+      value = [...currentScope.node.scopes].reverse().find((scope: Construct) => isinstance(scope))
 
       if (value) {
         break
-      } else {
-        const stack = TerraformStack.of(construct)
-        if (stack instanceof StackModule) {
-          construct = stack.module
-        } else {
-          break
-        }
       }
-    } while (construct)
+
+      const stack = TerraformStack.of(construct)
+      if (StackModule.isStackModule(stack)) {
+        currentScope = stack.module
+      } else {
+        break
+      }
+    } while (currentScope)
 
     if (!value) {
-      throw new Error(`cannot find ${type.name} in context`)
-    } else if (!(value instanceof type)) {
-      throw new Error(`the value in context is not an instance of ${type.name} type`)
+      throw new Error(`cannot find the construct in context`)
     }
+
     return value
   }
 
-  static getAppFromContext(construct: Construct): App {
-    return App.getFromContext(construct, App)
+  public static of(construct: Construct): App {
+    return App.findInScopes(construct, App.isApp)
   }
 
   public addResolvable(resolvable: AsyncResolvable) {
@@ -126,7 +133,7 @@ export class App extends CdkTfApp {
   ): { srcChain: Array<StackModule>; dstChain: Array<StackModule>; srcRoot: TerraformStack; dstRoot: TerraformStack } {
     const getStackChain = (stack: TerraformStack): [Array<StackModule>, TerraformStack] => {
       const chain: Array<StackModule> = []
-      while (stack instanceof StackModule) {
+      while (StackModule.isStackModule(stack)) {
         chain.push(stack)
         stack = this.getStack(stack.module)
       }
@@ -211,7 +218,7 @@ export class App extends CdkTfApp {
         id: stack.node.id,
         bundles: stack.node
           .findAll()
-          .filter<Bundler>((construct): construct is Bundler => construct instanceof Bundler)
+          .filter<Bundler>((construct: Construct) => Bundler.isBundler(construct))
           .map(bundler => bundler.manifest()),
       })),
     }

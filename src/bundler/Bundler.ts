@@ -13,6 +13,7 @@ import { HttpApi } from "../http-api"
 import { HttpApiLambdaAuthorizer } from "../http-api/authorizer"
 import { OperationSchema } from "../http-api/core/DocumentSchemaAdapter"
 import { Lambda, LambdaConfig, LambdaConfigCore, LambdaEntryPoint } from "../lambda/Lambda"
+import { isinstance } from "../utils/isinstance"
 import { BundlerLanguage } from "./language/BundlerLanguage"
 import { BundlerLanguageCustom } from "./language/BundlerLanguageCustom"
 import { BundlerLanguageTypeScript } from "./language/BundlerLanguageTypeScript"
@@ -127,6 +128,8 @@ export type BundleManifest = Omit<BundlerConfig, "variables" | "providers"> & {
   id: string
 }
 
+const BUNDLER_SYMBOL = Symbol.for("sdf/bundler/Bundler")
+
 export class Bundler<
   Variables extends TerraformVariables = TerraformVariables,
   Providers extends TerraformProviders = TerraformProviders,
@@ -143,14 +146,12 @@ export class Bundler<
   private config: BundlerConfig<Variables>
 
   constructor(scope: Construct, id: string, { variables, providers, ...config }: BundlerConfig<Variables, Providers>) {
-    super(scope, id, { variables, providers }, (self: Construct) => {
-      self.node.setContext(Bundler.name, self)
-      self.node.setContext(self.constructor.name, self)
-    })
+    super(scope, id, { variables, providers })
+    Object.defineProperty(this, BUNDLER_SYMBOL, { value: true })
 
     this.config = config
 
-    this.app = App.getAppFromContext(this)
+    this.app = App.of(this)
     this.stack = this.app.getStack(this)
 
     if (config.language === "typescript") {
@@ -231,6 +232,10 @@ export class Bundler<
         }
       }
     }
+  }
+
+  public static isBundler(x: any): x is Bundler {
+    return isinstance(x, Bundler, BUNDLER_SYMBOL)
   }
 
   private resolveVariableRef<T extends string | Array<string>>(value: T | VariableRef<Variables, T>): T {

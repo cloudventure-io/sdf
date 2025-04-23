@@ -11,7 +11,7 @@ export interface ResourcePermissions {
 export abstract class Resource extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id)
-    const app = App.getAppFromContext(this)
+    const app = App.of(this)
     app.registerResource(this, id)
   }
 

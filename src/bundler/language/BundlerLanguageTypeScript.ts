@@ -175,7 +175,7 @@ export class BundlerLanguageTypeScript<
   ) {
     super(bundler, id)
 
-    this.app = App.getAppFromContext(this)
+    this.app = App.of(this)
     this.stack = this.app.getStack(this)
 
     this.buildDir = join(this.app.workdir, "build", this.stack.node.id, bundler.node.id)

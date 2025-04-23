@@ -10,6 +10,7 @@ import {
 } from "cdktf"
 import { Construct } from "constructs"
 
+import { isinstance } from "../utils/isinstance"
 import { App } from "./App"
 
 export type TerraformVariables = TerraformHclModuleConfig["variables"]
@@ -20,10 +21,11 @@ export interface ModuleConfig<Variables extends TerraformVariables, Providers ex
   providers?: Providers
 }
 
+const STACK_MODULE_SYMBOL = Symbol.for("sdf/core/StackModule")
+
 export class StackModule<
   Variables extends TerraformVariables = TerraformVariables,
   Providers extends TerraformProviders = TerraformProviders,
-  SetContext extends (scope: Construct) => void = (scope: Construct) => void,
 > extends TerraformStack {
   public readonly variables: { [key in keyof Variables]: Variables[key] } = {} as any
   public readonly providers: { [key in keyof Providers]: Providers[key] } = {} as any
@@ -33,24 +35,28 @@ export class StackModule<
   constructor(
     scope: Construct,
     public readonly id: string,
-    { variables = {}, providers = {} as Providers }: ModuleConfig<Variables, Providers>,
-    setContext?: SetContext,
+    { variables = {}, providers }: ModuleConfig<Variables, Providers> = {},
   ) {
     const path = `module_${id}`
-    super(App.getAppFromContext(scope), path)
+    const app = App.of(scope)
 
-    if (setContext) {
-      setContext(this)
-    }
+    super(app, path)
+    Object.defineProperty(this, STACK_MODULE_SYMBOL, { value: true })
 
     this.addOverride("terraform.backend", undefined)
     this.addOverride("provider", undefined)
+
+    const parentProviders =
+      providers ||
+      TerraformStack.of(scope)
+        .node.findAll()
+        .filter(scope => TerraformProvider.isTerraformProvider(scope))
 
     this.module = new TerraformHclModule(scope, `module-${id}`, {
       source: `../${path}`,
       skipAssetCreationFromLocalModules: true,
       variables,
-      providers: Object.entries(providers).map(([, provider]) =>
+      providers: Object.entries(parentProviders).map(([, provider]) =>
         provider.alias
           ? {
               moduleAlias: provider.alias,
@@ -65,7 +71,7 @@ export class StackModule<
       this.variables,
     )
 
-    this.providers = Object.entries(providers).reduce((acc, [key, provider]) => {
+    this.providers = Object.entries(parentProviders).reduce((acc, [key, provider]) => {
       const ProviderClass: { new (...args: any[]): typeof provider } = provider.constructor as any
       const id = provider.node.id
       return {
@@ -73,6 +79,10 @@ export class StackModule<
         [key]: new ProviderClass(this, id, { alias: provider.alias }),
       }
     }, this.providers)
+  }
+
+  public static isStackModule(x: any): x is StackModule {
+    return isinstance(x, StackModule, STACK_MODULE_SYMBOL)
   }
 
   output(name: string): IResolvable {
