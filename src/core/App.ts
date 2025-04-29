@@ -186,7 +186,7 @@ export class App extends CdkTfApp {
     const intersection = this.intersectStacks(fromStack, toStack)
     const uniqueId = `${fromStack.node.id}.${identifier}`
 
-    let outputId = `sensitive({sensitive: issensitive(${identifier}), value: ${identifier}})`
+    let outputId = `sensitive({issensitive: issensitive(${identifier}), value: ${identifier}})`
 
     intersection.srcChain.forEach(src => {
       outputId = src.registerOutgoingCrossModuleReference(uniqueId, outputId)
@@ -200,7 +200,7 @@ export class App extends CdkTfApp {
       outputId = dst.registerIncomingCrossModuleReference(uniqueId, outputId)
     })
 
-    return `(${outputId}.sensitive ? sensitive(${outputId}.value) : nonsensitive(${outputId}.value))`
+    return `({true: sensitive(${outputId}.value), false: nonsensitive(${outputId}.value)}[${outputId}.issensitive])`
   }
 
   async synth(): Promise<void> {

@@ -110,7 +110,7 @@ export class StackModule<
 
     if (!res) {
       res = new TerraformVariable(this, `sdf-cmi-${name}`, {
-        type: "object({sensitive = bool, value = any})",
+        type: "object({issensitive = bool, value = any})",
         sensitive: true,
       })
       this.module.set(res.friendlyUniqueId, ref(identifier, this))
