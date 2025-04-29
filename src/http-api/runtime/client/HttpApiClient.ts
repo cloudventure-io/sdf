@@ -85,7 +85,7 @@ export class HttpApiClient {
     }
 
     const requestInit: RequestInit = {
-      method: operation.method,
+      method: operation.method.toUpperCase(),
       headers: this.headerCodec.encode({
         [HttpHeaders.ContentType]: mediaType,
         ...req.header,
