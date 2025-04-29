@@ -13,6 +13,7 @@
     "@eslint/eslintrc": "^3.1.0",
     "@types/aws-lambda": "^8.10.145",
     "ajv": "^8.17.1",
+    "ajv-formats": "3.0.1",
     "cdktf": "^0.20.9",
     "cdktf-cli": "^0.20.9",
     "change-case": "^4.1.2",

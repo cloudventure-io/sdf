@@ -1,4 +1,5 @@
 import Ajv, { Options, SchemaObject } from "ajv"
+import addFormats from "ajv-formats"
 import standaloneCode from "ajv/dist/standalone"
 import { TerraformStack } from "cdktf"
 import { camelCase, constantCase, pascalCase } from "change-case"
@@ -304,12 +305,14 @@ export class BundlerLanguageTypeScript<
       // schemas,
       schemas: schemas.filter(schema => !coerceKeys.includes(schema.$id as string)),
     })
+    addFormats(ajv)
 
     const ajvCoerce = new Ajv({
       ...ajvOptions,
       coerceTypes: true,
       schemas: schemas.filter(schema => coerceKeys.includes(schema.$id as string)),
     })
+    addFormats(ajvCoerce)
 
     const moduleCode = standaloneCode(ajv)
     const coercedModuleCode = standaloneCode(ajvCoerce)
