@@ -26,6 +26,9 @@ export const map = <In extends object | undefined, Out, Ret = In extends object 
   return res
 }
 
+const isRef = (item: unknown): item is { $ref: string } =>
+  Boolean(item && typeof item === "object" && "$ref" in item && typeof item.$ref === "string")
+
 /**
  * Dereferences the given item.
  *
@@ -60,7 +63,7 @@ export function dereference(
 
   let result = item
 
-  if (item && typeof item === "object" && "$ref" in item && typeof item.$ref === "string") {
+  if (isRef(item)) {
     const ref = item.$ref
 
     if (!ref.startsWith("#/")) {
@@ -71,13 +74,26 @@ export function dereference(
 
     result = paths
       .map(s => decodeURIComponent(s).replace(/~1/g, "/").replace(/~0/g, "~")) // https://datatracker.ietf.org/doc/html/rfc6901#section-3
-      .reduce((acc, path) => {
-        if (path in acc) {
-          return acc[path]
-        } else {
-          throw new Error(`Invalid reference '${ref}' at ${trace}`)
-        }
-      }, document)
+      .reduce(
+        ({ obj, trace }, path) => {
+          if (!(path in obj)) {
+            throw new Error(`Invalid reference '${ref}' on '${path}' at ${trace}`)
+          }
+
+          // the object along the path might be a reference itself.
+          // we need to dereference it as well.
+          if (isRef(obj[path])) {
+            obj[path] = dereference(document, {
+              item: obj[path],
+              visited,
+              trace,
+            })
+          }
+
+          return { obj: obj[path], trace: trace.append(path) }
+        },
+        { obj: document, trace },
+      ).obj
 
     visited.set(item, result)
 
