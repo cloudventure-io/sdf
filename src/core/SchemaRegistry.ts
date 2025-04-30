@@ -34,11 +34,19 @@ export class SchemaRegistry {
    * @returns the dereferenced schema
    */
   public register(input: OpenAPIV3.SchemaObject, trace?: string): OpenAPIV3.SchemaObject {
-    const mergedSchema = this.sanitizeSchema(input, trace)
+    const [mergedSchema, schemasCut] = this.sanitizeSchema(input, trace)
 
     // dereference the input schema using already registered schemas based on titles
-    const res = this.walkSchema(
-      mergedSchema,
+    const res = this.addSchema(mergedSchema, trace)
+
+    schemasCut.forEach(s => this.register(s, trace))
+
+    return res
+  }
+
+  private addSchema(input: OpenAPIV3.SchemaObject, trace?: string): OpenAPIV3.SchemaObject {
+    return this.walkSchema(
+      input,
       ({ schema, stop }) => {
         const title = schema.title
 
@@ -51,6 +59,8 @@ export class SchemaRegistry {
             stop()
             return this.schemas[title]
           } else {
+            console.error("new:", schema)
+            console.error("existing:", this.schemas[title])
             throw new Error(`schema with title '${title}' is already registered, but with different structure`)
           }
         }
@@ -59,23 +69,9 @@ export class SchemaRegistry {
       },
       { trace },
     )
-
-    return res
   }
 
-  public generateUniqueTitle(base: string): string {
-    let index = 1
-    let title: string
-
-    do {
-      title = `${base}${index === 1 ? "" : index}`
-      index++
-    } while (title in this.schemas)
-
-    return title
-  }
-
-  private mergeAllOfs = (schema: OpenAPIV3.SchemaObject): OpenAPIV3.SchemaObject => {
+  private mergeAllOfs(schema: OpenAPIV3.SchemaObject, schemasCut: Set<OpenAPIV3.SchemaObject>): OpenAPIV3.SchemaObject {
     const allOf = schema.allOf as Array<OpenAPIV3.SchemaObject>
     const title = schema.title
 
@@ -107,8 +103,14 @@ export class SchemaRegistry {
           required: allOfGroup
             .filter(s => s.required)
             .map(s => s.required as string[])
-            .flat(1),
+            .flat(1)
+            .reduce<Array<string>>((acc, p) => (acc.includes(p) ? acc : [...acc, p]), []),
         }
+
+        // if some of the merged schemas are not referenced anyhere else, we will lose them.
+        // but the user might want to have the generated interfaces for those schemas, so we want
+        // to track them.
+        allOfGroup.forEach(s => schemasCut.add(s))
 
         const additionalProperties = allOfGroup.find(s => s?.additionalProperties !== undefined)
 
@@ -139,13 +141,23 @@ export class SchemaRegistry {
     return schema
   }
 
-  private sanitizeSchema = <T extends OpenAPIV3.SchemaObject>(input: T, trace?: string): T => {
+  private sanitizeSchema = <T extends OpenAPIV3.SchemaObject>(
+    input: T,
+    trace?: string,
+  ): [T, Set<OpenAPIV3.SchemaObject>] => {
     const copy: T = lodash.cloneDeep(input) as T
+    const schemasCut = new Set<OpenAPIV3.SchemaObject>()
 
-    this.walkSchema(copy, ({ schema }) => this.mergeAllOfs(schema), { depthFirst: true, trace })
+    this.walkSchema(copy, ({ schema }) => this.mergeAllOfs(schema, schemasCut), { depthFirst: true, trace })
 
-    this.walkSchema(
-      copy,
+    this.transformSchema(copy, trace)
+
+    return [copy, schemasCut]
+  }
+
+  private transformSchema = <T extends OpenAPIV3.SchemaObject>(input: T, trace?: string): T => {
+    return this.walkSchema(
+      input,
       ({ schema }) => {
         // Use Buffer type for binary format
         // if (schema.type === "string" && schema.format === "binary") {
@@ -166,9 +178,7 @@ export class SchemaRegistry {
         }
       },
       { trace },
-    )
-
-    return copy
+    ) as T
   }
 
   private walkSchema(

@@ -86,18 +86,21 @@ describe("sanitize schema", () => {
   })
 
   it("sanitize schema basic", () => {
+    const preserved: OpenAPIV3.SchemaObject = {
+      type: "object",
+      title: "Preserved",
+      additionalProperties: false,
+      properties: {
+        name: { type: "string" },
+        age: { type: "number" },
+      },
+      required: ["age"],
+    }
+
     const schema: OpenAPIV3.SchemaObject = {
       title: "Root",
       allOf: [
-        {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            name: { type: "string" },
-            age: { type: "number" },
-          },
-          required: ["age"],
-        },
+        preserved,
         {
           additionalProperties: {
             type: "string",
@@ -123,6 +126,8 @@ describe("sanitize schema", () => {
       required: ["age", "name", "email"],
       additionalProperties: false,
     } satisfies OpenAPIV3.SchemaObject)
+
+    expect(registry.schemas["Preserved"]).toStrictEqual(preserved)
   })
 
   it("sanitize schema complex", () => {
