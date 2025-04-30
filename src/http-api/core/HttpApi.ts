@@ -190,7 +190,12 @@ export class HttpApi extends StackModule {
     }
 
     const apiGwBody = new AsyncResolvable(this, `api-body`, async () =>
-      JSON.stringify(await this.schemaAdapter.bundle()),
+      JSON.stringify(
+        await this.schemaAdapter.bundle(
+          // do not include any schema for API Gateway v2 body, as it is unused
+          () => undefined as unknown as OpenAPIV3.SchemaObject,
+        ),
+      ),
     ).asString()
 
     // define the AWS HTTP API
