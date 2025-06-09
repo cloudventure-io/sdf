@@ -16,7 +16,7 @@
     "cdktf": "^0.21.0",
     "cdktf-cli": "^0.21.0",
     "change-case": "^5.4.4",
-    "commander": "^14.0.0",
+    "commander": "^12.1.0",
     "constructs": "^10.4.2",
     "esbuild": "^0.25.2",
     "handlebars": "^4.7.8",

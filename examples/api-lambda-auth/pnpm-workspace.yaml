@@ -1,2 +1,5 @@
 packages:
-  - 'backend/'
+  - backend/
+
+onlyBuiltDependencies:
+  - esbuild

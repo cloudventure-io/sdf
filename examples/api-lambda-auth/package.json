@@ -5,7 +5,7 @@
   "license": "MIT",
   "dependencies": {
     "@cloudventure/sdf": "file:../../dist",
-    "commander": "^11.1.0",
+    "commander": "^12.1.0",
     "dotenv": "^16.5.0",
     "json-schema-to-zod": "^2.6.1"
   },
@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit --emitDeclarationOnly false"
   },
   "devDependencies": {
-    "@cloudventure/jest-transformer-esbuild": "^1.0.14",
+    "@cloudventure/jest-transformer-esbuild": "^1.0.15",
     "@types/aws-lambda": "^8.10.149",
     "axios": "^1.9.0",
     "jest": "^29.7.0",
