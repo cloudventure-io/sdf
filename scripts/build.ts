@@ -98,7 +98,6 @@ const run = async () => {
           ...packageJson,
           devDependencies: undefined,
           scripts: undefined,
-          packageManager: undefined,
           bin: {
             sdf: "./cli/sdf.js",
           },

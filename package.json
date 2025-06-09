@@ -1,12 +1,11 @@
 {
   "name": "@cloudventure/sdf",
   "description": "Serverless Development Framework",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "author": "Vahe Sahakyan <vahe@spir.me>",
   "license": "MIT",
-  "packageManager": "pnpm@8.9.2",
   "dependencies": {
-    "@apidevtools/swagger-parser": "^10.1.1",
+    "@apidevtools/swagger-parser": "^11.0.1",
     "@cdktf/provider-archive": "^11.0.0",
     "@cdktf/provider-aws": "^20.0.0",
     "@cdktf/provider-null": "^11.0.0",
@@ -16,10 +15,10 @@
     "ajv-formats": "3.0.1",
     "cdktf": "^0.21.0",
     "cdktf-cli": "^0.21.0",
-    "change-case": "^4.1.2",
-    "commander": "^12.1.0",
+    "change-case": "^5.4.4",
+    "commander": "^14.0.0",
     "constructs": "^10.4.2",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.25.2",
     "handlebars": "^4.7.8",
     "json-schema-faker": "^0.5.9",
     "json-schema-to-typescript": "^15.0.4",
@@ -29,12 +28,12 @@
     "zod": "^3.25.56"
   },
   "devDependencies": {
-    "@cloudventure/jest-transformer-esbuild": "^1.0.14",
+    "@cloudventure/jest-transformer-esbuild": "^1.0.15",
     "@eslint/js": "^9.28.0",
     "@eslint/migrate-config": "^1.5.0",
     "@jest/globals": "^29.7.0",
     "@jest/transform": "^29.7.0",
-    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.14",
     "@types/json-schema-merge-allof": "^0.6.5",
@@ -43,8 +42,8 @@
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
     "eslint": "^9.13.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-import-resolver-typescript": "^3.10.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-import-resolver-typescript": "^4.4.3",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.4.1",
     "glob": "^11.0.2",
@@ -80,6 +79,13 @@
   "pnpm": {
     "overrides": {
       "jsonpath-plus": "^10.0.0"
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "unrs-resolver"
+    ],
+    "onlyBuiltDependencies": [
+      "@cdktf/node-pty-prebuilt-multiarch",
+      "esbuild"
+    ]
   }
 }

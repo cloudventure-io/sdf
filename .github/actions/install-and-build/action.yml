@@ -12,13 +12,14 @@ runs:
   using: "composite"
 
   steps:
-    - uses: pnpm/action-setup@v2
+    - uses: pnpm/action-setup@v4
       name: Install pnpm
       with:
         standalone: true
+        version: 10
 
     - name: Setup Node
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: 22
         cache: pnpm
