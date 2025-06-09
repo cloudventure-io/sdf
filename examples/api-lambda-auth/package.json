@@ -6,8 +6,8 @@
   "dependencies": {
     "@cloudventure/sdf": "file:../../dist",
     "commander": "^11.1.0",
-    "dotenv": "^16.4.5",
-    "json-schema-to-zod": "^2.4.1"
+    "dotenv": "^16.5.0",
+    "json-schema-to-zod": "^2.6.1"
   },
   "sideEffects": false,
   "scripts": {
@@ -18,10 +18,10 @@
   },
   "devDependencies": {
     "@cloudventure/jest-transformer-esbuild": "^1.0.14",
-    "@types/aws-lambda": "^8.10.145",
-    "axios": "^1.7.7",
+    "@types/aws-lambda": "^8.10.149",
+    "axios": "^1.9.0",
     "jest": "^29.7.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.8.3"
   },
   "workspaces": [
     "./backend"
