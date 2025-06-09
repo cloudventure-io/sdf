@@ -30,7 +30,7 @@ export class {{ ClassName }} extends HttpApiClient {
 
   constructor(config: HttpApiClientConfig) {
     super(config)
-    this.#document = new Document(dereference(document as BundledDocument))
+    this.#document = new Document(dereference(document as unknown as BundledDocument))
   }
 
 {{#Operations}}

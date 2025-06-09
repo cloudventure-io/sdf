@@ -4,4 +4,4 @@ import { dereference } from "@cloudventure/sdf/http-api/openapi/utils"
 
 import documentJson from "./openapi.json";
 
-export const document = new Document(dereference(documentJson as BundledDocument))
+export const document = new Document(dereference(documentJson as unknown as BundledDocument))
