@@ -15,7 +15,7 @@
     "ajv-formats": "3.0.1",
     "cdktf": "^0.21.0",
     "cdktf-cli": "^0.21.0",
-    "change-case": "^5.4.4",
+    "change-case": "^4.1.2",
     "commander": "^12.1.0",
     "constructs": "^10.4.2",
     "esbuild": "^0.25.2",
