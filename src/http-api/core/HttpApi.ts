@@ -4,7 +4,7 @@ import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-p
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role"
 import { IamRolePolicy } from "@cdktf/provider-aws/lib/iam-role-policy"
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment"
-import { AssetType, TerraformAsset, Token } from "cdktf"
+import { AssetType, Fn, TerraformAsset, Token } from "cdktf"
 import { camelCase, paramCase } from "change-case"
 import { Construct } from "constructs"
 import { OpenAPIV3 } from "openapi-types"
@@ -190,7 +190,7 @@ export class HttpApi extends StackModule {
     }
 
     const apiGwBody = new AsyncResolvable(this, `api-body`, async () =>
-      JSON.stringify(
+      Fn.jsonencode(
         await this.schemaAdapter.bundle(
           // do not include any schema for API Gateway v2 body, as it is unused
           () => undefined as unknown as OpenAPIV3.SchemaObject,
