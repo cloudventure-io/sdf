@@ -7,7 +7,7 @@ import {
   LambdaFunction as AwsLambdaFunction,
   LambdaFunctionConfig as AwsLambdaFunctionConfig,
 } from "@cdktf/provider-aws/lib/lambda-function"
-import { Fn, TerraformResource, dependable } from "cdktf"
+import { Fn, TerraformLocal, TerraformResource, Token, dependable } from "cdktf"
 import { constantCase } from "change-case"
 import { Construct } from "constructs"
 
@@ -127,18 +127,19 @@ export class Lambda extends StackModule {
         this,
         "env-vars",
         async () => {
-          const resourceEnvironment = Object.entries(this.resources).reduce(
-            (acc, [resourceName, resource]) => ({
+          const resourceEnvironment = Object.entries(this.resources).reduce((acc, [resourceName, resource]) => {
+            const key = constantCase(`RESOURCE_${resourceName}`)
+            return {
               ...acc,
-              [constantCase(`RESOURCE_${resourceName}`)]: JSON.stringify(resource.config).replace(/"/g, `\\"`),
-            }),
-            {},
+              [key]: Fn.jsonencode(new TerraformLocal(this, key, Token.asStringMap(resource.config)).expression),
+            }
+          }, {})
+
+          const res = Token.asAnyMap(
+            bundledEnvVars ? Fn.merge([bundledEnvVars, resourceEnvironment]) : resourceEnvironment,
           )
-          if (bundledEnvVars) {
-            return Fn.merge([bundledEnvVars, resourceEnvironment])
-          } else {
-            return resourceEnvironment
-          }
+
+          return res
         },
         AppLifeCycle.generation,
       ).asStringMap(),

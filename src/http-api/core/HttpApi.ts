@@ -256,7 +256,7 @@ export class HttpApi extends StackModule {
     this.bundler.schemaRegistry.register(schemas.operation.value)
 
     // generate the function handler
-    const entryPoint = this.bundler.generateHttpApiHandler(this, op) || ["jj", op.operation.operationId]
+    const entryPoint = this.bundler.generateHttpApiHandler(this, op)
 
     const lambda = new Lambda(this, `api-handler-${camelCase(operation.operationId)}`, {
       timeout: 29,

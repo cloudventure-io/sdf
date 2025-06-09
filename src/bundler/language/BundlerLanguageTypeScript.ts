@@ -159,7 +159,7 @@ export class BundlerLanguageTypeScript<
 
   public get lambdaConfigCustomization(): Partial<LambdaConfig> {
     return {
-      runtime: "nodejs18.x",
+      runtime: "nodejs22.x",
 
       environment: {
         variables: {

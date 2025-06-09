@@ -12,7 +12,7 @@ const cmd = new Command("sdf")
 
 const outdir = join(process.cwd(), "cdktf.out")
 
-const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "18"}`
+const target = `node${process.version.match(/^v(\d+)\./)?.[1] || "22"}`
 
 const configFilename = "./sdf.config.ts"
 
