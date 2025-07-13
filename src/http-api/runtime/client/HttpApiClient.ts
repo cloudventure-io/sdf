@@ -19,13 +19,6 @@ export const bodyCodecs = {
 
 type RequestInit = Exclude<ConstructorParameters<typeof Request>[1], undefined>
 
-export type OperationRequest<Request extends GeneratedRequestShape> = Omit<Request, "authorizer">
-
-export type OperationRequestDefaultMediaType<Request extends GeneratedRequestShape> = Omit<
-  OperationRequest<Request>,
-  "mediaType"
-> & { mediaType?: string }
-
 export type OperationResponses<
   Response extends GeneratedOperationShape,
   StatusCodes extends number = 200,

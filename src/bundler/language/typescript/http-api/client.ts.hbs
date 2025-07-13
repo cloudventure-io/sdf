@@ -1,10 +1,9 @@
 
 import {
-  HttpApiClient,
-  HttpApiClientConfig,
+  ApiClientTransport,
   OperationRequest,
   OperationRequestDefaultMediaType,
-} from "@cloudventure/sdf/http-api/runtime/client/HttpApiClient"
+} from "@cloudventure/sdf/http-api/runtime/client/ApiClientTransport"
 
 // @ts-ignore
 type _ = OperationRequestDefaultMediaType
@@ -25,12 +24,13 @@ import * as Operation{{ OperationModel }} from "./{{ OperationImport }}"
 
 import document from "./{{ DocumentImport }}"
 
-export class {{ ClassName }} extends HttpApiClient {
+export class {{ ClassName }} {
   #document: Document
+  transport: ApiClientTransport
 
-  constructor(config: HttpApiClientConfig) {
-    super(config)
+  constructor(transport: ApiClientTransport) {
     this.#document = new Document(dereference(document as unknown as BundledDocument))
+    this.transport = transport
   }
 
 {{#Operations}}
@@ -42,7 +42,7 @@ export class {{ ClassName }} extends HttpApiClient {
   public async {{ OperationName }}(
     request: OperationRequest{{#if IsSingleRequestBody}}DefaultMediaType{{/if}}<{{ OperationModel }}["request"]>{{#IsOperationEmpty}} = {}{{/IsOperationEmpty}},
   ): Promise<Operation{{ OperationModel }}.SuccessResponse> {
-    return await this.request<Operation{{ OperationModel }}.SuccessResponse>(
+    return await this.transport.request<Operation{{ OperationModel }}.SuccessResponse>(
       this.#document.operations["{{ OperationId }}"],
       request,
     )

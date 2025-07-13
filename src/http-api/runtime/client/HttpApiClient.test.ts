@@ -238,9 +238,11 @@ describe(HttpApiClient.name, () => {
       rootDir,
     )
 
-    const client: BaseClientIface = new BaseApiClient({
+    const clientTransport = new HttpApiClient({
       baseUrl: `http://${apiServer.address.address}:${apiServer.address.port}`,
-    }) as BaseClientIface
+    })
+
+    const client: BaseClientIface = new BaseApiClient(clientTransport) as BaseClientIface
 
     apiEntrypoints.mockImplementation(
       (op: string) =>

@@ -1,7 +1,7 @@
 {
   "name": "@cloudventure/sdf",
   "description": "Serverless Development Framework",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "author": "Vahe Sahakyan <vahe@spir.me>",
   "license": "MIT",
   "dependencies": {

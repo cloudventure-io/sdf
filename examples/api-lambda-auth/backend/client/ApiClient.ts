@@ -1,3 +1,4 @@
+import { HttpApiClient } from "@cloudventure/sdf/http-api/runtime/client/HttpApiClient"
 import { HttpApiClientTokenAuthorizer } from "@cloudventure/sdf/http-api/runtime/client/HttpApiClientAuthorizer"
 
 import { BaseApiClient } from "../.gen/api/BaseApiClient"
@@ -7,7 +8,11 @@ export class ApiClient extends BaseApiClient {
     const authorizer = new HttpApiClientTokenAuthorizer(async () => {
       return token
     })
+    const transport = new HttpApiClient({
+      baseUrl,
+      authorizer,
+    })
 
-    super({ baseUrl, authorizer })
+    super(transport)
   }
 }
