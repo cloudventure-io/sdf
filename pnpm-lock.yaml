@@ -72,8 +72,8 @@ importers:
         specifier: ^12.1.3
         version: 12.1.3
       zod:
-        specifier: ^3.25.56
-        version: 3.25.56
+        specifier: ^4.1.11
+        version: 4.1.11
     devDependencies:
       '@cloudventure/jest-transformer-esbuild':
         specifier: ^1.0.15
@@ -3654,8 +3654,8 @@ packages:
   zod@3.24.4:
     resolution: {integrity: sha512-OdqJE9UDRPwWsrHjLN2F8bPxvwJBK22EHLWtanu0LSYr5YqzsaaW3RMgmjwr8Rypg5k+meEJdSPXJZXE/yqOMg==}
 
-  zod@3.25.56:
-    resolution: {integrity: sha512-rd6eEF3BTNvQnR2e2wwolfTmUTnp70aUTqr0oaGbHifzC3BKJsoV+Gat8vxUMR1hwOKBs6El+qWehrHbCpW6SQ==}
+  zod@4.1.11:
+    resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
 
 snapshots:
 
@@ -7953,4 +7953,4 @@ snapshots:
 
   zod@3.24.4: {}
 
-  zod@3.25.56: {}
+  zod@4.1.11: {}
